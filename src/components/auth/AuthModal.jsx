@@ -67,10 +67,10 @@ export const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
           {/* Modal Container */}
           <motion.div
             ref={modalRef}
-            initial={{ opacity: 0, scale: 0.96, y: 20 }}
+            initial={{ opacity: 0.95, scale: 0.97, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.97, y: 15 }}
-            transition={{ duration: 0.35, ease: 'easeOut' }}
+            exit={{ opacity: 0.95, scale: 0.97, y: 12 }}
+            transition={{ duration: 0.32, ease: [0.25, 1, 0.5, 1] }}
             className="relative w-full max-w-[480px] bg-[#111111]/80 backdrop-blur-xl border border-white/10 shadow-2xl rounded-[32px] overflow-hidden flex flex-col"
           >
             {/* Inner Padding */}

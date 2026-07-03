@@ -6,6 +6,7 @@ import { NavLink } from "./NavLink";
 import { Button } from "../ui/Button";
 import { useAuth } from "../../hooks/useAuth";
 import { AuthModal } from "../auth/AuthModal";
+import { ProfileDropdown } from "./ProfileDropdown";
 
 export const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -50,14 +51,30 @@ export const Navbar = () => {
   return (
     <>
       <motion.header
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className={`fixed top-0 left-0 w-full z-40 transition-all duration-500 ease-out ${
-          scrolled 
-            ? "bg-background/80 backdrop-blur-md border-b border-border/50 py-4" 
-            : "bg-transparent py-6"
-        }`}
+        initial="top"
+        animate={scrolled ? "scrolled" : "top"}
+        variants={{
+          top: {
+            y: 0,
+            backgroundColor: "rgba(10, 10, 10, 0)",
+            backdropFilter: "blur(0px)",
+            borderBottomColor: "rgba(255, 255, 255, 0)",
+            paddingTop: "1.5rem",
+            paddingBottom: "1.5rem",
+            boxShadow: "0px 0px 0px rgba(0,0,0,0)"
+          },
+          scrolled: {
+            y: 0,
+            backgroundColor: "rgba(14, 14, 14, 0.85)", // deep charcoal
+            backdropFilter: "blur(12px)",
+            borderBottomColor: "rgba(255, 255, 255, 0.05)",
+            paddingTop: "1rem",
+            paddingBottom: "1rem",
+            boxShadow: "0px 10px 30px rgba(0,0,0,0.5)"
+          }
+        }}
+        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+        className="fixed top-0 left-0 w-full z-40 border-b"
       >
         <div className="w-full max-w-[1400px] mx-auto px-6 md:px-10 flex items-center justify-between">
           
@@ -84,45 +101,7 @@ export const Navbar = () => {
                 <Button size="sm" onClick={() => setIsAuthModalOpen(true)}>Get Started</Button>
               </>
             ) : (
-              <div className="relative" ref={dropdownRef}>
-                <button 
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="w-10 h-10 rounded-full bg-accent text-white flex items-center justify-center font-display text-lg uppercase focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-[#0a0a0a]"
-                >
-                  {user?.displayName?.[0] || user?.email?.[0] || 'U'}
-                </button>
-
-                <AnimatePresence>
-                  {isDropdownOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      transition={{ duration: 0.2 }}
-                      className="absolute right-0 mt-3 w-56 bg-[#111111]/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col py-2"
-                    >
-                      <div className="px-4 py-3 border-b border-white/10 mb-1">
-                        <p className="text-body text-primary font-medium truncate">
-                          {user?.displayName || 'User'}
-                        </p>
-                        <p className="text-small text-secondary truncate">
-                          {user?.email}
-                        </p>
-                      </div>
-                      <button className="text-left px-4 py-2.5 text-body text-secondary hover:text-primary hover:bg-white/5 transition-colors">Profile</button>
-                      <button className="text-left px-4 py-2.5 text-body text-secondary hover:text-primary hover:bg-white/5 transition-colors">Settings</button>
-                      <button className="text-left px-4 py-2.5 text-body text-secondary hover:text-primary hover:bg-white/5 transition-colors">My Events</button>
-                      <div className="h-[1px] bg-white/10 my-1"></div>
-                      <button 
-                        onClick={handleLogout}
-                        className="text-left px-4 py-2.5 text-body text-red-400 hover:text-red-300 hover:bg-white/5 transition-colors"
-                      >
-                        Logout
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+              <ProfileDropdown />
             )}
           </div>
 

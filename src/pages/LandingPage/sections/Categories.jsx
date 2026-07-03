@@ -33,7 +33,7 @@ export const Categories = () => {
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true, margin: "-10%" }}
             transition={{ duration: 0.7, delay: index * 0.05, ease }}
-            className="px-6 py-3 border-b border-border/50 bg-transparent hover:border-primary transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] text-sm tracking-wide font-ui rounded-none focus:outline-none relative group"
+            className="px-6 py-3 border-b border-border bg-transparent hover:border-primary transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] text-sm tracking-wide font-ui rounded-none focus:outline-none relative group"
           >
             {category}
             <span className="absolute -bottom-[1px] left-0 w-full h-[1px] bg-primary scale-x-0 group-hover:scale-x-100 transform origin-left transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]" />

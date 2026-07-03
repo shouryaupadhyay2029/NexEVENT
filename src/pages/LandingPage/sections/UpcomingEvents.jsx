@@ -2,6 +2,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import { AxisMarker } from "../../../components/layout/AxisMarker";
 import { Button } from "../../../components/ui/Button";
+import { EditorialImage } from "../../../components/ui/EditorialImage";
 
 const ease = [0.16, 1, 0.3, 1];
 
@@ -57,13 +58,14 @@ export const UpcomingEvents = () => {
             tabIndex={0}
           >
             {/* Image framed by alignment */}
-            <div className="w-full aspect-[4/5] overflow-hidden mb-8 relative">
-              <img 
+            <div className="w-full relative mb-8">
+              <EditorialImage 
                 src={event.image} 
                 alt={event.title}
-                className="w-full h-full object-cover opacity-80 mix-blend-luminosity group-hover:opacity-100 group-hover:mix-blend-normal transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.01]"
+                aspectRatio="aspect-[4/5]"
+                grayscale={true}
               />
-              <div className="absolute -bottom-0 left-0 w-full flex justify-between items-center text-[0.55rem] text-muted tracking-[0.2em] font-technical uppercase border-t border-border/30 pt-2 pb-2 px-2 bg-background/50 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-700">
+              <div className="absolute -bottom-0 left-0 w-full flex justify-between items-center text-[0.55rem] text-muted tracking-[0.25em] font-technical uppercase border-t border-border pt-2 pb-2 px-2 bg-background/50 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-700 z-30">
                 <span>FIG. 0{index + 3}</span>
               </div>
             </div>
@@ -84,7 +86,7 @@ export const UpcomingEvents = () => {
                 {event.title}
               </h3>
               
-              <div className="flex justify-between items-center text-[0.65rem] text-muted tracking-[0.25em] font-technical uppercase border-t border-border/30 pt-6">
+              <div className="flex justify-between items-center text-[0.65rem] text-muted tracking-[0.25em] font-technical uppercase border-t border-border pt-6">
                 <span>{event.date}</span>
                 <span>{event.venue}</span>
               </div>

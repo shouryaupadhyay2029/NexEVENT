@@ -38,7 +38,7 @@ export const WhyNexEvent = () => {
             transition={{ duration: 0.8, delay: index * 0.15, ease }}
             className="flex flex-col group cursor-default"
           >
-            <span className="text-[0.65rem] text-secondary tracking-[0.25em] mb-8 font-technical uppercase border-b border-border/30 pb-4">
+            <span className="text-[0.65rem] text-secondary tracking-[0.25em] mb-8 font-technical uppercase border-b border-border pb-4">
               {pillar.label}
             </span>
             <h3 className="text-[2rem] leading-[0.9] font-display text-primary mb-6 tracking-[-0.02em]">{pillar.title}</h3>

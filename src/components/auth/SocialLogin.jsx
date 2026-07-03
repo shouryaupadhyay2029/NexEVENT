@@ -35,10 +35,10 @@ export const SocialLogin = ({ onClose }) => {
       )}
       <motion.button
         onClick={handleGoogleLogin}
-        whileHover={!loading ? { y: -2 } : {}}
-        whileTap={!loading ? { scale: 0.98 } : {}}
-        className={`w-full h-12 rounded-[14px] bg-white text-black font-ui font-medium text-body flex items-center justify-center gap-3 transition-shadow ${
-          loading ? 'opacity-70 cursor-not-allowed' : 'hover:shadow-[0_4px_14px_0_rgba(255,255,255,0.2)]'
+        whileHover={!loading ? { y: -1, scale: 1.01, transition: { duration: 0.18, ease: [0.16, 1, 0.3, 1] } } : {}}
+        whileTap={!loading ? { scale: 0.985, transition: { duration: 0.15, ease: [0.16, 1, 0.3, 1] } } : {}}
+        className={`w-full h-12 rounded-[14px] bg-white text-black font-ui font-medium text-body flex items-center justify-center gap-3 transition-colors duration-180 ease-out-expo ${
+          loading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-gray-100 hover:shadow-[0_4px_14px_0_rgba(255,255,255,0.2)]'
         }`}
         type="button"
         disabled={loading}

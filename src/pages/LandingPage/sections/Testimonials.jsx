@@ -1,6 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { AxisMarker } from "../../../components/layout/AxisMarker";
+import { EditorialImage } from "../../../components/ui/EditorialImage";
 
 const ease = [0.16, 1, 0.3, 1];
 
@@ -41,13 +42,13 @@ export const Testimonials = () => {
             </p>
             
             <div className="flex items-center gap-6 mt-auto">
-              <div className="w-16 h-16 rounded-none overflow-hidden relative">
-                <img 
-                  src={t.image} 
-                  alt={t.name}
-                  className="w-full h-full object-cover mix-blend-luminosity opacity-80 filter contrast-125 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:mix-blend-normal group-hover:opacity-100"
-                />
-              </div>
+              <EditorialImage 
+                src={t.image} 
+                alt={t.name}
+                aspectRatio="aspect-square"
+                wrapperClassName="w-16 h-16"
+                grayscale={true}
+              />
               <div className="flex flex-col gap-1">
                 <span className="text-body font-ui text-primary font-medium tracking-wide">{t.name}</span>
                 <span className="text-[0.65rem] font-technical uppercase tracking-[0.25em] text-secondary">{t.role}</span>

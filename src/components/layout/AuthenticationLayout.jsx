@@ -31,7 +31,7 @@ export const AuthenticationLayout = ({ children, title, subtitle }) => {
           animate="animate"
           className="relative z-10 max-w-md mt-12 md:mt-0"
         >
-          <motion.div variants={staggerItem} className="mb-6 inline-block border border-border px-3 py-1 rounded-full bg-surface/50">
+          <motion.div variants={staggerItem} className="mb-6 inline-block border border-border px-3.5 py-1.5 rounded-none bg-surface/50">
             <span className="text-metadata text-secondary tracking-widest uppercase">
               Digital Campus Foundation
             </span>

@@ -43,7 +43,7 @@ export const FAQ = () => {
           </h2>
         </motion.div>
         
-        <div className="col-span-1 md:col-span-7 flex flex-col border-t border-border/40">
+        <div className="col-span-1 md:col-span-7 flex flex-col border-t border-border">
           {faqs.map((faq, index) => (
             <motion.div 
               key={faq.id} 
@@ -51,7 +51,7 @@ export const FAQ = () => {
               whileInView={{ opacity: 1 }}
               viewport={{ once: true, margin: "-10%" }}
               transition={{ duration: 0.8, delay: index * 0.1, ease }}
-              className="border-b border-border/40"
+              className="border-b border-border"
             >
               <button
                 onClick={() => setOpenIndex(openIndex === index ? -1 : index)}

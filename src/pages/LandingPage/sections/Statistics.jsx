@@ -26,7 +26,7 @@ export const Statistics = () => {
             transition={{ duration: 0.8, delay: index * 0.1, ease }}
             className="flex flex-col text-left pr-4 relative group"
           >
-            <span className="text-[0.65rem] text-border tracking-[0.25em] font-technical uppercase border-b border-border/30 pb-4 mb-8">
+            <span className="text-[0.65rem] text-border tracking-[0.25em] font-technical uppercase border-b border-border pb-4 mb-8">
               {stat.ref}
             </span>
             <h3 className="text-[3.5rem] md:text-[4.5rem] font-display text-primary leading-[0.9] tracking-[-0.05em] mb-6">

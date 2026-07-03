@@ -32,7 +32,7 @@ export const ValidationMessage = ({ message, type = 'error', className }) => {
           exit={{ opacity: 0, y: -4, height: 0 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
           className={cn(
-            'flex items-center gap-2 text-caption mt-2 px-2 py-1.5 rounded-sm border border-transparent overflow-hidden',
+            'flex items-center gap-2 text-caption mt-2 px-2 py-1.5 rounded-none border border-transparent overflow-hidden',
             variants[type].container,
             className
           )}
