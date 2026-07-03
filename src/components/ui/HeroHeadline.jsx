@@ -90,13 +90,13 @@ export const HeroHeadline = () => {
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="text-[3.5rem] md:text-[5rem] lg:text-[6rem] font-display leading-[0.95] flex flex-col"
+          className="text-display-xl flex flex-col"
         >
           {/* Base Text Layer (Default view) */}
           <div className="flex flex-col relative z-0">
-            <motion.span variants={itemVariants} className="text-primary tracking-[-0.03em] font-medium">Every Campus</motion.span>
-            <motion.span variants={itemVariants} className="text-primary tracking-[-0.03em] font-medium">Event.</motion.span>
-            <motion.span variants={itemVariants} className="text-secondary font-light tracking-[-0.03em]">One Platform.</motion.span>
+            <motion.span variants={itemVariants} className="text-primary font-light">Every Campus</motion.span>
+            <motion.span variants={itemVariants} className="text-primary font-light">Event.</motion.span>
+            <motion.span variants={itemVariants} className="text-secondary font-normal">One Platform.</motion.span>
           </div>
 
           {/* Highlight/Hover GPU Spotlight Layer (No expensive CSS masking) */}

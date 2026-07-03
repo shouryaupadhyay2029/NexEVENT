@@ -6,11 +6,11 @@ export const AxisMarker = ({ index, label }) => {
       {/* The horizontal notch extending from the axis */}
       <div className="w-12 h-[1px] bg-border" />
       
-      {/* The JetBrains Mono label resting exactly on the notch */}
-      <div className="flex items-center gap-4 pl-4 text-[0.65rem] font-technical tracking-[0.2em] text-muted">
-        <span>[{index}]</span>
-        <span>·</span>
-        <span className="uppercase">{label}</span>
+      {/* The Space Mono label resting exactly on the notch */}
+      <div className="flex items-center gap-4 pl-4 text-micro">
+        <span className="text-primary font-medium">[{index}]</span>
+        <span className="opacity-30">·</span>
+        <span>{label}</span>
       </div>
     </div>
   );

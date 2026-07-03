@@ -1,0 +1,91 @@
+import React, { useState } from 'react';
+import { motion, useTransform } from 'framer-motion';
+import { EditorialImage } from './EditorialImage';
+import { useAmbientLight } from '../../hooks/useMagnet';
+import { cn } from '../../utils/cn';
+
+/**
+ * EventCard — individual upcoming event card with ambient light shift on cursor movement.
+ * The light is not a spotlight — it's a very low-opacity atmospheric depth effect.
+ */
+export const EventCard = ({ event, index, className }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  const { ref, lightX, lightY, handlers } = useAmbientLight({ damping: 55, stiffness: 280 });
+
+
+
+  return (
+    <div
+      ref={ref}
+      {...handlers}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className={cn('flex flex-col group cursor-pointer relative', className)}
+    >
+      {/* Image */}
+      <div className="w-full relative mb-8">
+        <EditorialImage
+          src={event.image}
+          alt={event.title}
+          aspectRatio="aspect-[4/5]"
+          grayscale={true}
+        />
+
+        {/* Ambient light overlay on the image using GPU translation (No layout repaints) */}
+        <div className="absolute inset-0 pointer-events-none z-20 overflow-hidden mix-blend-overlay">
+          <motion.div
+            className="absolute w-[260px] h-[260px] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.12)_0%,transparent_70%)]"
+            style={{
+              x: useTransform(lightX, (lx) => `calc(${lx * 100}% - 130px)`),
+              y: useTransform(lightY, (ly) => `calc(${ly * 100}% - 130px)`),
+              opacity: isHovered ? 1 : 0,
+            }}
+            transition={{ opacity: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } }}
+          />
+        </div>
+
+        {/* Figure label on hover */}
+        <div className="absolute bottom-0 left-0 w-full flex justify-between items-center text-micro border-t border-border pt-2 pb-2 px-2 bg-background/50 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-700 z-30">
+          <span>FIG. 0{index + 3}</span>
+        </div>
+      </div>
+
+      {/* Text content */}
+      <div className="flex flex-col">
+        <div className="flex items-center gap-4 mb-6">
+          <span
+            className="text-micro text-primary transition-colors duration-500"
+            style={{ color: isHovered ? 'rgba(255,255,255,0.9)' : undefined }}
+          >
+            {event.category}
+          </span>
+          <span className="w-4 h-[1px] bg-border" />
+          <div className="flex items-center gap-2">
+            {event.status === "Open" && <span className="w-1 h-1 rounded-none bg-accent animate-pulse" />}
+            <span className={event.status === "Open" ? "text-micro text-primary" : "text-micro text-muted"}>
+              {event.status}
+            </span>
+          </div>
+        </div>
+
+        {/* Heading with brightness response */}
+        <h3
+          className="text-display-m mb-8 font-light transition-colors duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
+          style={{
+            color: isHovered ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.88)',
+          }}
+        >
+          {event.title}
+        </h3>
+
+        <div
+          className="flex justify-between items-center text-micro border-t border-border pt-6 transition-colors duration-500"
+          style={{ color: isHovered ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.35)' }}
+        >
+          <span>{event.date}</span>
+          <span>{event.venue}</span>
+        </div>
+      </div>
+    </div>
+  );
+};

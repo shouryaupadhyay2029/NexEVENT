@@ -13,16 +13,71 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
-    background-color: #0d0d0d;
-    background-image: 
-      radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.04) 0%, transparent 60%),
-      radial-gradient(circle at 50% 100%, rgba(0, 0, 0, 0.6) 0%, transparent 80%);
-    background-attachment: fixed;
+    background-color: #070707; /* Charcoal matte */
   }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: "General Sans", sans-serif;
-    letter-spacing: -0.025em;
+    letter-spacing: -0.03em;
+    font-weight: 400;
+    transition: filter 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  h1:hover, h2:hover, h3:hover, h4:hover {
+    filter: brightness(1.05);
+  }
+
+  /* Custom Typography System */
+  .text-display-xl {
+    font-family: "General Sans", sans-serif;
+    font-size: clamp(3rem, 7.5vw, 5.5rem);
+    line-height: 0.95;
+    letter-spacing: -0.04em;
+    font-weight: 400;
+  }
+
+  .text-display-l {
+    font-family: "General Sans", sans-serif;
+    font-size: clamp(2.2rem, 5.2vw, 4.2rem);
+    line-height: 1.0;
+    letter-spacing: -0.03em;
+    font-weight: 400;
+  }
+
+  .text-display-m {
+    font-family: "General Sans", sans-serif;
+    font-size: clamp(1.4rem, 3vw, 1.95rem);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    font-weight: 500;
+  }
+
+  .text-body-l {
+    font-family: "Inter", sans-serif;
+    font-size: clamp(1.025rem, 1.4vw, 1.2rem);
+    line-height: 1.65;
+    letter-spacing: -0.01em;
+    font-weight: 300;
+    max-width: 65ch;
+  }
+
+  .text-body-s {
+    font-family: "Inter", sans-serif;
+    font-size: 0.875rem;
+    line-height: 1.55;
+    letter-spacing: 0em;
+    font-weight: 400;
+  }
+
+  .text-micro {
+    font-family: "Space Mono", monospace;
+    font-size: 0.58rem;
+    line-height: 1.4;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    font-weight: 500;
+    opacity: 0.42; /* reduced opacity default */
+    transition: opacity 0.4s ease, color 0.4s ease;
   }
 }
 

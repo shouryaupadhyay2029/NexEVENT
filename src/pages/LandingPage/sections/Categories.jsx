@@ -18,11 +18,16 @@ export const Categories = () => {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-10%" }}
         transition={{ duration: 0.8, ease }}
-        className="w-full max-w-[1200px] mb-24"
+        className="w-full max-w-[1200px] mb-24 flex flex-col md:flex-row justify-between items-start md:items-end gap-8"
       >
-        <h2 className="text-[2.5rem] md:text-[3.5rem] font-display text-primary tracking-tight leading-[0.9]">
+        <h2 className="text-display-l text-primary font-light">
           Explore by academic<br />and cultural domains.
         </h2>
+        <div className="hidden lg:flex flex-col text-left gap-1 opacity-50 pr-8 pb-2">
+          <span className="text-micro text-primary">NEX-EV-03 // DOMAINS</span>
+          <span className="text-micro text-secondary">CLASSIFIED // ALL.CATEGORIES</span>
+          <span className="text-micro text-secondary">TOTAL GROUPS // 09</span>
+        </div>
       </motion.div>
 
       <div className="flex flex-wrap gap-4 w-full max-w-[1200px] pb-8">

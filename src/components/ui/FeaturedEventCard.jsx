@@ -1,166 +1,317 @@
-import React, { useRef, useState } from 'react';
-import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import React, { useRef, useState, useEffect } from 'react';
+import { motion, useMotionValue, useSpring, useTransform, useAnimationFrame } from 'framer-motion';
 
 const easeOutExpo = [0.16, 1, 0.3, 1];
+
+// Ambient light sweep — moves across every 10–15s, almost invisible
+const SweepLight = () => {
+  return (
+    <motion.div
+      className="absolute inset-0 z-10 pointer-events-none overflow-hidden"
+      initial={false}
+    >
+      <motion.div
+        className="absolute top-0 bottom-0 w-[40%] opacity-[0.04]"
+        style={{
+          background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.8) 50%, transparent 100%)',
+        }}
+        animate={{ left: ['-40%', '140%'] }}
+        transition={{
+          duration: 3.5,
+          repeat: Infinity,
+          repeatDelay: 11,
+          ease: [0.4, 0, 0.6, 1],
+        }}
+      />
+    </motion.div>
+  );
+};
 
 export const FeaturedEventCard = () => {
   const containerRef = useRef(null);
   const [isHovered, setIsHovered] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [progress, setProgress] = useState(0);
 
-  // Mouse tracking for parallax and lighting
-  const mouseX = useMotionValue(0.5); // Center relative (0 to 1)
+  // Cursor tracking (normalized 0-1)
+  const mouseX = useMotionValue(0.5);
   const mouseY = useMotionValue(0.5);
 
-  const smoothX = useSpring(mouseX, { damping: 50, stiffness: 400 });
-  const smoothY = useSpring(mouseY, { damping: 50, stiffness: 400 });
+  const smoothX = useSpring(mouseX, { damping: 60, stiffness: 300, mass: 1 });
+  const smoothY = useSpring(mouseY, { damping: 60, stiffness: 300, mass: 1 });
 
   const handleMouseMove = (e) => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = (e.clientY - rect.top) / rect.height;
-    
-    mouseX.set(x);
-    mouseY.set(y);
+    mouseX.set((e.clientX - rect.left) / rect.width);
+    mouseY.set((e.clientY - rect.top) / rect.height);
   };
 
   const handleMouseEnter = () => setIsHovered(true);
-  
+
   const handleMouseLeave = () => {
     setIsHovered(false);
-    // Reset to center smoothly
     mouseX.set(0.5);
     mouseY.set(0.5);
   };
 
-  // Parallax transforms for the image (max movement 6px)
-  const imageX = useTransform(smoothX, [0, 1], [6, -6]);
-  const imageY = useTransform(smoothY, [0, 1], [6, -6]);
+  // Ambient glow follows cursor — subtle only, no flashlight
+  const glowX = useTransform(smoothX, [0, 1], ['30%', '70%']);
+  const glowY = useTransform(smoothY, [0, 1], ['30%', '70%']);
 
-  // Lighting transforms (gradient mask moving with cursor)
-  const spotlightX = useTransform(smoothX, [0, 1], ['0%', '100%']);
-  const spotlightY = useTransform(smoothY, [0, 1], ['0%', '100%']);
+  // Image lift on hover (using transform only for GPU accel)
+  const cardY = useSpring(isHovered ? -5 : 0, { damping: 30, stiffness: 200 });
 
-  // Staggered Entrance Variants
+  // Bottom progress indicator — fills on hover
+  useEffect(() => {
+    let timeout;
+    if (isHovered) {
+      timeout = setTimeout(() => setProgress(100), 50);
+    } else {
+      setProgress(0);
+    }
+    return () => clearTimeout(timeout);
+  }, [isHovered]);
+
+  // Staggered entrance
   const containerVariants = {
     hidden: {},
     visible: {
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.2
-      }
+      transition: { staggerChildren: 0.1, delayChildren: 0.15 }
     }
   };
 
   const itemVariants = {
-    hidden: { opacity: 0, y: 12, filter: "blur(8px)" },
-    visible: { 
-      opacity: 1, 
-      y: 0, 
-      filter: "blur(0px)",
-      transition: { duration: 0.8, ease: easeOutExpo }
+    hidden: { opacity: 0, y: 16 },
+    visible: {
+      opacity: 1, y: 0,
+      transition: { duration: 0.9, ease: easeOutExpo }
     }
   };
 
   return (
-    <motion.div 
+    <motion.div
       ref={containerRef}
       className="col-span-1 lg:col-span-5 relative w-full aspect-[3/4] group cursor-pointer"
       onMouseMove={handleMouseMove}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      whileTap={{ scale: 0.98, transition: { duration: 0.2, ease: easeOutExpo } }}
+      style={{ y: cardY }}
+      whileTap={{ scale: 0.985, transition: { duration: 0.2, ease: easeOutExpo } }}
       variants={containerVariants}
       initial="hidden"
       animate="visible"
     >
-      {/* Main Card Container */}
-      <div className="w-full h-full overflow-hidden relative rounded-none shadow-[0_10px_40px_rgba(0,0,0,0.5)] transition-shadow duration-700 group-hover:shadow-[0_20px_60px_rgba(0,0,0,0.8)]">
-        
-        {/* Animated Ultra-Thin Border */}
-        <div className="absolute inset-0 border border-border z-30 pointer-events-none transition-colors duration-700 group-hover:border-white/20" />
-
-        {/* Cinematic Image Layer */}
-        <motion.div 
-          className="absolute inset-[-12px] w-[calc(100%+24px)] h-[calc(100%+24px)]" // Slightly oversized to accommodate parallax
-          style={{ x: imageX, y: imageY }}
-        >
-          <motion.img 
-            src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=2070&auto=format&fit=crop" 
-            alt="Stanford Design Symposium"
-            onLoad={() => setIsLoaded(true)}
-            initial={{ scale: 1 }}
-            whileHover={{ scale: 1.03 }}
-            transition={{ duration: 0.8, ease: easeOutExpo }}
-            className={`w-full h-full object-cover transition-all duration-[700ms] ease-out-expo
-              ${isLoaded ? 'opacity-90 blur-0 contrast-[1.05]' : 'opacity-0 blur-[10px] contrast-75'}
-              group-hover:opacity-100 group-hover:contrast-110
-            `}
-          />
-        </motion.div>
-
-        {/* Layer 1: Dark Vignette / Gradient Base */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/30 to-transparent opacity-90 transition-opacity duration-700 group-hover:opacity-100 z-10" />
-
-        {/* Layer 2: Subtle Film Grain */}
-        <div 
-          className="absolute inset-0 opacity-[0.03] mix-blend-overlay z-10 pointer-events-none" 
-          style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.85\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\'/%3E%3C/svg%3E")' }}
-        />
-
-        {/* Layer 3: Cursor-Reactive Radial Highlight */}
-        <motion.div 
-          className="absolute inset-0 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none mix-blend-overlay"
+      {/* ── CARD SHELL ── */}
+      <div
+        className="w-full h-full overflow-hidden relative rounded-none will-change-transform"
+        style={{
+          boxShadow: isHovered
+            ? '0 24px 60px rgba(0,0,0,0.75), 0 4px 16px rgba(0,0,0,0.4)'
+            : '0 10px 40px rgba(0,0,0,0.5)',
+          transition: 'box-shadow 0.7s cubic-bezier(0.16,1,0.3,1)',
+        }}
+      >
+        {/* ── LAYER 0: Ultra-thin border ── */}
+        <div
+          className="absolute inset-0 z-40 pointer-events-none"
           style={{
-            background: useTransform(
-              [spotlightX, spotlightY],
-              ([x, y]) => `radial-gradient(circle at ${x} ${y}, rgba(255,255,255,0.15) 0%, transparent 60%)`
-            )
+            border: isHovered ? '1px solid rgba(255,255,255,0.18)' : '1px solid rgba(255,255,255,0.07)',
+            transition: 'border-color 0.7s cubic-bezier(0.16,1,0.3,1)',
           }}
         />
 
-        {/* Content Overlay */}
-        <div className="absolute inset-0 flex flex-col justify-end p-8 md:p-10 z-20">
-          <div className="flex flex-col gap-6 w-full">
-            
-            {/* Metadata Labels */}
-            <motion.div variants={itemVariants} className="flex items-center justify-between w-full border-b border-white/10 pb-4 transition-colors duration-700 group-hover:border-white/20">
-              <span className="text-[0.6rem] text-secondary uppercase font-technical tracking-[0.25em] transition-colors duration-700 group-hover:text-white/80">Registration Open</span>
-              <span className="text-[0.6rem] text-primary uppercase font-technical tracking-[0.25em]">Free Entry</span>
-            </motion.div>
-            
-            {/* Title Block */}
-            <motion.div variants={itemVariants} className="flex flex-col gap-3">
-              <h3 className="text-[1.75rem] md:text-3xl text-primary font-display tracking-tight leading-[1] drop-shadow-sm">
-                Stanford Design Symposium '26
-              </h3>
+        {/* ── LAYER 1: Background image (scale on hover, GPU only) ── */}
+        <motion.img
+          src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=2070&auto=format&fit=crop"
+          alt="Stanford Design Symposium"
+          onLoad={() => setIsLoaded(true)}
+          animate={{
+            scale: isHovered ? 1.035 : 1,
+            opacity: isLoaded ? 1 : 0,
+          }}
+          transition={{ duration: 0.9, ease: easeOutExpo }}
+          className="absolute inset-0 w-full h-full object-cover origin-center [image-rendering:-webkit-optimize-contrast] contrast-[1.06] brightness-[0.94]"
+        />
+
+        {/* ── LAYER 2: Dark cinematic gradient (vignette + lift) ── */}
+        <div
+          className="absolute inset-0 z-10 pointer-events-none"
+          style={{
+            background: isHovered
+              ? 'linear-gradient(to top, rgba(7,7,7,0.95) 0%, rgba(7,7,7,0.25) 50%, rgba(7,7,7,0.08) 100%)'
+              : 'linear-gradient(to top, rgba(7,7,7,0.92) 0%, rgba(7,7,7,0.35) 55%, rgba(7,7,7,0.05) 100%)',
+            transition: 'background 0.8s cubic-bezier(0.16,1,0.3,1)',
+          }}
+        />
+
+        {/* ── LAYER 3: Film grain ── */}
+        <div
+          className="absolute inset-0 z-10 mix-blend-overlay pointer-events-none opacity-[0.025]"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+          }}
+        />
+
+        {/* ── LAYER 4: Ambient cursor glow using GPU Translation (No layout repaints) ── */}
+        <div className="absolute inset-0 z-10 pointer-events-none overflow-hidden mix-blend-overlay">
+          <motion.div
+            className="absolute w-[360px] h-[360px] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.08)_0%,transparent_70%)]"
+            style={{
+              x: useTransform(glowX, (gx) => `calc(${gx * 100}% - 180px)`),
+              y: useTransform(glowY, (gy) => `calc(${gy * 100}% - 180px)`),
+              opacity: isHovered ? 1 : 0,
+            }}
+            transition={{ opacity: { duration: 0.6, ease: 'easeOut' } }}
+          />
+        </div>
+
+        {/* ── LAYER 4b: Sweeping ambient light (every ~15s) ── */}
+        <SweepLight />
+
+        {/* ── LAYER 5: Typography / Content ── */}
+        <div className="absolute inset-0 flex flex-col justify-end z-20 p-8 md:p-10">
+
+          {/* Top badge */}
+          <motion.div
+            variants={itemVariants}
+            className="flex items-center gap-2 mb-auto mt-7"
+          >
+            <span
+              className="inline-flex items-center gap-2 text-micro"
+              style={{
+                color: isHovered ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.45)',
+                transition: 'color 0.5s ease',
+              }}
+            >
+              <span
+                className="w-1.5 h-1.5 bg-accent"
+                style={{ boxShadow: isHovered ? '0 0 6px rgba(201,106,43,0.6)' : 'none', transition: 'box-shadow 0.5s ease' }}
+              />
+              Featured
+            </span>
+          </motion.div>
+
+          {/* Bottom content block */}
+          <div className="flex flex-col gap-0">
+
+            {/* Registration + Free Entry row */}
+            <motion.div
+              variants={itemVariants}
+              className="flex items-center justify-between mb-5"
+            >
+              <span
+                className="text-micro"
+                style={{
+                  color: isHovered ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.4)',
+                  transition: 'color 0.5s ease',
+                }}
+              >
+                Registration Open
+              </span>
+              <span
+                className="text-micro"
+                style={{
+                  color: isHovered ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.6)',
+                  transition: 'color 0.5s ease',
+                }}
+              >
+                Free Entry
+              </span>
             </motion.div>
 
+            {/* Event title */}
+            <motion.h3
+              variants={itemVariants}
+              className="text-display-m mb-7 font-light"
+              style={{
+                color: isHovered ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.95)',
+                transition: 'color 0.5s ease',
+              }}
+            >
+              Stanford Design<br />Symposium '26
+            </motion.h3>
+
+            {/* Date + Location metadata */}
+            <motion.div
+              variants={itemVariants}
+              className="flex items-end justify-between"
+            >
+              <div className="flex flex-col gap-1.5">
+                <span
+                  className="text-micro"
+                  style={{ color: 'rgba(255,255,255,0.35)' }}
+                >
+                  Date
+                </span>
+                <span
+                  className="text-body-s"
+                  style={{
+                    color: isHovered ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.55)',
+                    transition: 'color 0.5s ease',
+                  }}
+                >
+                  Oct 14, 2026
+                </span>
+              </div>
+              <div className="flex flex-col gap-1.5 text-right">
+                <span
+                  className="text-micro"
+                  style={{ color: 'rgba(255,255,255,0.35)' }}
+                >
+                  Venue
+                </span>
+                <span
+                  className="text-body-s"
+                  style={{
+                    color: isHovered ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.55)',
+                    transition: 'color 0.5s ease',
+                  }}
+                >
+                  Auditorium
+                </span>
+              </div>
+            </motion.div>
           </div>
         </div>
       </div>
-      
-      {/* External Footer */}
-      <motion.div 
+
+      {/* ── EXTERNAL FOOTER: Progress indicator + caption ── */}
+      <motion.div
         variants={itemVariants}
-        className="absolute -bottom-8 left-0 w-full flex flex-col gap-3 pt-3"
+        className="absolute -bottom-10 left-0 w-full flex flex-col gap-2.5 pt-3"
       >
-        <div className="w-8 h-[1px] bg-white/20 transition-all duration-700 ease-out-expo group-hover:w-full group-hover:bg-white/40" />
-        <div className="flex justify-between items-center text-[0.6rem] text-muted tracking-[0.25em] font-technical uppercase">
-          <span className="flex items-center gap-3">
-            <span className="text-white/70 font-medium">FIG. 01</span>
-            <span>—</span>
+        {/* Premium progress bar */}
+        <div className="relative w-full h-[1px] bg-white/10 overflow-hidden">
+          <motion.div
+            className="absolute left-0 top-0 h-full bg-white/50"
+            animate={{ width: isHovered ? '100%' : '12%' }}
+            transition={{ duration: isHovered ? 0.8 : 0.5, ease: easeOutExpo }}
+          />
+        </div>
+
+        {/* Caption row */}
+        <div
+          className="flex justify-between items-center text-micro"
+          style={{
+            color: isHovered ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.35)',
+            transition: 'color 0.5s ease',
+          }}
+        >
+          <span className="flex items-center gap-2.5">
+            <span style={{ color: isHovered ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.5)', transition: 'color 0.5s ease' }}>
+              FIG. 01
+            </span>
+            <span style={{ color: 'rgba(255,255,255,0.2)' }}>—</span>
             <span>Architecture Showcase</span>
           </span>
-          <div className="flex items-center gap-3">
-            <span>Oct 14</span>
-            <span className="w-[1px] h-2 bg-white/20" />
-            <span>Auditorium</span>
-          </div>
+          <span
+            className="text-micro opacity-50"
+          >
+            01 / 01
+          </span>
         </div>
       </motion.div>
-
     </motion.div>
   );
 };

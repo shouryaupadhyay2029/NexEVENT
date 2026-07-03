@@ -1,119 +1,107 @@
 import React, { useState, useEffect, useRef } from "react";
-import { motion, useScroll, useMotionValueEvent, AnimatePresence } from "framer-motion";
+import { motion, useScroll, useSpring, useTransform, useMotionValueEvent, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Wordmark } from "./Wordmark";
-import { NavLink } from "./NavLink";
+import { NavGroup, NavLink } from "./NavLink";
 import { Button } from "../ui/Button";
 import { useAuth } from "../../hooks/useAuth";
 import { AuthModal } from "../auth/AuthModal";
 import { ProfileDropdown } from "./ProfileDropdown";
 
 export const Navbar = () => {
-  const [scrolled, setScrolled] = useState(false);
   const { scrollY } = useScroll();
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, logout } = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const navigate = useNavigate();
-  const dropdownRef = useRef(null);
+  const [scrolled, setScrolled] = useState(false);
 
   useMotionValueEvent(scrollY, "change", (latest) => {
-    if (latest > 50) {
-      setScrolled(true);
-    } else {
-      setScrolled(false);
-    }
+    setScrolled(latest > 20);
   });
 
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') setIsDropdownOpen(false);
-    };
-    const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setIsDropdownOpen(false);
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
+  // Continuous scroll-driven values — no binary state flip
+  // Background opacity: 0 at top → 0.72 after 300px
+  const rawBgOpacity = useTransform(scrollY, [0, 300], [0, 0.72]);
+  const bgOpacity = useSpring(rawBgOpacity, { damping: 30, stiffness: 120, mass: 0.5 });
 
-  const handleLogout = async () => {
-    setIsDropdownOpen(false);
-    await logout();
-    navigate('/');
-  };
+  // Border opacity: 0 → 0.07
+  const borderOpacity = useTransform(scrollY, [0, 250], [0, 0.07]);
+
+  // Padding compression: 1.5rem → 0.875rem
+  const paddingY = useTransform(scrollY, [0, 200], [1.5, 0.875]);
 
   return (
     <>
       <motion.header
-        initial="top"
-        animate={scrolled ? "scrolled" : "top"}
-        variants={{
-          top: {
-            y: 0,
-            backgroundColor: "rgba(10, 10, 10, 0)",
-            backdropFilter: "blur(0px)",
-            borderBottomColor: "rgba(255, 255, 255, 0)",
-            paddingTop: "1.5rem",
-            paddingBottom: "1.5rem",
-            boxShadow: "0px 0px 0px rgba(0,0,0,0)"
-          },
-          scrolled: {
-            y: 0,
-            backgroundColor: "rgba(14, 14, 14, 0.85)", // deep charcoal
-            backdropFilter: "blur(12px)",
-            borderBottomColor: "rgba(255, 255, 255, 0.05)",
-            paddingTop: "1rem",
-            paddingBottom: "1rem",
-            boxShadow: "0px 10px 30px rgba(0,0,0,0.5)"
-          }
+        className="fixed top-0 left-0 w-full z-40 border-b will-change-transform"
+        style={{
+          // Pure motion-value driven — no React state, fully continuous
+          backgroundColor: useTransform(
+            bgOpacity,
+            (o) => `rgba(9,9,9,${o})`
+          ),
+          backdropFilter: scrolled ? "blur(12px) saturate(1.2)" : "blur(0px) saturate(1.0)",
+          WebkitBackdropFilter: scrolled ? "blur(12px) saturate(1.2)" : "blur(0px) saturate(1.0)",
+          borderBottomColor: useTransform(
+            borderOpacity,
+            (o) => `rgba(255,255,255,${o})`
+          ),
+          paddingTop: useTransform(paddingY, (p) => `${p}rem`),
+          paddingBottom: useTransform(paddingY, (p) => `${p}rem`),
         }}
-        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-        className="fixed top-0 left-0 w-full z-40 border-b"
       >
         <div className="w-full max-w-[1400px] mx-auto px-6 md:px-10 flex items-center justify-between">
-          
-          <div className="flex items-center gap-12">
+
+          {/* Left: Logo + editorial marker */}
+          <div className="flex items-center gap-10">
             <Wordmark />
-            
-            {/* Editorial Volume Marker */}
-            <div className="hidden lg:flex items-center gap-3">
-              <span className="w-4 h-[1px] bg-border" />
-              <span className="text-[0.55rem] text-muted tracking-[0.25em] uppercase">VOL. 01</span>
+
+            {/* Thin editorial separator + volume marker */}
+            <div className="hidden lg:flex items-center gap-3 opacity-30">
+              <span className="w-5 h-[1px] bg-white/60" />
+              <span className="text-[0.48rem] text-white/70 tracking-[0.28em] uppercase font-technical">
+                VOL. 01
+              </span>
             </div>
           </div>
 
-          <nav className="hidden md:flex items-center gap-8">
+          {/* Center: Navigation links wrapped in NavGroup for shared layoutId scope */}
+          <NavGroup>
             <NavLink to="/">Discover</NavLink>
             <NavLink to="/events">Events</NavLink>
             <NavLink to="/about">Archive</NavLink>
-          </nav>
+          </NavGroup>
 
-          <div className="hidden md:flex items-center gap-4">
+          {/* Right: Auth / Profile */}
+          <div className="hidden md:flex items-center gap-3">
             {!isAuthenticated ? (
               <>
-                <Button variant="ghost" size="sm" onClick={() => setIsAuthModalOpen(true)}>Login</Button>
-                <Button size="sm" onClick={() => setIsAuthModalOpen(true)}>Get Started</Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsAuthModalOpen(true)}
+                >
+                  Login
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => setIsAuthModalOpen(true)}
+                >
+                  Get Started
+                </Button>
               </>
             ) : (
               <ProfileDropdown />
             )}
           </div>
 
-          {/* Mobile Menu Trigger */}
-          <button 
-            className="md:hidden p-2 text-secondary hover:text-primary focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-            aria-label="Open Mobile Menu"
+          {/* Mobile burger */}
+          <button
+            className="md:hidden p-2 text-white/50 hover:text-white/90 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/60 transition-colors duration-200"
+            aria-label="Open navigation"
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <line x1="3" y1="12" x2="21" y2="12"></line>
-              <line x1="3" y1="6" x2="21" y2="6"></line>
-              <line x1="3" y1="18" x2="21" y2="18"></line>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <line x1="3" y1="8"  x2="21" y2="8" />
+              <line x1="3" y1="16" x2="21" y2="16" />
             </svg>
           </button>
         </div>
