@@ -6,19 +6,61 @@ import { FormField } from '../../components/ui/FormField';
 import { PasswordField } from '../../components/ui/PasswordField';
 import { Button } from '../../components/ui/Button';
 import { staggerItem, staggerContainer } from '../../animations/framerPresets';
+import { useAuth } from '../../hooks/useAuth';
+import { updateUser } from '../../services/userService';
 
 export const SignUp = () => {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
+  const { signup } = useAuth();
   
-  const handleSubmit = (e) => {
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [department, setDepartment] = useState('');
+  const [year, setYear] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!fullName || !email || !department || !year || !password || !confirmPassword) {
+      setError('Please fill in all fields.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    setError('');
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+
+    try {
+      const result = await signup(email, password, fullName);
+      if (result.error) {
+        setError(result.error);
+      } else if (result.user) {
+        // Sync custom fields (branch and year) to the newly created user profile doc in Firestore
+        try {
+          await updateUser(result.user.uid, {
+            branch: department,
+            year: year
+          });
+        } catch (dbErr) {
+          console.error("Failed to write custom fields to user profile: ", dbErr);
+        }
+        navigate('/');
+      }
+    } catch (err) {
+      console.error(err);
+      setError('An unexpected error occurred.');
+    } finally {
       setIsLoading(false);
-      navigate('/discover');
-    }, 1500);
+    }
   };
 
   return (
@@ -36,6 +78,15 @@ export const SignUp = () => {
           <p className="text-secondary text-body">Enter your details to get started.</p>
         </motion.div>
 
+        {error && (
+          <motion.div 
+            variants={staggerItem}
+            className="mb-6 p-4 border border-red-500/20 bg-red-950/20 text-red-400 text-xs font-technical uppercase tracking-wider"
+          >
+            {error}
+          </motion.div>
+        )}
+
         <motion.form variants={staggerItem} onSubmit={handleSubmit} className="space-y-6">
           <FormField
             id="fullName"
@@ -43,6 +94,9 @@ export const SignUp = () => {
             label="Full Name"
             required
             autoComplete="name"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            disabled={isLoading}
           />
           
           <FormField
@@ -51,6 +105,9 @@ export const SignUp = () => {
             label="College Email"
             required
             autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={isLoading}
           />
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -59,12 +116,18 @@ export const SignUp = () => {
               type="text"
               label="Department"
               required
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+              disabled={isLoading}
             />
             <FormField
               id="year"
               type="text"
               label="Year"
               required
+              value={year}
+              onChange={(e) => setYear(e.target.value)}
+              disabled={isLoading}
             />
           </div>
 
@@ -73,6 +136,9 @@ export const SignUp = () => {
             label="Password"
             required
             autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={isLoading}
           />
           
           <PasswordField
@@ -80,6 +146,9 @@ export const SignUp = () => {
             label="Confirm Password"
             required
             autoComplete="new-password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            disabled={isLoading}
           />
 
           <Button 

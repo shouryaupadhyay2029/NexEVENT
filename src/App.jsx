@@ -10,6 +10,8 @@ import { LandingPage } from './pages/LandingPage';
 import { SignIn } from './pages/Auth/SignIn';
 import { SignUp } from './pages/Auth/SignUp';
 import { ForgotPassword } from './pages/Auth/ForgotPassword';
+import { CreateEvent } from './pages/CreateEvent';
+import { EventDetails } from './pages/EventDetails';
 
 const DummyPage = ({ title, desc }) => (
   <PageTransition>
@@ -35,6 +37,19 @@ const AnimatedRoutes = () => {
           <PageTransition>
             <LandingPage />
           </PageTransition>
+        } />
+        
+        {/* Event Management Panel */}
+        <Route path="/events/create" element={
+          <CreateEvent />
+        } />
+        <Route path="/create-event" element={
+          <CreateEvent />
+        } />
+
+        {/* Event Details Page */}
+        <Route path="/events/:eventId" element={
+          <EventDetails />
         } />
         
         {/* Authentication Routes */}

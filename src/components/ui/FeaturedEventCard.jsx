@@ -1,7 +1,19 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { motion, useMotionValue, useSpring, useTransform, useAnimationFrame } from 'framer-motion';
+import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 
 const easeOutExpo = [0.16, 1, 0.3, 1];
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return "";
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+  } catch (err) {
+    return dateStr;
+  }
+};
 
 // Ambient light sweep — moves across every 10–15s, almost invisible
 const SweepLight = () => {
@@ -27,7 +39,8 @@ const SweepLight = () => {
   );
 };
 
-export const FeaturedEventCard = () => {
+export const FeaturedEventCard = ({ event, loading }) => {
+  const navigate = useNavigate();
   const containerRef = useRef(null);
   const [isHovered, setIsHovered] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -56,8 +69,11 @@ export const FeaturedEventCard = () => {
   };
 
   // Ambient glow follows cursor — subtle only, no flashlight
-  const glowX = useTransform(smoothX, [0, 1], ['30%', '70%']);
-  const glowY = useTransform(smoothY, [0, 1], ['30%', '70%']);
+  const glowX = useTransform(smoothX, [0, 1], [0.3, 0.7]);
+  const glowY = useTransform(smoothY, [0, 1], [0.3, 0.7]);
+
+  const transformX = useTransform(glowX, (gx) => `calc(${gx * 100}% - 180px)`);
+  const transformY = useTransform(glowY, (gy) => `calc(${gy * 100}% - 180px)`);
 
   // Image lift on hover (using transform only for GPU accel)
   const cardY = useSpring(isHovered ? -5 : 0, { damping: 30, stiffness: 200 });
@@ -89,6 +105,28 @@ export const FeaturedEventCard = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="w-full aspect-[3/4] bg-white/5 animate-pulse border border-white/5" />
+    );
+  }
+
+  // Use dynamic event data or clean fallbacks if none published yet
+  const title = event?.title || "Stanford Design Symposium '26";
+  const image = event?.image || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=2070&auto=format&fit=crop";
+  const category = event?.category || "Featured";
+  const venue = event?.venue || "Auditorium";
+  const dateText = event?.date ? formatDate(event.date) : "Oct 14, 2026";
+  const isOpen = event ? (event.status?.toLowerCase() === "open") : true;
+
+  const handleCardClick = () => {
+    if (event?.id) {
+      navigate(`/events/${event.id}`);
+    } else {
+      navigate('/events');
+    }
+  };
+
   return (
     <motion.div
       ref={containerRef}
@@ -96,6 +134,7 @@ export const FeaturedEventCard = () => {
       onMouseMove={handleMouseMove}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onClick={handleCardClick}
       style={{ y: cardY }}
       whileTap={{ scale: 0.985, transition: { duration: 0.2, ease: easeOutExpo } }}
       variants={containerVariants}
@@ -123,8 +162,8 @@ export const FeaturedEventCard = () => {
 
         {/* ── LAYER 1: Background image (scale on hover, GPU only) ── */}
         <motion.img
-          src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=2070&auto=format&fit=crop"
-          alt="Stanford Design Symposium"
+          src={image}
+          alt={title}
           onLoad={() => setIsLoaded(true)}
           animate={{
             scale: isHovered ? 1.035 : 1,
@@ -158,8 +197,8 @@ export const FeaturedEventCard = () => {
           <motion.div
             className="absolute w-[360px] h-[360px] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.08)_0%,transparent_70%)]"
             style={{
-              x: useTransform(glowX, (gx) => `calc(${gx * 100}% - 180px)`),
-              y: useTransform(glowY, (gy) => `calc(${gy * 100}% - 180px)`),
+              x: transformX,
+              y: transformY,
               opacity: isHovered ? 1 : 0,
             }}
             transition={{ opacity: { duration: 0.6, ease: 'easeOut' } }}
@@ -188,7 +227,7 @@ export const FeaturedEventCard = () => {
                 className="w-1.5 h-1.5 bg-accent"
                 style={{ boxShadow: isHovered ? '0 0 6px rgba(201,106,43,0.6)' : 'none', transition: 'box-shadow 0.5s ease' }}
               />
-              Featured
+              {category}
             </span>
           </motion.div>
 
@@ -207,7 +246,7 @@ export const FeaturedEventCard = () => {
                   transition: 'color 0.5s ease',
                 }}
               >
-                Registration Open
+                {isOpen ? "Registration Open" : "Registration Closed"}
               </span>
               <span
                 className="text-micro"
@@ -229,7 +268,7 @@ export const FeaturedEventCard = () => {
                 transition: 'color 0.5s ease',
               }}
             >
-              Stanford Design<br />Symposium '26
+              {title}
             </motion.h3>
 
             {/* Date + Location metadata */}
@@ -251,7 +290,7 @@ export const FeaturedEventCard = () => {
                     transition: 'color 0.5s ease',
                   }}
                 >
-                  Oct 14, 2026
+                  {dateText}
                 </span>
               </div>
               <div className="flex flex-col gap-1.5 text-right">
@@ -268,7 +307,7 @@ export const FeaturedEventCard = () => {
                     transition: 'color 0.5s ease',
                   }}
                 >
-                  Auditorium
+                  {venue}
                 </span>
               </div>
             </motion.div>

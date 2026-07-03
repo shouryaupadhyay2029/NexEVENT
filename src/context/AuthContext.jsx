@@ -9,11 +9,28 @@ import {
   resetPassword as firebaseResetPassword 
 } from '../firebase/auth';
 
+import { checkAndCreateUserProfile, getUser } from '../services/userService';
+
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const refreshProfile = async (uid) => {
+    const targetUid = uid || (auth.currentUser ? auth.currentUser.uid : null);
+    if (targetUid) {
+      try {
+        const p = await getUser(targetUid);
+        setProfile(p);
+        return p;
+      } catch (error) {
+        console.error("Failed to refresh user profile: ", error);
+      }
+    }
+    return null;
+  };
 
   useEffect(() => {
     // onAuthStateChanged returns an unsubscribe function
@@ -25,6 +42,35 @@ export const AuthProvider = ({ children }) => {
     // Cleanup subscription on unmount
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const syncProfile = async () => {
+      if (!currentUser) {
+        setProfile(null);
+        return;
+      }
+
+      try {
+        const userProfile = await checkAndCreateUserProfile(currentUser);
+        if (active) {
+          setProfile(userProfile);
+        }
+      } catch (error) {
+        console.error("Failed to sync user profile with Firestore: ", error);
+        if (active) {
+          setProfile(null);
+        }
+      }
+    };
+
+    syncProfile();
+
+    return () => {
+      active = false;
+    };
+  }, [currentUser]);
 
   const login = async (email, password) => {
     return signInWithEmail(email, password);
@@ -48,13 +94,15 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user: currentUser,
+    profile,
     isAuthenticated: !!currentUser,
     loading,
     login,
     signup,
     googleLogin,
     logout,
-    resetPassword
+    resetPassword,
+    refreshProfile
   };
 
   return (

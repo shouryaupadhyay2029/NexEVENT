@@ -4,37 +4,40 @@ import { Button } from "../../../components/ui/Button";
 import { EventCard } from "../../../components/ui/EventCard";
 import { RevealSection, RevealItem, StandaloneReveal } from "../../../components/ui/RevealSection";
 
-const upcoming = [
-  {
-    id: 1,
-    image: "https://images.unsplash.com/photo-1515187029135-18ee286d815b?q=80&w=2070&auto=format&fit=crop",
-    category: "Technical",
-    title: "Global AI Hackathon",
-    date: "Dec 01",
-    venue: "Block A",
-    status: "Open"
-  },
-  {
-    id: 2,
-    image: "https://images.unsplash.com/photo-1475721025505-c31074285741?q=80&w=2070&auto=format&fit=crop",
-    category: "Cultural",
-    title: "Symphony Night",
-    date: "Dec 15",
-    venue: "Theatre",
-    status: "Waitlist"
-  },
-  {
-    id: 3,
-    image: "https://images.unsplash.com/photo-1523580494112-071dcb85170d?q=80&w=2070&auto=format&fit=crop",
-    category: "Workshop",
-    title: "Architecture Series",
-    date: "Jan 10",
-    venue: "Studio 4",
-    status: "Open"
-  }
-];
+const EventCardSkeleton = () => (
+  <div className="flex flex-col animate-pulse w-full">
+    <div className="w-full aspect-[4/5] bg-white/5 mb-8" />
+    <div className="h-4 w-1/3 bg-white/5 mb-6" />
+    <div className="h-6 w-3/4 bg-white/5 mb-8" />
+    <div className="h-4 w-full bg-white/5" />
+  </div>
+);
 
-export const UpcomingEvents = () => {
+const UpcomingSkeleton = () => (
+  <section className="w-full flex flex-col mb-32 pt-24">
+    <StandaloneReveal margin="-5%">
+      <AxisMarker index="04" label="Global Schedule" />
+    </StandaloneReveal>
+    <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-24 gap-6 max-w-[1200px] animate-pulse">
+      <div className="h-12 w-64 bg-white/5" />
+      <div className="h-10 w-32 bg-white/5 hidden md:block" />
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-16 md:gap-12 max-w-[1200px]">
+      {[1, 2, 3].map((n) => (
+        <EventCardSkeleton key={n} />
+      ))}
+    </div>
+  </section>
+);
+
+export const UpcomingEvents = ({ events, loading }) => {
+  if (loading) {
+    return <UpcomingSkeleton />;
+  }
+
+  // If no additional upcoming events are found, display a subtle placeholder message
+  const hasEvents = events && events.length > 0;
+
   return (
     <section className="w-full flex flex-col mb-32 pt-24">
       <StandaloneReveal margin="-5%">
@@ -50,20 +53,28 @@ export const UpcomingEvents = () => {
         </RevealItem>
 
         <RevealItem>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-16 md:gap-12 max-w-[1200px]">
-            {upcoming.map((event, index) => (
-              <RevealSection
-                key={event.id}
-                margin="-5%"
-                staggerDelay={0.12}
-                delay={index * 0.1}
-              >
-                <RevealItem image>
-                  <EventCard event={event} index={index} />
-                </RevealItem>
-              </RevealSection>
-            ))}
-          </div>
+          {hasEvents ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-16 md:gap-12 max-w-[1200px]">
+              {events.map((event, index) => (
+                <RevealSection
+                  key={event.id}
+                  margin="-5%"
+                  staggerDelay={0.12}
+                  delay={index * 0.1}
+                >
+                  <RevealItem image>
+                    <EventCard event={event} index={index} />
+                  </RevealItem>
+                </RevealSection>
+              ))}
+            </div>
+          ) : (
+            <div className="w-full text-center py-12 border border-dashed border-white/5 select-none">
+              <span className="text-[0.6rem] font-technical text-white/20 uppercase tracking-[0.2em]">
+                No other upcoming events scheduled
+              </span>
+            </div>
+          )}
         </RevealItem>
       </RevealSection>
 

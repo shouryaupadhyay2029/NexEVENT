@@ -22,7 +22,7 @@ const heroCard = {
   }
 };
 
-export const Hero = () => {
+export const Hero = ({ event, loading }) => {
   return (
     <section className="min-h-[85vh] flex flex-col justify-center">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-20 lg:gap-16 w-full items-center">
@@ -43,12 +43,12 @@ export const Hero = () => {
               Status // Online
             </span>
           </motion.div>
-
+ 
           {/* Headline — its own internal stagger */}
           <motion.div variants={heroItem(0.08)} className="w-full">
             <HeroHeadline />
           </motion.div>
-
+ 
           {/* Body copy */}
           <motion.p
             variants={heroItem(0.22)}
@@ -57,7 +57,7 @@ export const Hero = () => {
             A quiet, architectural foundation designed exclusively for the sophisticated
             management and discovery of premium campus experiences.
           </motion.p>
-
+ 
           {/* CTA row */}
           <motion.div
             variants={heroItem(0.34)}
@@ -67,7 +67,7 @@ export const Hero = () => {
             <Button variant="ghost" size="lg">Learn More</Button>
           </motion.div>
         </motion.div>
-
+ 
         {/* Right card — slightly delayed, heavier reveal */}
         <motion.div
           initial="hidden"
@@ -75,7 +75,7 @@ export const Hero = () => {
           variants={heroCard}
           className="col-span-1 lg:col-span-5"
         >
-          <FeaturedEventCard />
+          <FeaturedEventCard event={event} loading={loading} />
         </motion.div>
       </div>
     </section>

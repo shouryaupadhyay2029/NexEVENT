@@ -8,19 +8,58 @@ import { Button } from '../../components/ui/Button';
 import { FormDivider } from '../../components/ui/FormDivider';
 import { SocialButton } from '../../components/ui/SocialButton';
 import { staggerItem, staggerContainer } from '../../animations/framerPresets';
+import { useAuth } from '../../hooks/useAuth';
 
 export const SignIn = () => {
   const navigate = useNavigate();
+  const { login, googleLogin } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!email || !password) {
+      setError('Please fill in all fields.');
+      return;
+    }
+
+    setError('');
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+
+    try {
+      const result = await login(email, password);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        navigate('/');
+      }
+    } catch (err) {
+      console.error(err);
+      setError('An unexpected error occurred.');
+    } finally {
       setIsLoading(false);
-      navigate('/discover');
-    }, 1500);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setError('');
+    setIsLoading(true);
+
+    try {
+      const result = await googleLogin();
+      if (result.error) {
+        setError(result.error);
+      } else {
+        navigate('/');
+      }
+    } catch (err) {
+      console.error(err);
+      setError('An unexpected error occurred during Google Sign-In.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -38,6 +77,15 @@ export const SignIn = () => {
           <p className="text-secondary text-body">Enter your details to access your account.</p>
         </motion.div>
 
+        {error && (
+          <motion.div 
+            variants={staggerItem}
+            className="mb-6 p-4 border border-red-500/20 bg-red-950/20 text-red-400 text-xs font-technical uppercase tracking-wider"
+          >
+            {error}
+          </motion.div>
+        )}
+
         <motion.form variants={staggerItem} onSubmit={handleSubmit} className="space-y-6">
           <FormField
             id="email"
@@ -45,6 +93,9 @@ export const SignIn = () => {
             label="Email Address"
             required
             autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={isLoading}
           />
           
           <PasswordField
@@ -52,6 +103,9 @@ export const SignIn = () => {
             label="Password"
             required
             autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={isLoading}
           />
 
           <div className="flex items-center justify-between text-small mt-2 mb-8">
@@ -82,7 +136,7 @@ export const SignIn = () => {
 
           <FormDivider text="Or" />
 
-          <SocialButton type="button" onClick={() => console.log('Google Auth')}>
+          <SocialButton type="button" onClick={handleGoogleLogin} disabled={isLoading}>
             Continue with Google
           </SocialButton>
         </motion.form>
