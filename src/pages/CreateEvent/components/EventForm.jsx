@@ -7,6 +7,7 @@ import { CapacityInput } from './CapacityInput';
 import { StatusSelector } from './StatusSelector';
 import { Button } from '../../../components/ui/Button';
 import { createEvent } from '../../../services/eventService';
+import { logFirebaseError } from '../../../firebase/errorLogging';
 
 export const EventForm = () => {
   const [formData, setFormData] = useState({
@@ -83,7 +84,9 @@ export const EventForm = () => {
 
     setLoading(true);
     try {
+      console.log("Submitting event creation request to Firestore...");
       await createEvent(formData);
+      console.log("Event created successfully.");
       triggerToast('success', "Event successfully published to campus archive.");
       setFormData({
         title: '',
@@ -100,8 +103,8 @@ export const EventForm = () => {
       });
       setErrors({});
     } catch (error) {
-      console.error(error);
-      triggerToast('error', "Failed to save event. Database connection refused.");
+      logFirebaseError("[EventForm] Failed to publish event to database.", error);
+      triggerToast('error', `Failed to save event: ${error.message || 'Database connection refused.'}`);
     } finally {
       setLoading(false);
     }

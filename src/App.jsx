@@ -12,6 +12,12 @@ import { SignUp } from './pages/Auth/SignUp';
 import { ForgotPassword } from './pages/Auth/ForgotPassword';
 import { CreateEvent } from './pages/CreateEvent';
 import { EventDetails } from './pages/EventDetails';
+import { Profile } from './pages/Profile';
+import { Settings } from './pages/Settings';
+import { MyEvents } from './pages/MyEvents';
+import { Events } from './pages/Events';
+import { OrganizerStudio } from './pages/Organizer';
+import { ProtectedRoute } from './routes/ProtectedRoute';
 
 const DummyPage = ({ title, desc }) => (
   <PageTransition>
@@ -69,8 +75,30 @@ const AnimatedRoutes = () => {
           </PageTransition>
         } />
 
+        {/* Profile & User Routes */}
+        <Route path="/profile" element={
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        } />
+        <Route path="/settings" element={
+          <ProtectedRoute>
+            <Settings />
+          </ProtectedRoute>
+        } />
+        <Route path="/my-events" element={
+          <ProtectedRoute>
+            <MyEvents />
+          </ProtectedRoute>
+        } />
+        <Route path="/organizer" element={
+          <ProtectedRoute>
+            <OrganizerStudio />
+          </ProtectedRoute>
+        } />
+
         {/* Existing Routes */}
-        <Route path="/events" element={<DummyPage title="Events Directory" desc="Notice the tiny orange underline and brightened typography on the active navigation link above." />} />
+        <Route path="/events" element={<Events />} />
         <Route path="/discover" element={<DummyPage title="Discover" desc="Scroll down to see the transparent navigation bar smoothly transition to a blurred state with a hairline bottom border." />} />
         <Route path="/about" element={<DummyPage title="About Us" desc="This page inherited the editorial grid overlay, the noise texture, and the global background system automatically." />} />
         <Route path="/support" element={<DummyPage title="Support" desc="Premium architectural foundation complete." />} />

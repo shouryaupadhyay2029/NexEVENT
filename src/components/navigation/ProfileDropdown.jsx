@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence, useSpring, useMotionValue } from 'framer-motion';
-import { User, Bookmark, Calendar, Settings, LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { User, Bookmark, Calendar, Settings, LogOut, Sliders } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useMagnet } from '../../hooks/useMagnet';
 
@@ -11,6 +12,7 @@ export const ProfileDropdown = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [ringActive, setRingActive] = useState(false);
   const dropdownRef = useRef(null);
+  const navigate = useNavigate();
 
   // Avatar magnetic pull (stronger — 8px, it's a small target)
   const { ref: avatarRef, x: avatarX, y: avatarY, handlers: avatarHandlers } = useMagnet({
@@ -47,10 +49,11 @@ export const ProfileDropdown = () => {
   const getInitial = () => user?.displayName?.[0] || user?.email?.[0] || 'U';
 
   const menuItems = [
-    { icon: User, label: 'Profile', onClick: () => setIsOpen(false) },
-    { icon: Bookmark, label: 'Saved Events', onClick: () => setIsOpen(false) },
-    { icon: Calendar, label: 'My Events', onClick: () => setIsOpen(false) },
-    { icon: Settings, label: 'Settings', onClick: () => setIsOpen(false) },
+    { icon: User, label: 'Profile', onClick: () => { setIsOpen(false); navigate('/profile'); } },
+    { icon: Bookmark, label: 'Saved Events', onClick: () => { setIsOpen(false); navigate('/my-events'); } },
+    { icon: Calendar, label: 'My Events', onClick: () => { setIsOpen(false); navigate('/my-events'); } },
+    { icon: Sliders, label: 'Organizer Studio', onClick: () => { setIsOpen(false); navigate('/organizer'); } },
+    { icon: Settings, label: 'Settings', onClick: () => { setIsOpen(false); navigate('/settings'); } },
   ];
 
   return (

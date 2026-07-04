@@ -7,6 +7,7 @@ import {
   updateProfile
 } from "firebase/auth";
 import { auth, GoogleProvider } from "./config";
+import { logFirebaseError } from "./errorLogging";
 
 /**
  * Maps Firebase Auth errors to user-friendly messages
@@ -43,6 +44,7 @@ export const signUpWithEmail = async (email, password, displayName) => {
     }
     return { user: userCredential.user, error: null };
   } catch (error) {
+    logFirebaseError("[signUpWithEmail] Firebase Auth failed.", error);
     return { user: null, error: getAuthErrorMessage(error.code) };
   }
 };
@@ -52,6 +54,7 @@ export const signInWithEmail = async (email, password) => {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     return { user: userCredential.user, error: null };
   } catch (error) {
+    logFirebaseError("[signInWithEmail] Firebase Auth failed.", error);
     return { user: null, error: getAuthErrorMessage(error.code) };
   }
 };
@@ -61,6 +64,7 @@ export const signInWithGoogle = async () => {
     const userCredential = await signInWithPopup(auth, GoogleProvider);
     return { user: userCredential.user, error: null };
   } catch (error) {
+    logFirebaseError("[signInWithGoogle] Firebase Auth failed.", error);
     return { user: null, error: getAuthErrorMessage(error.code) };
   }
 };
@@ -70,6 +74,7 @@ export const logout = async () => {
     await signOut(auth);
     return { error: null };
   } catch (error) {
+    logFirebaseError("[logout] Firebase Auth failed.", error);
     return { error: getAuthErrorMessage(error.code) };
   }
 };
@@ -79,6 +84,7 @@ export const resetPassword = async (email) => {
     await sendPasswordResetEmail(auth, email);
     return { error: null };
   } catch (error) {
+    logFirebaseError("[resetPassword] Firebase Auth failed.", error);
     return { error: getAuthErrorMessage(error.code) };
   }
 };
