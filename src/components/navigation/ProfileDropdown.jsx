@@ -1,14 +1,14 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence, useSpring, useMotionValue } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { User, Bookmark, Calendar, Settings, LogOut, Sliders } from 'lucide-react';
+import { User, Calendar, Settings, LogOut, Sliders } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useMagnet } from '../../hooks/useMagnet';
 
 const EASE = [0.16, 1, 0.3, 1];
 
 export const ProfileDropdown = () => {
-  const { user, logout } = useAuth();
+  const { user, profile, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [ringActive, setRingActive] = useState(false);
   const dropdownRef = useRef(null);
@@ -50,7 +50,6 @@ export const ProfileDropdown = () => {
 
   const menuItems = [
     { icon: User, label: 'Profile', onClick: () => { setIsOpen(false); navigate('/profile'); } },
-    { icon: Bookmark, label: 'Saved Events', onClick: () => { setIsOpen(false); navigate('/my-events'); } },
     { icon: Calendar, label: 'My Events', onClick: () => { setIsOpen(false); navigate('/my-events'); } },
     { icon: Sliders, label: 'Organizer Studio', onClick: () => { setIsOpen(false); navigate('/organizer'); } },
     { icon: Settings, label: 'Settings', onClick: () => { setIsOpen(false); navigate('/settings'); } },
@@ -93,7 +92,15 @@ export const ProfileDropdown = () => {
           transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
           style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%)' }}
         />
-        <span className="relative z-10 text-white/80 group-hover:text-white transition-colors duration-200">{getInitial()}</span>
+        {profile?.avatar || user?.photoURL ? (
+          <img
+            src={profile?.avatar || user?.photoURL}
+            alt={profile?.displayName || user?.displayName || "User"}
+            className="w-full h-full object-cover rounded-full relative z-10"
+          />
+        ) : (
+          <span className="relative z-10 text-white/80 group-hover:text-white transition-colors duration-200">{getInitial()}</span>
+        )}
       </motion.button>
 
       <AnimatePresence>
@@ -119,20 +126,28 @@ export const ProfileDropdown = () => {
 
             {/* Header: Profile Card */}
             <div className="px-5 py-5 flex items-center gap-4 relative z-10">
-              <div className="relative w-12 h-12 rounded-full bg-[#1c1c1c] border border-white/10 flex items-center justify-center text-xl font-display text-primary shadow-inner">
-                {getInitial()}
+              <div className="relative w-12 h-12 rounded-full bg-[#1c1c1c] border border-white/10 flex items-center justify-center text-xl font-display text-primary shadow-inner overflow-hidden">
+                {profile?.avatar || user?.photoURL ? (
+                  <img 
+                    src={profile?.avatar || user?.photoURL} 
+                    alt={profile?.displayName || user?.displayName || "User"} 
+                    className="w-full h-full object-cover rounded-full" 
+                  />
+                ) : (
+                  getInitial()
+                )}
                 <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-green-500 border-2 border-[#141414] shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
               </div>
               <div className="flex flex-col">
                 <p className="text-body text-primary font-medium tracking-tight truncate max-w-[160px]">
-                  {user?.displayName || 'Campus User'}
+                  {profile?.displayName || user?.displayName || 'Campus User'}
                 </p>
                 <p className="text-metadata text-muted truncate max-w-[160px]">
-                  {user?.email}
+                  {profile?.email || user?.email}
                 </p>
                 <div className="mt-1">
                   <span className="inline-block px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[0.6rem] font-technical tracking-widest text-secondary uppercase">
-                    Student
+                    {profile?.role || 'Student'}
                   </span>
                 </div>
               </div>

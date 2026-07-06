@@ -2,7 +2,6 @@ import { collection, doc, query, where, getDocs, deleteDoc, getDoc, runTransacti
 import { db } from "../firebase/firestore";
 import { logFirebaseError } from "../firebase/errorLogging";
 import { createNotification, logActivity } from "./notificationService";
-import { getEventBookmarks } from "./bookmarkService";
 import { getEvent } from "./eventService";
 
 const COLLECTION_NAME = "registrations";
@@ -112,23 +111,6 @@ export const registerForEvent = async (userId, eventId) => {
       `Registered for ${result.eventCategory || 'Event'}: "${result.eventTitle}"`,
       { eventId }
     );
-
-    if (result.newStatus === "closed") {
-      getEventBookmarks(eventId).then((bookmarks) => {
-        bookmarks.forEach((bm) => {
-          if (bm.userId !== userId) {
-            createNotification(
-              bm.userId,
-              "registration_closed",
-              "Registration Closed",
-              `The event you bookmarked, "${result.eventTitle}", is now fully booked.`,
-              eventId,
-              { category: result.eventCategory }
-            );
-          }
-        });
-      }).catch(err => console.error("Failed to fetch bookmarks for closed event notifications:", err));
-    }
 
     return result;
   } catch (error) {

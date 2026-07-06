@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { getAllEvents } from '../../services/eventService';
 import { registerForEvent, getUserRegistrations } from '../../services/registrationService';
-import { addBookmark, removeBookmark, getUserBookmarks } from '../../services/bookmarkService';
 import { PageTransition } from '../../components/layout/PageTransition';
 import { PageContainer } from '../../components/layout/PageContainer';
 import { SectionWrapper } from '../../components/layout/SectionWrapper';
@@ -11,8 +10,7 @@ import { AxisMarker } from '../../components/layout/AxisMarker';
 import { Button } from '../../components/ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils/cn';
-import { Calendar, Clock, MapPin, Search, Heart, Share2, Eye, X, Check, Users } from 'lucide-react';
-import { FaHeart } from 'react-icons/fa';
+import { Calendar, Clock, MapPin, Search, Share2, Eye, X, Users } from 'lucide-react';
 
 const CATEGORIES = [
   "Hackathons",
@@ -28,6 +26,43 @@ const CATEGORIES = [
 // Easing curves
 const EASE = [0.16, 1, 0.3, 1];
 
+const EventThumbnail = ({ event, onPreview }) => {
+  const [hasImageError, setHasImageError] = useState(false);
+  const imageUrl = typeof event.image === 'string' ? event.image.trim() : '';
+  const canShowImage = imageUrl && !hasImageError;
+
+  if (!canShowImage) {
+    return (
+      <button
+        type="button"
+        onClick={onPreview}
+        className="w-full h-full flex items-center justify-center text-white/10 font-display uppercase tracking-widest text-micro"
+      >
+        No Cover Image
+      </button>
+    );
+  }
+
+  return (
+    <img
+      src={imageUrl}
+      alt={event.title || 'Event cover'}
+      onClick={onPreview}
+      onError={() => {
+        console.warn("[Events] Event thumbnail failed to load.", {
+          eventId: event.id,
+          title: event.title,
+          image: imageUrl,
+        });
+        setHasImageError(true);
+      }}
+      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-103"
+      loading="lazy"
+      referrerPolicy="no-referrer"
+    />
+  );
+};
+
 export const Events = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -35,7 +70,6 @@ export const Events = () => {
   // State lists
   const [events, setEvents] = useState([]);
   const [userRegIds, setUserRegIds] = useState(new Set());
-  const [userBookmarkIds, setUserBookmarkIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
@@ -57,15 +91,13 @@ export const Events = () => {
     setLoading(true);
     setError('');
     try {
-      const [eventsList, regs, bookmarks] = await Promise.all([
+      const [eventsList, regs] = await Promise.all([
         getAllEvents(),
-        user?.uid ? getUserRegistrations(user.uid) : Promise.resolve([]),
-        user?.uid ? getUserBookmarks(user.uid) : Promise.resolve([])
+        user?.uid ? getUserRegistrations(user.uid) : Promise.resolve([])
       ]);
 
       setEvents(eventsList);
       setUserRegIds(new Set(regs.map(r => r.eventId)));
-      setUserBookmarkIds(new Set(bookmarks.map(b => b.eventId)));
     } catch (err) {
       console.error("Failed to load events discovery logs:", err);
       setError("Failed to retrieve campus event directory.");
@@ -91,7 +123,7 @@ export const Events = () => {
       return;
     }
     try {
-      const res = await registerForEvent(user.uid, eventId);
+      await registerForEvent(user.uid, eventId);
       // Immediately reflect in local state
       setUserRegIds(prev => new Set([...prev, eventId]));
       // Update events count locally without full refetch
@@ -109,36 +141,12 @@ export const Events = () => {
       }));
       triggerToast('success', 'Successfully registered for this event.');
     } catch (err) {
+      console.error("[Events] Failed to register for event.", err);
       triggerToast('error', err.message || 'Registration transaction failed.');
     }
   };
 
-  // Instant Card Bookmark Handler
-  const handleBookmark = async (eventId, e) => {
-    if (e) e.stopPropagation();
-    if (!user) {
-      triggerToast('error', 'You must be logged in to bookmark.');
-      return;
-    }
-    const isBookmarked = userBookmarkIds.has(eventId);
-    try {
-      if (isBookmarked) {
-        await removeBookmark(user.uid, eventId);
-        setUserBookmarkIds(prev => {
-          const updated = new Set(prev);
-          updated.delete(eventId);
-          return updated;
-        });
-        triggerToast('success', 'Removed from bookmarks.');
-      } else {
-        await addBookmark(user.uid, eventId);
-        setUserBookmarkIds(prev => new Set([...prev, eventId]));
-        triggerToast('success', 'Event bookmarked.');
-      }
-    } catch (err) {
-      triggerToast('error', 'Failed to toggle bookmark.');
-    }
-  };
+
 
   // Card Share Handler
   const handleShare = (eventId, eventTitle, e) => {
@@ -397,7 +405,6 @@ export const Events = () => {
               >
                 {processedEvents.map((event) => {
                   const registered = userRegIds.has(event.id);
-                  const bookmarked = userBookmarkIds.has(event.id);
                   const capacity = parseInt(event.capacity) || 0;
                   const currentReg = parseInt(event.registeredCount) || 0;
                   const seatsRemaining = Math.max(capacity - currentReg, 0);
@@ -414,22 +421,7 @@ export const Events = () => {
                     >
                       {/* 1. Large Image container with preview trigger */}
                       <div className="relative aspect-[16/10] overflow-hidden border border-white/10 bg-[#111] cursor-pointer">
-                        {event.image ? (
-                          <img
-                            src={event.image}
-                            alt={event.title}
-                            onClick={() => setPreviewEvent(event)}
-                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-103"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div 
-                            onClick={() => setPreviewEvent(event)}
-                            className="w-full h-full flex items-center justify-center text-white/10 font-display uppercase tracking-widest text-micro"
-                          >
-                            No Cover Image
-                          </div>
-                        )}
+                        <EventThumbnail event={event} onPreview={() => setPreviewEvent(event)} />
 
                         {/* Top quick badges overlay */}
                         <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-10 pointer-events-none">
@@ -445,6 +437,7 @@ export const Events = () => {
                             {isClosed ? "Closed" : "Open"}
                           </span>
                         </div>
+
 
                         {/* HOVER ACTIONS OVERLAY (Fade-in on desktop hover) */}
                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3 z-20">
@@ -471,19 +464,6 @@ export const Events = () => {
                             )}
                           >
                             {registered ? "Registered ✓" : isClosed ? "Closed" : "Register Now"}
-                          </button>
-
-                          {/* Bookmark trigger with Heart icon */}
-                          <button
-                            onClick={(e) => handleBookmark(event.id, e)}
-                            className="p-3 bg-[#111] border border-white/10 hover:border-white/30 text-white transition-all transform hover:-translate-y-0.5 relative"
-                            title={bookmarked ? "Unbookmark" : "Bookmark"}
-                          >
-                            {bookmarked ? (
-                              <FaHeart className="w-4 h-4 text-red-500 scale-110 transition-transform" />
-                            ) : (
-                              <Heart className="w-4 h-4 text-white/40" />
-                            )}
                           </button>
 
                           {/* Share link trigger */}

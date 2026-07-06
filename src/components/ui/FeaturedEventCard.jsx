@@ -42,8 +42,28 @@ const SweepLight = () => {
 export const FeaturedEventCard = ({ event, loading }) => {
   const navigate = useNavigate();
   const containerRef = useRef(null);
+  const imgRef = useRef(null);
   const [isHovered, setIsHovered] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+
+  // Use dynamic event data or clean fallbacks if none published yet
+  const title = event?.title || "Stanford Design Symposium '26";
+  const image = event?.image || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=2070&auto=format&fit=crop";
+
+  const category = event?.category || "Featured";
+  const venue = event?.venue || "Auditorium";
+  const dateText = event?.date ? formatDate(event.date) : "Oct 14, 2026";
+  const isOpen = event ? (event.status?.toLowerCase() === "open") : true;
+
+  // Handle cached images where onLoad might not fire
+  useEffect(() => {
+    if (imgRef.current && imgRef.current.complete) {
+      console.log(`[FeaturedEventCard] Image cached/complete: ${image}`);
+      setIsLoaded(true);
+    } else {
+      setIsLoaded(false);
+    }
+  }, [image]);
   const [progress, setProgress] = useState(0);
 
   // Cursor tracking (normalized 0-1)
@@ -111,14 +131,6 @@ export const FeaturedEventCard = ({ event, loading }) => {
     );
   }
 
-  // Use dynamic event data or clean fallbacks if none published yet
-  const title = event?.title || "Stanford Design Symposium '26";
-  const image = event?.image || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=2070&auto=format&fit=crop";
-  const category = event?.category || "Featured";
-  const venue = event?.venue || "Auditorium";
-  const dateText = event?.date ? formatDate(event.date) : "Oct 14, 2026";
-  const isOpen = event ? (event.status?.toLowerCase() === "open") : true;
-
   const handleCardClick = () => {
     if (event?.id) {
       navigate(`/events/${event.id}`);
@@ -162,9 +174,16 @@ export const FeaturedEventCard = ({ event, loading }) => {
 
         {/* ── LAYER 1: Background image (scale on hover, GPU only) ── */}
         <motion.img
+          ref={imgRef}
           src={image}
           alt={title}
-          onLoad={() => setIsLoaded(true)}
+          onLoad={() => {
+            console.log(`[FeaturedEventCard] Image loaded via onLoad: ${image}`);
+            setIsLoaded(true);
+          }}
+          onError={(e) => {
+            console.error(`[FeaturedEventCard] Image failed to load: ${image}`, e);
+          }}
           animate={{
             scale: isHovered ? 1.035 : 1,
             opacity: isLoaded ? 1 : 0,

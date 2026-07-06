@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { getUserRegistrations } from '../../services/registrationService';
-import { getUserBookmarks } from '../../services/bookmarkService';
 import { getAllEvents } from '../../services/eventService';
 import { PageTransition } from '../../components/layout/PageTransition';
 import { PageContainer } from '../../components/layout/PageContainer';
@@ -14,10 +13,9 @@ import { Calendar, Clock, MapPin, ChevronRight } from 'lucide-react';
 export const MyEvents = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' | 'registered' | 'past' | 'bookmarks'
+  const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' | 'registered' | 'past'
   const [loading, setLoading] = useState(true);
   const [registeredEvents, setRegisteredEvents] = useState([]);
-  const [bookmarkedEvents, setBookmarkedEvents] = useState([]);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -26,28 +24,20 @@ export const MyEvents = () => {
       setLoading(true);
       setError('');
       try {
-        // Fetch user registrations, bookmarks and all events
-        const [registrations, bookmarks, events] = await Promise.all([
+        // Fetch user registrations and all events
+        const [registrations, events] = await Promise.all([
           getUserRegistrations(user.uid),
-          getUserBookmarks(user.uid),
           getAllEvents()
         ]);
 
         const registeredIds = new Set(registrations.map(r => r.eventId));
-        const bookmarkIds = new Set(bookmarks.map(b => b.eventId));
         
         // Filter events that user has registered for
         const filteredReg = events.filter(e => registeredIds.has(e.id));
         // Sort by date ascending (soonest first)
         filteredReg.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-        
-        // Filter events that user has bookmarked
-        const filteredBookmarked = events.filter(e => bookmarkIds.has(e.id));
-        // Sort by date ascending
-        filteredBookmarked.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
         setRegisteredEvents(filteredReg);
-        setBookmarkedEvents(filteredBookmarked);
       } catch (err) {
         console.error("Failed to load user events:", err);
         setError("Unable to retrieve events list.");
@@ -69,7 +59,7 @@ export const MyEvents = () => {
     return false;
   });
 
-  const displayEvents = activeTab === 'bookmarks' ? bookmarkedEvents : filteredEvents;
+  const displayEvents = filteredEvents;
 
   const formatDate = (dateStr) => {
     if (!dateStr) return "";
@@ -97,7 +87,7 @@ export const MyEvents = () => {
 
           {/* Tab Selector */}
           <div className="flex gap-6 border-b border-white/5 pb-2 mt-8">
-            {['upcoming', 'registered', 'past', 'bookmarks'].map((tab) => (
+            {['upcoming', 'registered', 'past'].map((tab) => (
               <button
                 key={tab}
                 type="button"
@@ -183,7 +173,7 @@ export const MyEvents = () => {
                     <div className="flex items-center justify-end mt-4 md:mt-0 gap-4">
                       {/* Badge indicating status */}
                       <span className="text-[0.6rem] font-technical uppercase px-2 py-0.5 border border-white/10 bg-white/5 text-white/50 tracking-wider">
-                        {activeTab === 'bookmarks' ? 'Bookmarked' : 'Registered'}
+                        Registered
                       </span>
                       <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-white/60 group-hover:translate-x-1 transition-all duration-300" />
                     </div>

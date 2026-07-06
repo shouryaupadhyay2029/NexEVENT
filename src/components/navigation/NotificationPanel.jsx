@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { markNotificationAsRead, markAllNotificationsAsRead } from '../../services/notificationService';
-import { X, CheckCircle, AlertTriangle, RefreshCw, XCircle, Clock, Info, Heart, Check } from 'lucide-react';
+import { X, CheckCircle, AlertTriangle, RefreshCw, XCircle, Clock, Info, Check } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
 // Easing
@@ -33,8 +33,6 @@ const getNotificationIcon = (type) => {
       return <CheckCircle className="w-4 h-4 text-green-500" />;
     case 'registration_closed': 
       return <AlertTriangle className="w-4 h-4 text-orange-400" />;
-    case 'bookmark_update': 
-      return <Heart className="w-4 h-4 text-red-500" />;
     case 'event_updated': 
       return <RefreshCw className="w-4 h-4 text-accent" />;
     case 'event_cancelled': 

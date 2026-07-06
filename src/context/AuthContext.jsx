@@ -10,6 +10,8 @@ import {
 } from '../firebase/auth';
 
 import { checkAndCreateUserProfile, getUser } from '../services/userService';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebase/firestore';
 
 export const AuthContext = createContext();
 
@@ -44,19 +46,27 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
+    if (!currentUser) {
+      setProfile(null);
+      return;
+    }
+
     let active = true;
+    let unsubscribeProfile = null;
 
     const syncProfile = async () => {
-      if (!currentUser) {
-        setProfile(null);
-        return;
-      }
-
       try {
-        const userProfile = await checkAndCreateUserProfile(currentUser);
-        if (active) {
-          setProfile(userProfile);
-        }
+        await checkAndCreateUserProfile(currentUser);
+        if (!active) return;
+
+        const userRef = doc(db, "users", currentUser.uid);
+        unsubscribeProfile = onSnapshot(userRef, (docSnap) => {
+          if (active && docSnap.exists()) {
+            setProfile(docSnap.data());
+          }
+        }, (error) => {
+          console.error("Profile snapshot listener error: ", error);
+        });
       } catch (error) {
         console.error("Failed to sync user profile with Firestore: ", error);
         if (active) {
@@ -69,6 +79,9 @@ export const AuthProvider = ({ children }) => {
 
     return () => {
       active = false;
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+      }
     };
   }, [currentUser]);
 

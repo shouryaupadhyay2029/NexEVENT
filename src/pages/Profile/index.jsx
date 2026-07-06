@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { updateUser } from '../../services/userService';
 import { getUserRegistrations } from '../../services/registrationService';
-import { getUserBookmarks } from '../../services/bookmarkService';
 import { getAllEvents } from '../../services/eventService';
 import { getUserActivities } from '../../services/notificationService';
 import { PageTransition } from '../../components/layout/PageTransition';
@@ -56,7 +55,6 @@ export const Profile = () => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [registrations, setRegistrations] = useState([]);
   const [registeredEvents, setRegisteredEvents] = useState([]);
-  const [bookmarksCount, setBookmarksCount] = useState(0);
   const [activities, setActivities] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -84,14 +82,12 @@ export const Profile = () => {
       if (!user?.uid) return;
       setLoadingEvents(true);
       try {
-        const [regs, bookmarks, events, activeLogs] = await Promise.all([
+        const [regs, events, activeLogs] = await Promise.all([
           getUserRegistrations(user.uid),
-          getUserBookmarks(user.uid),
           getAllEvents(),
           getUserActivities(user.uid, 20)
         ]);
         setRegistrations(regs);
-        setBookmarksCount(bookmarks.length);
         setActivities(activeLogs);
 
         const regIds = new Set(regs.map(r => r.eventId));
@@ -297,7 +293,7 @@ export const Profile = () => {
           </div>
 
           {/* STATISTICS ROW: Pure typographic horizontal columns */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-8 py-8 border-y border-white/5 text-left font-ui">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 py-8 border-y border-white/5 text-left font-ui">
             <div className="flex flex-col gap-1.5">
               <span className="text-micro text-white/30 uppercase tracking-widest">Registered</span>
               <span className="text-display-md font-light text-primary">
@@ -314,12 +310,6 @@ export const Profile = () => {
               <span className="text-micro text-white/30 uppercase tracking-widest">Completed</span>
               <span className="text-display-md font-light text-primary">
                 <CountingNumber value={completedCount} />
-              </span>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-micro text-white/30 uppercase tracking-widest">Bookmarks</span>
-              <span className="text-display-md font-light text-primary">
-                <CountingNumber value={bookmarksCount} />
               </span>
             </div>
             <div className="flex flex-col gap-1.5">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '../../utils/cn';
 
@@ -11,6 +11,17 @@ export const EditorialImage = ({
   grayscale = false
 }) => {
   const [isLoaded, setIsLoaded] = useState(false);
+  const imgRef = useRef(null);
+
+  // Handle cached images where onLoad might not fire
+  useEffect(() => {
+    if (imgRef.current && imgRef.current.complete) {
+      console.log(`[EditorialImage] Image cached/complete: ${src}`);
+      setIsLoaded(true);
+    } else {
+      setIsLoaded(false);
+    }
+  }, [src]);
 
   return (
     <div className={cn(
@@ -31,9 +42,16 @@ export const EditorialImage = ({
 
       {/* 3. The actual Image with fade and zoom physics */}
       <motion.img
+        ref={imgRef}
         src={src}
         alt={alt}
-        onLoad={() => setIsLoaded(true)}
+        onLoad={() => {
+          console.log(`[EditorialImage] Image loaded via onLoad: ${src}`);
+          setIsLoaded(true);
+        }}
+        onError={(e) => {
+          console.error(`[EditorialImage] Image failed to load: ${src}`, e);
+        }}
         initial={{ 
           opacity: 0, 
           scale: 1.05
@@ -59,3 +77,4 @@ export const EditorialImage = ({
     </div>
   );
 };
+
