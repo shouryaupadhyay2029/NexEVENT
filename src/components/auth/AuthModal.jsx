@@ -3,8 +3,35 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { LoginForm } from './LoginForm';
 import { SignupForm } from './SignupForm';
 import { ForgotPassword } from './ForgotPassword';
-import { AuthDivider } from './AuthDivider';
 import { SocialLogin } from './SocialLogin';
+
+const modalVariants = {
+  hidden: { opacity: 0, y: 8 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.16, 1, 0.3, 1],
+      when: "beforeChildren",
+      staggerChildren: 0.05
+    }
+  },
+  exit: {
+    opacity: 0,
+    y: 8,
+    transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] }
+  }
+};
+
+const childVariants = {
+  hidden: { opacity: 0, y: 4 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] }
+  }
+};
 
 export const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
   const [view, setView] = useState(initialView);
@@ -38,96 +65,117 @@ export const AuthModal = ({ isOpen, onClose, initialView = 'login' }) => {
   const titles = {
     login: {
       title: "Welcome Back",
-      subtitle: "Continue to your NexEvent account."
+      subtitle: "Continue to your archive."
     },
     signup: {
       title: "Create Account",
-      subtitle: "Join the NexEvent community."
+      subtitle: "Let's get you started."
     },
     forgotPassword: {
       title: "Reset Password",
-      subtitle: "We'll send you a link to reset it."
+      subtitle: "We'll send you a recovery link."
     }
   };
 
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-          {/* Backdrop */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-hidden">
+          
+          {/* ── BACKGROUND OVERLAY ── */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.35, ease: 'easeOut' }}
-            className="absolute inset-0 bg-black/55 backdrop-blur-[10px]"
+            transition={{ duration: 0.25 }}
+            className="absolute inset-0 bg-black/60 z-0 pointer-events-auto"
             onClick={handleBackdropClick}
           />
 
-          {/* Modal Container */}
+          {/* Very soft warm orange radial glow behind the card (extremely low opacity) */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] rounded-full bg-[radial-gradient(circle,rgba(201,107,28,0.03)_0%,transparent_70%)] pointer-events-none blur-3xl z-0" />
+
+          {/* Film grain overlay (matching the website grain) */}
+          <div 
+            className="absolute inset-0 pointer-events-none mix-blend-overlay opacity-[0.025] z-0"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+            }}
+          />
+
+          {/* ── SHARP ARCHITECTURAL PANEL ── */}
           <motion.div
             ref={modalRef}
-            initial={{ opacity: 0.95, scale: 0.97, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0.95, scale: 0.97, y: 12 }}
-            transition={{ duration: 0.32, ease: [0.25, 1, 0.5, 1] }}
-            className="relative w-full max-w-[480px] bg-[#111111]/80 backdrop-blur-xl border border-white/10 shadow-2xl rounded-[32px] overflow-hidden flex flex-col"
+            variants={modalVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="relative w-full max-w-[440px] bg-[#101010] border border-white/[0.045] rounded-[8px] shadow-[inset_0_1px_0_rgba(255,255,255,0.015),_0_24px_50px_rgba(0,0,0,0.6)] flex flex-col z-10 overflow-hidden"
           >
-            {/* Inner Padding */}
-            <div className="p-8 sm:p-10 flex flex-col h-full">
+            {/* Top Accent Indicator Bar (static loadbar detail) */}
+            <div className="absolute top-0 left-0 h-[2px] w-[25%] bg-[#B85D14] z-20" />
+
+            {/* Inner Content Padding */}
+            <div className="p-8 sm:p-10 flex flex-col h-full relative">
               
-              {/* Header */}
-              <div className="text-center mb-8">
-                <h2 className="text-section-heading text-primary mb-2 font-display">
+              {/* SECTION 1: HEADER */}
+              <motion.div className="pb-8 border-b border-white/[0.05] flex flex-col relative text-left" variants={childVariants}>
+                {/* Tiny architectural metadata label */}
+                <div className="absolute right-0 top-0 text-[8px] font-technical uppercase tracking-[0.2em] text-white/20 select-none">
+                  VOL.01 // NODE.09
+                </div>
+                <span className="text-[9px] font-technical text-accent uppercase tracking-[0.3em] mb-3 font-medium">
+                  NEXEVENT // AUTHENTICATION
+                </span>
+                <h2 className="text-[38px] leading-[1.05] font-display font-extralight text-white tracking-tighter">
                   {titles[view].title}
                 </h2>
-                <p className="text-body text-secondary">
+                <p className="text-[13px] font-ui text-white/35 font-light mt-2 leading-relaxed">
                   {titles[view].subtitle}
                 </p>
-              </div>
+              </motion.div>
 
-              {/* Dynamic Form Area */}
-              <div className="flex-1">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={view}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    {view === 'login' && <LoginForm onSwitchState={setView} onClose={onClose} />}
-                    {view === 'signup' && <SignupForm onSwitchState={setView} onClose={onClose} />}
-                    {view === 'forgotPassword' && <ForgotPassword onSwitchState={setView} onClose={onClose} />}
-                  </motion.div>
-                </AnimatePresence>
-              </div>
+              {/* SECTION 2: DYNAMIC FORM */}
+              <motion.div variants={childVariants}>
+                {view === 'login' && <LoginForm onSwitchState={setView} onClose={onClose} />}
+                {view === 'signup' && <SignupForm onSwitchState={setView} onClose={onClose} />}
+                {view === 'forgotPassword' && <ForgotPassword onSwitchState={setView} onClose={onClose} />}
+              </motion.div>
 
-              {/* Social Login & Footer (Only for Login/Signup) */}
+              {/* SECTION 3: SOCIAL LOGIN (GOOGLE) */}
               {view !== 'forgotPassword' && (
-                <div className="mt-2">
-                  <AuthDivider text="or continue with" />
+                <motion.div className="py-6 border-b border-white/[0.05] flex flex-col gap-4" variants={childVariants}>
+                  <div className="flex justify-between items-center select-none">
+                    <span className="text-[8px] font-technical uppercase tracking-[0.2em] text-white/20 text-left">
+                      Alternative Method
+                    </span>
+                    <span className="text-[8px] font-technical uppercase tracking-[0.2em] text-white/20 text-right">
+                      OAuth Secure
+                    </span>
+                  </div>
                   <SocialLogin onClose={onClose} />
-                </div>
+                </motion.div>
               )}
 
-              {/* Footer Links */}
+              {/* SECTION 4: FOOTER ACTIONS */}
               {view !== 'forgotPassword' && (
-                <div className="mt-8 text-center">
-                  <p className="text-body text-secondary">
-                    {view === 'login' ? "Don't have an account? " : "Already have an account? "}
+                <motion.div className="pt-6 flex justify-between items-center text-[10px] font-technical uppercase tracking-widest text-white/20" variants={childVariants}>
+                  <span className="select-none">EDITION 07.2026 // ONLINE</span>
+                  <p className="font-light tracking-widest text-white/45">
+                    {view === 'login' ? "New? " : "Registered? "}
                     <button
                       onClick={() => setView(view === 'login' ? 'signup' : 'login')}
-                      className="text-primary hover:text-accent font-medium transition-colors outline-none focus-visible:underline"
+                      className="text-accent hover:text-accent/80 font-medium transition-colors outline-none focus:underline"
                     >
-                      {view === 'login' ? "Create account" : "Sign in"}
+                      {view === 'login' ? "[ CREATE ]" : "[ SIGN IN ]"}
                     </button>
                   </p>
-                </div>
+                </motion.div>
               )}
 
             </div>
           </motion.div>
+
         </div>
       )}
     </AnimatePresence>

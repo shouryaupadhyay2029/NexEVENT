@@ -1,51 +1,31 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import React from 'react';
 import { cn } from '../../utils/cn';
 
-export const AuthInput = React.forwardRef(({ className, type = 'text', placeholder, ...props }, ref) => {
-  const [isFocused, setIsFocused] = useState(false);
-  
+export const AuthInput = React.forwardRef(({ className, type = 'text', placeholder, icon: Icon, rightElement, ...props }, ref) => {
   return (
-    <div className="relative w-full">
+    <div className="relative w-full group/input flex items-center">
+      {Icon && (
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within/input:text-white/40 transition-colors z-10 pointer-events-none flex items-center justify-center">
+          <Icon className="w-3.5 h-3.5" strokeWidth={1.25} />
+        </span>
+      )}
       <input
         type={type}
-        onFocus={(e) => {
-          setIsFocused(true);
-          if (props.onFocus) props.onFocus(e);
-        }}
-        onBlur={(e) => {
-          setIsFocused(false);
-          if (props.onBlur) props.onBlur(e);
-        }}
-        placeholder={isFocused ? '' : placeholder}
+        placeholder={placeholder}
         className={cn(
-          "w-full h-12 rounded-[14px] bg-[#1a1a1a] border border-white/5",
-          "px-4 text-primary font-ui text-body transition-colors duration-220 ease-in-out-cubic",
-          "placeholder:text-muted placeholder:transition-opacity focus:outline-none",
+          "w-full h-[52px] bg-black border border-white/[0.045] rounded-[6px] font-ui text-[13px] text-primary transition-all duration-200",
+          "shadow-[inset_0_1.5px_4px_rgba(0,0,0,0.95)] pr-12",
+          "placeholder:text-white/15 focus:outline-none focus:border-accent/30 focus:ring-0 focus:shadow-[inset_0_1.5px_4px_rgba(0,0,0,0.95)]",
+          Icon ? "pl-12" : "px-4",
           className
         )}
         ref={ref}
         {...props}
       />
-      
-      {/* Animated Focus Ring Border */}
-      <motion.div 
-        className="absolute inset-0 rounded-[14px] border border-accent pointer-events-none"
-        initial={{ opacity: 0, scale: 0.98 }}
-        animate={isFocused ? { opacity: 0.6, scale: 1 } : { opacity: 0, scale: 0.98 }}
-        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-      />
-      
-      {/* Absolute Placeholder Animation (when not using native placeholder) */}
-      {isFocused && (
-        <motion.span 
-          initial={{ opacity: 0, x: 10 }}
-          animate={{ opacity: 0.5, x: 0 }}
-          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-          className="absolute left-4 top-1/2 -translate-y-1/2 text-muted pointer-events-none font-ui text-body"
-        >
-          {placeholder}
-        </motion.span>
+      {rightElement && (
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center">
+          {rightElement}
+        </div>
       )}
     </div>
   );

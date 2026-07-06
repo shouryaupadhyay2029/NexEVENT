@@ -155,7 +155,7 @@ export const FeaturedEventCard = ({ event, loading }) => {
     >
       {/* ── CARD SHELL ── */}
       <div
-        className="w-full h-full overflow-hidden relative rounded-none will-change-transform"
+        className="w-full h-full overflow-hidden relative rounded-none will-change-transform isolate"
         style={{
           boxShadow: isHovered
             ? '0 24px 60px rgba(0,0,0,0.75), 0 4px 16px rgba(0,0,0,0.4)'

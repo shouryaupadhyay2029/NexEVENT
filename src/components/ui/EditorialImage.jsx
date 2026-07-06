@@ -25,7 +25,7 @@ export const EditorialImage = ({
 
   return (
     <div className={cn(
-      "relative overflow-hidden w-full border border-white/5 bg-[#0e0e0e] group select-none",
+      "relative overflow-hidden w-full border border-white/5 bg-[#0e0e0e] group select-none isolate",
       aspectRatio,
       wrapperClassName
     )}>
@@ -56,10 +56,10 @@ export const EditorialImage = ({
           opacity: 0, 
           scale: 1.05
         }}
-        animate={isLoaded ? { 
-          opacity: 1, 
-          scale: 1
-        } : {}}
+        animate={{ 
+          opacity: isLoaded ? 1 : 0, 
+          scale: isLoaded ? 1 : 1.05
+        }}
         whileHover={{
           scale: 1.03,
           transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] }
