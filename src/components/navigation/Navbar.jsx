@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
-import { motion, useScroll, useSpring, useTransform, useMotionValueEvent, AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { motion, useScroll, useSpring, useTransform, useMotionValueEvent } from "framer-motion";
 import { Wordmark } from "./Wordmark";
 import { NavGroup, NavLink } from "./NavLink";
 import { Button } from "../ui/Button";

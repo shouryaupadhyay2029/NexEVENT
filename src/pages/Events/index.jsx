@@ -11,6 +11,7 @@ import { Button } from '../../components/ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils/cn';
 import { Calendar, Clock, MapPin, Search, Share2, Eye, X, Users } from 'lucide-react';
+import { Image } from '../../components/ui/Image';
 
 const CATEGORIES = [
   "Hackathons",
@@ -27,39 +28,15 @@ const CATEGORIES = [
 const EASE = [0.16, 1, 0.3, 1];
 
 const EventThumbnail = ({ event, onPreview }) => {
-  const [hasImageError, setHasImageError] = useState(false);
-  const imageUrl = typeof event.image === 'string' ? event.image.trim() : '';
-  const canShowImage = imageUrl && !hasImageError;
-
-  if (!canShowImage) {
-    return (
-      <button
-        type="button"
-        onClick={onPreview}
-        className="w-full h-full flex items-center justify-center text-white/10 font-display uppercase tracking-widest text-micro"
-      >
-        No Cover Image
-      </button>
-    );
-  }
-
   return (
-    <img
-      src={imageUrl}
-      alt={event.title || 'Event cover'}
-      onClick={onPreview}
-      onError={() => {
-        console.warn("[Events] Event thumbnail failed to load.", {
-          eventId: event.id,
-          title: event.title,
-          image: imageUrl,
-        });
-        setHasImageError(true);
-      }}
-      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-103"
-      loading="lazy"
-      referrerPolicy="no-referrer"
-    />
+    <div onClick={onPreview} className="w-full h-full cursor-pointer">
+      <Image
+        src={event.image}
+        alt={event.title || 'Event cover'}
+        aspectRatio="aspect-square"
+        className="w-full h-full object-cover transition-transform duration-700 hover:scale-103"
+      />
+    </div>
   );
 };
 
@@ -108,7 +85,18 @@ export const Events = () => {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setPreviewEvent(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const triggerToast = (type, message) => {
     setToast({ type, message });
@@ -171,6 +159,9 @@ export const Events = () => {
   const processedEvents = useMemo(() => {
     let list = [...events];
 
+    // 0. Filter out drafts and archived events from public view
+    list = list.filter(e => e.status !== 'draft' && e.status !== 'archived');
+
     // 1. Text Search Filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -216,6 +207,13 @@ export const Events = () => {
 
     // 5. Sort selector logic
     list.sort((a, b) => {
+      // Prioritize Live status above all other parameters
+      const isLiveA = a.status === 'live' ? 1 : 0;
+      const isLiveB = b.status === 'live' ? 1 : 0;
+      if (isLiveA !== isLiveB) {
+        return isLiveB - isLiveA;
+      }
+
       if (selectedSort === 'Newest') {
         return (b.createdAt || '').localeCompare(a.createdAt || '');
       }
@@ -559,17 +557,12 @@ export const Events = () => {
 
                   {/* Left Column: Image */}
                   <div className="w-full md:w-1/2 aspect-[16/10] md:aspect-auto md:min-h-[400px] relative bg-[#111]">
-                    {previewEvent.image ? (
-                      <img
-                        src={previewEvent.image}
-                        alt={previewEvent.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-white/15 text-[0.6rem] font-technical uppercase">
-                        No Image
-                      </div>
-                    )}
+                    <Image
+                      src={previewEvent.image}
+                      alt={previewEvent.title}
+                      aspectRatio="aspect-auto"
+                      className="w-full h-full object-cover"
+                    />
                   </div>
 
                   {/* Right Column: Text & Actions */}

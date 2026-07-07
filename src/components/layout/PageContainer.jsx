@@ -1,5 +1,4 @@
-import React, { useEffect } from "react";
-import { initLenis } from "../../lib/lenis";
+import React from "react";
 import { cn } from "../../utils/cn";
 
 export const PageContainer = ({ 

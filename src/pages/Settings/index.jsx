@@ -5,7 +5,6 @@ import { SectionWrapper } from '../../components/layout/SectionWrapper';
 import { AxisMarker } from '../../components/layout/AxisMarker';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../hooks/useAuth';
-import { motion, AnimatePresence } from 'framer-motion';
 
 export const Settings = () => {
   const { user, resetPassword } = useAuth();
@@ -25,6 +24,7 @@ export const Settings = () => {
         setResetSent(true);
       }
     } catch (err) {
+      console.error("[Settings] Failed to send password reset link:", err);
       setError('Failed to send reset link. Please try again.');
     } finally {
       setLoading(false);

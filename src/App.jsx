@@ -6,18 +6,26 @@ import { PageContainer } from './components/layout/PageContainer';
 import { SectionWrapper } from './components/layout/SectionWrapper';
 import { PageTransition } from './components/layout/PageTransition';
 import { Button } from './components/ui/Button';
-import { LandingPage } from './pages/LandingPage';
-import { SignIn } from './pages/Auth/SignIn';
-import { SignUp } from './pages/Auth/SignUp';
-import { ForgotPassword } from './pages/Auth/ForgotPassword';
-import { CreateEvent } from './pages/CreateEvent';
-import { EventDetails } from './pages/EventDetails';
-import { Profile } from './pages/Profile';
-import { Settings } from './pages/Settings';
-import { MyEvents } from './pages/MyEvents';
-import { Events } from './pages/Events';
-import { OrganizerStudio } from './pages/Organizer';
+const LandingPage = React.lazy(() => import('./pages/LandingPage').then(m => ({ default: m.LandingPage })));
+const SignIn = React.lazy(() => import('./pages/Auth/SignIn').then(m => ({ default: m.SignIn })));
+const SignUp = React.lazy(() => import('./pages/Auth/SignUp').then(m => ({ default: m.SignUp })));
+const ForgotPassword = React.lazy(() => import('./pages/Auth/ForgotPassword').then(m => ({ default: m.ForgotPassword })));
+const CreateEvent = React.lazy(() => import('./pages/CreateEvent').then(m => ({ default: m.CreateEvent })));
+const EventDetails = React.lazy(() => import('./pages/EventDetails').then(m => ({ default: m.EventDetails })));
+const Profile = React.lazy(() => import('./pages/Profile').then(m => ({ default: m.Profile })));
+const Settings = React.lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })));
+const MyEvents = React.lazy(() => import('./pages/MyEvents').then(m => ({ default: m.MyEvents })));
+const Events = React.lazy(() => import('./pages/Events').then(m => ({ default: m.Events })));
+const OrganizerStudio = React.lazy(() => import('./pages/Organizer').then(m => ({ default: m.OrganizerStudio })));
+const Attendees = React.lazy(() => import('./pages/Organizer/Attendees').then(m => ({ default: m.Attendees })));
+const AccessRequired = React.lazy(() => import('./pages/AccessRequired').then(m => ({ default: m.AccessRequired })));
+const ActivateOrganizer = React.lazy(() => import('./pages/ActivateOrganizer').then(m => ({ default: m.ActivateOrganizer })));
+const AdminConsole = React.lazy(() => import('./pages/Admin').then(m => ({ default: m.AdminConsole })));
+const ErrorPage = React.lazy(() => import('./pages/Error').then(m => ({ default: m.ErrorPage })));
+
 import { ProtectedRoute } from './routes/ProtectedRoute';
+import { OrganizerRoute } from './routes/OrganizerRoute';
+import { AdminRoute } from './routes/AdminRoute';
 
 const DummyPage = ({ title, desc }) => (
   <PageTransition>
@@ -47,10 +55,14 @@ const AnimatedRoutes = () => {
         
         {/* Event Management Panel */}
         <Route path="/events/create" element={
-          <CreateEvent />
+          <OrganizerRoute>
+            <CreateEvent />
+          </OrganizerRoute>
         } />
         <Route path="/create-event" element={
-          <CreateEvent />
+          <OrganizerRoute>
+            <CreateEvent />
+          </OrganizerRoute>
         } />
 
         {/* Event Details Page */}
@@ -92,9 +104,27 @@ const AnimatedRoutes = () => {
           </ProtectedRoute>
         } />
         <Route path="/organizer" element={
-          <ProtectedRoute>
+          <OrganizerRoute>
             <OrganizerStudio />
+          </OrganizerRoute>
+        } />
+        <Route path="/organizer/events/:eventId/attendees" element={
+          <OrganizerRoute>
+            <Attendees />
+          </OrganizerRoute>
+        } />
+        <Route path="/access-required" element={
+          <AccessRequired />
+        } />
+        <Route path="/activate-organizer" element={
+          <ProtectedRoute>
+            <ActivateOrganizer />
           </ProtectedRoute>
+        } />
+        <Route path="/admin" element={
+          <AdminRoute>
+            <AdminConsole />
+          </AdminRoute>
         } />
 
         {/* Existing Routes */}
@@ -102,7 +132,7 @@ const AnimatedRoutes = () => {
         <Route path="/discover" element={<DummyPage title="Discover" desc="Scroll down to see the transparent navigation bar smoothly transition to a blurred state with a hairline bottom border." />} />
         <Route path="/about" element={<DummyPage title="About Us" desc="This page inherited the editorial grid overlay, the noise texture, and the global background system automatically." />} />
         <Route path="/support" element={<DummyPage title="Support" desc="Premium architectural foundation complete." />} />
-        <Route path="*" element={<DummyPage title="404 Not Found" desc="This route doesn't exist." />} />
+        <Route path="*" element={<ErrorPage type="404" />} />
       </Routes>
     </AnimatePresence>
   );
@@ -112,7 +142,15 @@ function App() {
   return (
     <BrowserRouter>
       <Layout>
-        <AnimatedRoutes />
+        <React.Suspense fallback={
+          <div className="min-h-[85vh] flex flex-col items-center justify-center font-ui text-center gap-4 select-none">
+            {/* Minimal layout stable loading skeleton matching NexEvent layout styling */}
+            <div className="w-10 h-10 border border-white/10 border-t-accent rounded-full animate-spin" />
+            <span className="text-micro font-technical uppercase tracking-widest text-white/30 animate-pulse">Loading Workspace...</span>
+          </div>
+        }>
+          <AnimatedRoutes />
+        </React.Suspense>
       </Layout>
     </BrowserRouter>
   );

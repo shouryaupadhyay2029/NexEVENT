@@ -1,0 +1,203 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ==========================================
+    // GLOBAL SECURITY HELPERS
+    // ==========================================
+
+    // Checks if the client request is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Fetches the user profile document from the database
+    function getUserProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Checks if the user is a verified administrator
+    function isAdmin() {
+      return isAuthenticated() && getUserProfile().role.lower() == 'admin';
+    }
+
+    // Checks if the user is a verified organizer
+    function isOrganizer() {
+      return isAuthenticated() && getUserProfile().role.lower() == 'organizer';
+    }
+
+    // ==========================================
+    // 1. USERS COLLECTION
+    // ==========================================
+    match /users/{userId} {
+      // Admins can read all profiles; users can read their own profile
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      
+      // Users can only create their own profile with default student parameters to prevent role escalation
+      allow create: if isAuthenticated() && request.auth.uid == userId && 
+        request.resource.data.role == 'student' &&
+        request.resource.data.verified == false &&
+        request.resource.data.clubId == null &&
+        request.resource.data.clubName == null;
+
+      // Admins can change any field; users can update their own details but cannot modify roles, verified state, or club mappings
+      allow update: if isAuthenticated() && (
+        isAdmin() || (
+          request.auth.uid == userId &&
+          request.resource.data.uid == resource.data.uid &&
+          request.resource.data.role == resource.data.role &&
+          request.resource.data.verified == resource.data.verified &&
+          request.resource.data.clubId == resource.data.clubId &&
+          request.resource.data.clubName == resource.data.clubName
+        )
+      );
+
+      // Only administrators can delete user accounts
+      allow delete: if isAdmin();
+    }
+
+    // ==========================================
+    // 2. EVENTS COLLECTION
+    // ==========================================
+    match /events/{eventId} {
+      // Anyone (including anonymous guests) can read/discover events
+      allow read: if true;
+
+      // Administrators can write anything. Organizers can create and manage their own events. Students are blocked.
+      allow create: if isAdmin() || (
+        isOrganizer() &&
+        request.resource.data.creatorId == request.auth.uid &&
+        request.resource.data.role == getUserProfile().role &&
+        request.resource.data.clubId == getUserProfile().clubId &&
+        request.resource.data.clubName == getUserProfile().clubName
+      );
+
+      allow update: if isAdmin() || (
+        isOrganizer() &&
+        resource.data.creatorId == request.auth.uid &&
+        request.resource.data.creatorId == resource.data.creatorId &&
+        request.resource.data.role == resource.data.role &&
+        request.resource.data.clubId == resource.data.clubId &&
+        request.resource.data.clubName == resource.data.clubName
+      );
+
+      allow delete: if isAdmin() || (
+        isOrganizer() &&
+        resource.data.creatorId == request.auth.uid
+      );
+    }
+
+    // ==========================================
+    // 3. REGISTRATIONS COLLECTION
+    // ==========================================
+    match /registrations/{registrationId} {
+      // Registrants can read their own; Admins can read all; 
+      // Organizers can read registrations ONLY if they created the linked event.
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.userId || 
+        isAdmin() || 
+        (isOrganizer() && get(/databases/$(database)/documents/events/resource.data.eventId).data.creatorId == request.auth.uid)
+      );
+
+      // Authenticated users can create registrations for themselves.
+      // Enforce registration ID constraint (uid_eventId) to natively prevent duplicate bookings.
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid &&
+        registrationId == request.auth.uid + '_' + request.resource.data.eventId;
+
+      // Allow updating check-in fields (checkedIn, checkedInAt, checkedInBy, attendanceStatus) 
+      // ONLY by the event creator (organizer) or admin.
+      allow update: if isAuthenticated() && (
+        isAdmin() || (
+          isOrganizer() && 
+          get(/databases/$(database)/documents/events/resource.data.eventId).data.creatorId == request.auth.uid &&
+          request.resource.data.userId == resource.data.userId &&
+          request.resource.data.eventId == resource.data.eventId &&
+          request.resource.data.checkedIn == true &&
+          request.resource.data.checkedInBy == request.auth.uid
+        )
+      );
+
+      // Users can cancel their own bookings; event creators (organizers) or admins can delete/remove registration.
+      allow delete: if isAuthenticated() && (
+        request.auth.uid == resource.data.userId || 
+        isAdmin() ||
+        (isOrganizer() && get(/databases/$(database)/documents/events/resource.data.eventId).data.creatorId == request.auth.uid)
+      );
+    }
+
+    // ==========================================
+    // 4. CLUBS COLLECTION
+    // ==========================================
+    match /clubs/{clubId} {
+      // Anyone can discover/read academic club registries
+      allow read: if true;
+      
+      // Only administrators can manage clubs
+      allow write: if isAdmin();
+    }
+
+    // ==========================================
+    // 5. INVITATIONS COLLECTION
+    // ==========================================
+    match /organizerInvites/{inviteId} {
+      // Admins can read all invitations. Authenticated users can query for activation checks.
+      allow read: if isAuthenticated();
+
+      // Only administrators can create or revoke invites
+      allow create, delete: if isAdmin();
+
+      // Allow users to update an invite ONLY when redeeming it (setting used = true and signing their uid)
+      allow update: if isAuthenticated() && (
+        isAdmin() || (
+          !resource.data.used &&
+          request.resource.data.used == true &&
+          request.resource.data.usedBy == request.auth.uid &&
+          request.resource.data.usedAt != null &&
+          request.resource.data.token == resource.data.token &&
+          request.resource.data.expiresAt == resource.data.expiresAt &&
+          request.resource.data.clubId == resource.data.clubId &&
+          request.resource.data.clubName == resource.data.clubName &&
+          request.resource.data.role == resource.data.role
+        )
+      );
+    }
+
+    // ==========================================
+    // 6. ADMIN LOGS COLLECTION
+    // ==========================================
+    match /adminLogs/{logId} {
+      // Only administrators can read or write log entries
+      allow read, write: if isAdmin();
+    }
+
+    // ==========================================
+    // 7. NOTIFICATIONS COLLECTION
+    // ==========================================
+    match /notifications/{notifId} {
+      // Users can only access their own inbox notifications
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
+      
+      // Users can create notifications (for triggers)
+      allow create: if isAuthenticated();
+
+      // Users can mark their own notifications as read
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    // ==========================================
+    // 8. ACTIVITIES COLLECTION
+    // ==========================================
+    match /activities/{activityId} {
+      // Users and admins can read activity logs
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
+      
+      // Users can only write logs pointing to their own identity
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      
+      allow update, delete: if isAdmin();
+    }
+  }
+}

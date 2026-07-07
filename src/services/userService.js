@@ -110,6 +110,9 @@ export const checkAndCreateUserProfile = async (user) => {
       portfolio: "",
       interests: [],
       role: "student",
+      clubId: null,
+      clubName: null,
+      verified: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -133,6 +136,10 @@ export const checkAndCreateUserProfile = async (user) => {
     portfolio: "",
     interests: [],
     avatar: currentData.avatar || currentData.photoURL || user.photoURL || "",
+    role: currentData.role || "student",
+    clubId: currentData.clubId !== undefined ? currentData.clubId : null,
+    clubName: currentData.clubName !== undefined ? currentData.clubName : null,
+    verified: currentData.verified !== undefined ? currentData.verified : false,
   };
 
   let needsUpdate = false;

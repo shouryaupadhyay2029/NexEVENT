@@ -25,6 +25,9 @@ export const AuthProvider = ({ children }) => {
     if (targetUid) {
       try {
         const p = await getUser(targetUid);
+        if (p && p.role) {
+          p.role = p.role.toLowerCase().trim();
+        }
         setProfile(p);
         return p;
       } catch (error) {
@@ -38,7 +41,10 @@ export const AuthProvider = ({ children }) => {
     // onAuthStateChanged returns an unsubscribe function
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
-      setLoading(false);
+      if (!user) {
+        setProfile(null);
+        setLoading(false);
+      }
     });
 
     // Cleanup subscription on unmount
@@ -47,7 +53,6 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     if (!currentUser) {
-      setProfile(null);
       return;
     }
 
@@ -56,21 +61,31 @@ export const AuthProvider = ({ children }) => {
 
     const syncProfile = async () => {
       try {
+        setLoading(true);
         await checkAndCreateUserProfile(currentUser);
         if (!active) return;
 
         const userRef = doc(db, "users", currentUser.uid);
         unsubscribeProfile = onSnapshot(userRef, (docSnap) => {
           if (active && docSnap.exists()) {
-            setProfile(docSnap.data());
+            const data = docSnap.data();
+            if (data && data.role) {
+              data.role = data.role.toLowerCase().trim();
+            }
+            setProfile(data);
+            setLoading(false);
           }
         }, (error) => {
           console.error("Profile snapshot listener error: ", error);
+          if (active) {
+            setLoading(false);
+          }
         });
       } catch (error) {
         console.error("Failed to sync user profile with Firestore: ", error);
         if (active) {
           setProfile(null);
+          setLoading(false);
         }
       }
     };

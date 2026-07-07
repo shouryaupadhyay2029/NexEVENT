@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence, useSpring, useMotionValue } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { User, Calendar, Settings, LogOut, Sliders } from 'lucide-react';
+import { User, Calendar, Settings, LogOut, Sliders, Shield } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useMagnet } from '../../hooks/useMagnet';
 
@@ -48,10 +48,19 @@ export const ProfileDropdown = () => {
 
   const getInitial = () => user?.displayName?.[0] || user?.email?.[0] || 'U';
 
+  const role = (profile?.role || 'student').toLowerCase().trim();
+  const showStudio = role === 'organizer' || role === 'admin';
+  const showAdmin = role === 'admin';
+
   const menuItems = [
     { icon: User, label: 'Profile', onClick: () => { setIsOpen(false); navigate('/profile'); } },
     { icon: Calendar, label: 'My Events', onClick: () => { setIsOpen(false); navigate('/my-events'); } },
-    { icon: Sliders, label: 'Organizer Studio', onClick: () => { setIsOpen(false); navigate('/organizer'); } },
+    ...(showStudio ? [
+      { icon: Sliders, label: 'Organizer Studio', onClick: () => { setIsOpen(false); navigate('/organizer'); } }
+    ] : []),
+    ...(showAdmin ? [
+      { icon: Shield, label: 'Admin Console', onClick: () => { setIsOpen(false); navigate('/admin'); } }
+    ] : []),
     { icon: Settings, label: 'Settings', onClick: () => { setIsOpen(false); navigate('/settings'); } },
   ];
 

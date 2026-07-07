@@ -4,7 +4,7 @@ import { AxisMarker } from "../../../components/layout/AxisMarker";
 import { Button } from "../../../components/ui/Button";
 import { EditorialImage } from "../../../components/ui/EditorialImage";
 import { RevealSection, RevealItem } from "../../../components/ui/RevealSection";
-
+import { cn } from "../../../utils/cn";
 const formatDate = (dateStr) => {
   if (!dateStr) return "";
   try {
@@ -67,7 +67,10 @@ export const FeaturedEvent = ({ event, loading }) => {
     );
   }
 
+  const isLive = event.status?.toLowerCase() === "live";
   const isOpen = event.status?.toLowerCase() === "open";
+  const isClosed = event.status?.toLowerCase() === "closed";
+  const isCompleted = event.status?.toLowerCase() === "completed";
 
   return (
     <section className="w-full flex flex-col mb-32 pt-24">
@@ -100,6 +103,13 @@ export const FeaturedEvent = ({ event, loading }) => {
               aspectRatio="aspect-[21/9]"
               grayscale={true}
             />
+            {/* Live Now overlay badge */}
+            {isLive && (
+              <div className="absolute top-4 right-4 z-40 bg-red-600 border border-red-500 px-3 py-1 text-micro text-white tracking-widest font-technical uppercase flex items-center gap-1.5 animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-none bg-white animate-ping" />
+                Live Now
+              </div>
+            )}
             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-700 bg-background/20 backdrop-blur-sm ease-[cubic-bezier(0.16,1,0.3,1)] z-30">
               <Button 
                 variant="primary" 
@@ -137,8 +147,18 @@ export const FeaturedEvent = ({ event, loading }) => {
               </div>
               <div className="flex justify-between items-center text-micro">
                 <span>Status</span>
-                <span className={`font-medium text-[0.75rem] tracking-normal ${isOpen ? "text-accent" : "text-white/30"}`}>
-                  {isOpen ? "Open" : "Closed"}
+                <span className={cn(
+                  "font-medium text-[0.75rem] tracking-normal flex items-center gap-1.5",
+                  isLive ? "text-red-500 animate-pulse font-semibold" :
+                  isOpen ? "text-green-400" :
+                  isClosed ? "text-orange-400" :
+                  isCompleted ? "text-white/40" : "text-white/30"
+                )}>
+                  {isLive && <span className="w-1.5 h-1.5 rounded-none bg-red-500 animate-pulse" />}
+                  {isLive ? "LIVE NOW" :
+                   isOpen ? "Open" :
+                   isClosed ? "Closed" :
+                   isCompleted ? "Completed" : event.status}
                 </span>
               </div>
             </div>

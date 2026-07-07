@@ -17,11 +17,17 @@ export const initLenis = () => {
 
   lenis.on("scroll", ScrollTrigger.update);
 
-  gsap.ticker.add((time) => {
+  const tickerFn = (time) => {
     lenis.raf(time * 1000);
-  });
+  };
 
+  gsap.ticker.add(tickerFn);
   gsap.ticker.lagSmoothing(0);
+
+  lenis.cleanup = () => {
+    gsap.ticker.remove(tickerFn);
+    lenis.destroy();
+  };
 
   return lenis;
 };

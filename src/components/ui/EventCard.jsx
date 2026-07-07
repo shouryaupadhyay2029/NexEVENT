@@ -19,6 +19,29 @@ export const EventCard = ({ event, index, className }) => {
 
 
 
+  const resolveCountdown = (eVal) => {
+    const status = (eVal.status || 'open').toLowerCase();
+    if (status === 'draft') return 'Draft';
+    if (status === 'archived') return 'Archived';
+    if (status === 'completed') return 'Completed';
+    if (status === 'live') return 'LIVE NOW';
+
+    if (eVal.date) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const eventDate = new Date(eVal.date);
+      eventDate.setHours(0, 0, 0, 0);
+      
+      const diffTime = eventDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 0) return 'Starts Today';
+      if (diffDays === 1) return 'Starts Tomorrow';
+      if (diffDays > 1) return `Starts In ${diffDays} Days`;
+    }
+    return 'Upcoming';
+  };
+
   return (
     <div
       ref={ref}
@@ -26,7 +49,11 @@ export const EventCard = ({ event, index, className }) => {
       onClick={() => navigate(`/events/${event.id}`)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={cn('flex flex-col group cursor-pointer relative', className)}
+      className={cn(
+        'flex flex-col group cursor-pointer relative',
+        event.status?.toLowerCase() === 'completed' ? 'opacity-35 hover:opacity-70 transition-opacity duration-500' : '',
+        className
+      )}
     >
       {/* Image */}
       <div className="w-full relative mb-8">
@@ -67,9 +94,16 @@ export const EventCard = ({ event, index, className }) => {
           </span>
           <span className="w-4 h-[1px] bg-border" />
           <div className="flex items-center gap-2">
-            {event.status?.toLowerCase() === "open" && <span className="w-1 h-1 rounded-none bg-accent animate-pulse" />}
-            <span className={event.status?.toLowerCase() === "open" ? "text-micro text-primary" : "text-micro text-muted"}>
-              {event.status?.toLowerCase() === "open" ? "Open" : "Closed"}
+            {event.status?.toLowerCase() === "live" && <span className="w-1 h-1 rounded-none bg-red-500 animate-pulse" />}
+            <span className={cn(
+              "text-micro font-technical uppercase tracking-wider",
+              event.status?.toLowerCase() === "live" ? "text-red-400" :
+              event.status?.toLowerCase() === "open" ? "text-green-400" :
+              event.status?.toLowerCase() === "closed" ? "text-orange-400" :
+              event.status?.toLowerCase() === "completed" ? "text-white/40" :
+              "text-white/30"
+            )}>
+              {resolveCountdown(event)}
             </span>
           </div>
         </div>

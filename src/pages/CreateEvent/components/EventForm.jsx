@@ -49,7 +49,6 @@ export const EventForm = () => {
     if (!formData.time) newErrors.time = "Event time is required";
     if (!formData.capacity) newErrors.capacity = "Capacity is required";
     if (!formData.registrationDeadline) newErrors.registrationDeadline = "Registration deadline is required";
-    if (!formData.status) newErrors.status = "Status is required";
 
     // Numerical checks
     if (formData.capacity && Number(formData.capacity) <= 0) {
@@ -71,8 +70,8 @@ export const EventForm = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e, submitStatus) => {
+    if (e) e.preventDefault();
     if (isImageUploading) {
       triggerToast('error', "Please wait until the image upload completes.");
       return;
@@ -85,9 +84,12 @@ export const EventForm = () => {
     setLoading(true);
     try {
       console.log("Submitting event creation request to Firestore...");
-      await createEvent(formData);
+      await createEvent({
+        ...formData,
+        status: submitStatus
+      });
       console.log("Event created successfully.");
-      triggerToast('success', "Event successfully published to campus archive.");
+      triggerToast('success', submitStatus === 'draft' ? "Event saved as Draft successfully." : "Event published successfully.");
       setFormData({
         title: '',
         description: '',
@@ -99,7 +101,7 @@ export const EventForm = () => {
         time: '',
         capacity: '',
         registrationDeadline: '',
-        status: 'open',
+        status: 'draft',
       });
       setErrors({});
     } catch (error) {
@@ -237,22 +239,26 @@ export const EventForm = () => {
         />
       </div>
 
-      {/* Row: Status */}
-      <StatusSelector
-        value={formData.status}
-        onChange={(status) => setFormData({ ...formData, status })}
-        error={errors.status}
-      />
-
       {/* Actions */}
-      <div className="pt-6 border-t border-white/5 flex justify-end">
+      <div className="pt-6 border-t border-white/5 flex justify-end gap-4">
         <Button
-          type="submit"
+          type="button"
+          variant="secondary"
           disabled={loading || isImageUploading}
+          onClick={(e) => handleSubmit(e, 'draft')}
           size="lg"
-          className="min-w-[180px]"
+          className="min-w-[140px]"
         >
-          {loading ? "Publishing..." : isImageUploading ? "Uploading..." : "Publish Event"}
+          Save Draft
+        </Button>
+        <Button
+          type="button"
+          disabled={loading || isImageUploading}
+          onClick={(e) => handleSubmit(e, 'open')}
+          size="lg"
+          className="min-w-[140px]"
+        >
+          {loading ? "Publishing..." : "Publish"}
         </Button>
       </div>
     </form>

@@ -4,6 +4,8 @@ import { auth } from "../firebase/config";
 import { logFirebaseError } from "../firebase/errorLogging";
 import { createNotification } from "./notificationService";
 
+import { resolveEventStatus } from "../utils/eventLifecycle";
+
 const COLLECTION_NAME = "events";
 
 /**
@@ -19,9 +21,35 @@ export const createEvent = async (eventData) => {
     path: newDocRef.path,
   });
 
+  const currentUser = auth.currentUser;
+  let userProfile = null;
+  if (currentUser) {
+    try {
+      const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+      if (userDoc.exists()) {
+        userProfile = userDoc.data();
+      }
+    } catch (e) {
+      console.error("Failed to fetch creator profile on event creation:", e);
+    }
+  }
+
+  // Ensure role permission check
+  const role = (userProfile?.role || "student").toLowerCase().trim();
+  if (role !== "organizer" && role !== "admin") {
+    throw new Error("403 Access Required: Only verified organizers or admins can publish events.");
+  }
+
+  const initialStatus = eventData.status || "draft";
+  const nowStr = new Date().toISOString();
+
   const defaultEvent = {
     id: newDocRef.id,
-    creatorId: auth.currentUser?.uid || "",
+    creatorId: currentUser?.uid || "",
+    creatorName: currentUser?.displayName || currentUser?.email || "Unknown Creator",
+    clubId: userProfile?.clubId || null,
+    clubName: userProfile?.clubName || null,
+    role: role,
     title: eventData.title || "",
     description: eventData.description || "",
     category: eventData.category || "",
@@ -33,9 +61,23 @@ export const createEvent = async (eventData) => {
     capacity: eventData.capacity ? Number(eventData.capacity) : 0,
     registeredCount: eventData.registeredCount || 0,
     registrationDeadline: eventData.registrationDeadline || "",
-    status: eventData.status || "open",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    
+    // Lifecycle Status Parameters
+    status: initialStatus,
+    publishedAt: initialStatus !== "draft" ? nowStr : null,
+    completedAt: null,
+    archivedAt: null,
+    lastStatusChange: nowStr,
+
+    // Analytics Preparation Fields
+    views: 0,
+    shares: 0,
+    registrations: 0,
+    checkIns: 0,
+    favorites: 0,
+
+    createdAt: nowStr,
+    updatedAt: nowStr,
   };
 
   try {
@@ -52,12 +94,15 @@ export const createEvent = async (eventData) => {
   }
 };
 
+
 export const getEvent = async (eventId) => {
   const docRef = doc(db, COLLECTION_NAME, eventId);
   try {
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
-      return docSnap.data();
+      const data = docSnap.data();
+      data.status = resolveEventStatus(data);
+      return data;
     }
   } catch (error) {
     logFirebaseError("[getEvent] Failed to fetch event.", error);
@@ -71,7 +116,9 @@ export const getAllEvents = async () => {
     const querySnapshot = await getDocs(eventsCol);
     const events = [];
     querySnapshot.forEach((doc) => {
-      events.push(doc.data());
+      const data = doc.data();
+      data.status = resolveEventStatus(data);
+      events.push(data);
     });
     return events;
   } catch (error) {
@@ -80,7 +127,9 @@ export const getAllEvents = async () => {
       const querySnapshot = await getDocsFromCache(eventsCol);
       const events = [];
       querySnapshot.forEach((doc) => {
-        events.push(doc.data());
+        const data = doc.data();
+        data.status = resolveEventStatus(data);
+        events.push(data);
       });
       return events;
     } catch (cacheError) {
@@ -90,7 +139,40 @@ export const getAllEvents = async () => {
   }
 };
 
+const checkPermission = async (eventId) => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error("403 Access Required: User is not authenticated.");
+  }
+  
+  const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+  if (!userDoc.exists()) {
+    throw new Error("403 Access Required: User profile does not exist.");
+  }
+  const userProfile = userDoc.data();
+  const role = (userProfile?.role || "student").toLowerCase().trim();
+  
+  if (role === "admin") return true;
+  if (role !== "organizer") {
+    throw new Error("403 Access Required: Only verified organizers or admins are allowed to perform this operation.");
+  }
+  
+  if (eventId) {
+    const eventDoc = await getDoc(doc(db, COLLECTION_NAME, eventId));
+    if (!eventDoc.exists()) {
+      throw new Error("Event not found.");
+    }
+    const eventData = eventDoc.data();
+    if (eventData.creatorId !== currentUser.uid) {
+      throw new Error("403 Access Required: You do not own this event.");
+    }
+  }
+  
+  return true;
+};
+
 export const updateEvent = async (eventId, eventData) => {
+  await checkPermission(eventId);
   const docRef = doc(db, COLLECTION_NAME, eventId);
   const updateData = {
     updatedAt: new Date().toISOString(),
@@ -126,6 +208,7 @@ export const updateEvent = async (eventId, eventData) => {
 };
 
 export const deleteEvent = async (eventId) => {
+  await checkPermission(eventId);
   const docRef = doc(db, COLLECTION_NAME, eventId);
   try {
     await deleteDoc(docRef);
@@ -138,20 +221,17 @@ export const deleteEvent = async (eventId) => {
 
 /**
  * Subscribes to real-time events created/managed by a specific organizer.
- * Filters client-side to handle fallback on text organizer matches.
+ * Queries Firestore directly using creatorId to enforce strict UID ownership.
  */
-export const subscribeToOrganizerEvents = (userId, userDisplayName, onUpdate) => {
+export const subscribeToOrganizerEvents = (userId, onUpdate) => {
   const eventsCol = collection(db, COLLECTION_NAME);
-  return onSnapshot(eventsCol, (querySnapshot) => {
+  const q = query(eventsCol, where("creatorId", "==", userId));
+  return onSnapshot(q, (querySnapshot) => {
     const list = [];
     querySnapshot.forEach((doc) => {
       const data = doc.data();
-      if (
-        data.creatorId === userId || 
-        (data.organizer && data.organizer.toLowerCase() === (userDisplayName || '').toLowerCase())
-      ) {
-        list.push(data);
-      }
+      data.status = resolveEventStatus(data);
+      list.push(data);
     });
     onUpdate(list);
   }, (error) => {
@@ -159,22 +239,57 @@ export const subscribeToOrganizerEvents = (userId, userDisplayName, onUpdate) =>
   });
 };
 
-/**
- * Duplicates an existing event under the current user's creator ID.
- */
 export const duplicateEvent = async (event) => {
   const eventsCol = collection(db, COLLECTION_NAME);
   const newDocRef = doc(eventsCol);
+  const currentUser = auth.currentUser;
   
+  let userProfile = null;
+  if (currentUser) {
+    try {
+      const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+      if (userDoc.exists()) {
+        userProfile = userDoc.data();
+      }
+    } catch (e) {
+      console.error("Failed to fetch creator profile on event duplication:", e);
+    }
+  }
+
+  // Ensure role permission check
+  const role = (userProfile?.role || "student").toLowerCase().trim();
+  if (role !== "organizer" && role !== "admin") {
+    throw new Error("403 Access Required: Only verified organizers or admins can duplicate events.");
+  }
+
+  const nowStr = new Date().toISOString();
   const duplicated = {
     ...event,
     id: newDocRef.id,
-    creatorId: auth.currentUser?.uid || "",
+    creatorId: currentUser?.uid || "",
+    creatorName: currentUser?.displayName || currentUser?.email || "Unknown Creator",
+    clubId: userProfile?.clubId || null,
+    clubName: userProfile?.clubName || null,
+    role: role,
     title: `Copy of ${event.title}`,
     registeredCount: 0,
-    status: "open",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    
+    // Lifecycle Status Parameters
+    status: "draft",
+    publishedAt: null,
+    completedAt: null,
+    archivedAt: null,
+    lastStatusChange: nowStr,
+
+    // Analytics Preparation Fields
+    views: 0,
+    shares: 0,
+    registrations: 0,
+    checkIns: 0,
+    favorites: 0,
+
+    createdAt: nowStr,
+    updatedAt: nowStr
   };
 
   try {

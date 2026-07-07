@@ -15,8 +15,9 @@ import { Button } from '../../components/ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils/cn';
 import { 
-  Plus, Edit2, Copy, ToggleRight, Archive, Trash2, ExternalLink, 
-  Search, X, Calendar, MapPin, Users, Info, ChevronRight, CheckSquare, Square
+  Plus, Edit2, Copy, ToggleRight, Archive, Trash2, 
+  Search, X, Users, CheckSquare, Square,
+  BarChart2, Globe
 } from 'lucide-react';
 
 const CATEGORIES = [
@@ -29,6 +30,45 @@ const CATEGORIES = [
   "Networking",
   "Guest Lecture"
 ];
+
+const renderStatusBadge = (status) => {
+  const currentStatus = (status || 'draft').toLowerCase();
+  
+  let styles = "border-white/10 bg-white/5 text-white/40"; // fallback
+  let text = status;
+  
+  if (currentStatus === 'draft') {
+    styles = "border-white/10 bg-white/5 text-white/60";
+    text = "Draft";
+  } else if (currentStatus === 'published') {
+    styles = "border-blue-500/20 bg-blue-950/20 text-blue-400";
+    text = "Published";
+  } else if (currentStatus === 'open') {
+    styles = "border-green-500/20 bg-green-950/20 text-green-400";
+    text = "Registration Open";
+  } else if (currentStatus === 'closed') {
+    styles = "border-orange-500/20 bg-orange-950/20 text-orange-400";
+    text = "Registration Closed";
+  } else if (currentStatus === 'live') {
+    styles = "border-red-500/20 bg-red-950/20 text-red-400 animate-pulse";
+    text = "Live Now";
+  } else if (currentStatus === 'completed') {
+    styles = "border-white/20 bg-white/10 text-white";
+    text = "Completed";
+  } else if (currentStatus === 'archived') {
+    styles = "border-white/5 bg-[#141414]/30 text-white/25";
+    text = "Archived";
+  }
+
+  return (
+    <span className={cn(
+      "text-[0.48rem] font-technical uppercase tracking-wider px-2 py-0.5 border leading-tight",
+      styles
+    )}>
+      {text}
+    </span>
+  );
+};
 
 const EASE = [0.16, 1, 0.3, 1];
 
@@ -63,7 +103,7 @@ const CountingNumber = ({ value }) => {
 };
 
 export const OrganizerStudio = () => {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   // State
@@ -100,14 +140,13 @@ export const OrganizerStudio = () => {
     setLoading(true);
     const unsubscribe = subscribeToOrganizerEvents(
       user.uid,
-      profile?.displayName || user?.displayName || '',
       (list) => {
         setEvents(list);
         setLoading(false);
       }
     );
     return () => unsubscribe();
-  }, [user, profile]);
+  }, [user]);
 
   const triggerToast = (type, message) => {
     setToast({ type, message });
@@ -118,12 +157,15 @@ export const OrganizerStudio = () => {
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
   const stats = useMemo(() => {
     const total = events.length;
-    const open = events.filter(e => e.status?.toLowerCase() === 'open').length;
+    const drafts = events.filter(e => e.status === 'draft').length;
+    const published = events.filter(e => e.status === 'open' || e.status === 'closed' || e.status === 'published').length;
+    const live = events.filter(e => e.status === 'live').length;
+    const completed = events.filter(e => e.status === 'completed').length;
+    const archived = events.filter(e => e.status === 'archived').length;
     const totalRegs = events.reduce((acc, curr) => acc + (parseInt(curr.registeredCount) || 0), 0);
-    const upcoming = events.filter(e => e.date && e.date >= todayStr).length;
 
-    return { total, open, totalRegs, upcoming };
-  }, [events, todayStr]);
+    return { total, drafts, published, live, completed, archived, totalRegs };
+  }, [events]);
 
   // Bulk selectors
   const handleSelectRow = (id, e) => {
@@ -178,6 +220,7 @@ export const OrganizerStudio = () => {
       triggerToast('success', "Event successfully updated.");
       setEditingEvent(null);
     } catch (err) {
+      console.error("[Organizer] Failed to update event:", err);
       setFormError("Failed to update event document.");
     } finally {
       setFormSaving(false);
@@ -190,17 +233,46 @@ export const OrganizerStudio = () => {
       await duplicateEvent(event);
       triggerToast('success', "Event duplicated successfully.");
     } catch (err) {
+      console.error("[Organizer] Failed to duplicate event:", err);
       triggerToast('error', "Failed to duplicate event.");
     }
+  };
+
+  const handlePublish = async (event, e) => {
+    if (e) e.stopPropagation();
+    try {
+      await updateEvent(event.id, { 
+        status: 'open',
+        publishedAt: new Date().toISOString(),
+        lastStatusChange: new Date().toISOString()
+      });
+      triggerToast('success', "Event successfully published to public discovery.");
+    } catch (err) {
+      console.error("[Organizer] Failed to publish event:", err);
+      triggerToast('error', "Failed to publish event.");
+    }
+  };
+
+  const handleViewAnalytics = (event, e) => {
+    if (e) e.stopPropagation();
+    const views = event.views || 0;
+    const shares = event.shares || 0;
+    const registrations = event.registeredCount || 0;
+    const checkIns = event.checkIns || 0;
+    triggerToast('success', `Analytics Registry // Views: ${views} | Shares: ${shares} | Bookings: ${registrations} | Check-ins: ${checkIns}`);
   };
 
   const handleToggleClose = async (event, e) => {
     if (e) e.stopPropagation();
     const nextStatus = event.status?.toLowerCase() === 'closed' ? 'open' : 'closed';
     try {
-      await updateEvent(event.id, { status: nextStatus });
+      await updateEvent(event.id, { 
+        status: nextStatus,
+        lastStatusChange: new Date().toISOString()
+      });
       triggerToast('success', `Event registration status updated to ${nextStatus}.`);
     } catch (err) {
+      console.error("[Organizer] Failed to toggle event closure:", err);
       triggerToast('error', "Failed to toggle status.");
     }
   };
@@ -208,9 +280,14 @@ export const OrganizerStudio = () => {
   const handleArchive = async (event, e) => {
     if (e) e.stopPropagation();
     try {
-      await updateEvent(event.id, { status: 'archived' });
+      await updateEvent(event.id, { 
+        status: 'archived',
+        archivedAt: new Date().toISOString(),
+        lastStatusChange: new Date().toISOString()
+      });
       triggerToast('success', "Event moved to archives.");
     } catch (err) {
+      console.error("[Organizer] Failed to archive event:", err);
       triggerToast('error', "Failed to archive event.");
     }
   };
@@ -227,6 +304,7 @@ export const OrganizerStudio = () => {
         return next;
       });
     } catch (err) {
+      console.error("[Organizer] Failed to delete event:", err);
       triggerToast('error', "Failed to delete event.");
     }
   };
@@ -239,6 +317,7 @@ export const OrganizerStudio = () => {
       triggerToast('success', "Selected events deleted.");
       setSelectedIds(new Set());
     } catch (err) {
+      console.error("[Organizer] Failed to bulk delete events:", err);
       triggerToast('error', "Failed to complete bulk delete operations.");
     }
   };
@@ -249,6 +328,7 @@ export const OrganizerStudio = () => {
       triggerToast('success', "Selected events archived.");
       setSelectedIds(new Set());
     } catch (err) {
+      console.error("[Organizer] Failed to bulk archive events:", err);
       triggerToast('error', "Failed to archive selected events.");
     }
   };
@@ -259,6 +339,7 @@ export const OrganizerStudio = () => {
       triggerToast('success', "Selected event registrations closed.");
       setSelectedIds(new Set());
     } catch (err) {
+      console.error("[Organizer] Failed to bulk close event registrations:", err);
       triggerToast('error', "Failed to close selected events.");
     }
   };
@@ -284,12 +365,15 @@ export const OrganizerStudio = () => {
 
     // Status
     if (selectedStatus !== 'All') {
-      list = list.filter(e => (e.status || '').toLowerCase() === selectedStatus.toLowerCase());
+      if (selectedStatus === 'published') {
+        list = list.filter(e => e.status === 'open' || e.status === 'closed' || e.status === 'published');
+      } else {
+        list = list.filter(e => (e.status || '').toLowerCase() === selectedStatus.toLowerCase());
+      }
     }
 
     // Date/Timeline
     if (selectedDate !== 'All') {
-      const today = new Date();
       list = list.filter(e => {
         if (!e.date) return false;
         if (selectedDate === 'Upcoming') {
@@ -340,30 +424,80 @@ export const OrganizerStudio = () => {
             </Button>
           </div>
 
-          {/* METADATA STATISTICS ROW */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 py-8 border-y border-white/5 text-left font-ui">
-            <div className="flex flex-col gap-1.5">
-              <span className="text-micro text-white/30 uppercase tracking-widest">Total Events</span>
-              <span className="text-display-md font-light text-primary">
-                <CountingNumber value={stats.total} />
+          {/* METADATA STATISTICS ROW (Interactive sections with individual counts) */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6 py-6 border-y border-white/5 text-left font-ui select-none">
+            {/* Drafts */}
+            <div 
+              onClick={() => setSelectedStatus(selectedStatus === 'draft' ? 'All' : 'draft')}
+              className={cn(
+                "group flex flex-col gap-1.5 p-4 border border-white/5 bg-[#141414]/10 hover:bg-[#141414]/30 cursor-pointer transition-all duration-300 relative",
+                selectedStatus === 'draft' ? "border-accent/40 bg-accent/5" : ""
+              )}
+            >
+              {selectedStatus === 'draft' && <div className="absolute top-0 left-0 right-0 h-[2px] bg-accent" />}
+              <span className="text-micro text-white/30 uppercase tracking-widest group-hover:text-white/50 transition-colors">Drafts</span>
+              <span className="text-display-md font-light text-primary group-hover:text-white transition-colors">
+                <CountingNumber value={stats.drafts} />
               </span>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-micro text-white/30 uppercase tracking-widest">Open Entries</span>
-              <span className="text-display-md font-light text-primary">
-                <CountingNumber value={stats.open} />
+            
+            {/* Published */}
+            <div 
+              onClick={() => setSelectedStatus(selectedStatus === 'published' ? 'All' : 'published')}
+              className={cn(
+                "group flex flex-col gap-1.5 p-4 border border-white/5 bg-[#141414]/10 hover:bg-[#141414]/30 cursor-pointer transition-all duration-300 relative",
+                selectedStatus === 'published' ? "border-accent/40 bg-accent/5" : ""
+              )}
+            >
+              {selectedStatus === 'published' && <div className="absolute top-0 left-0 right-0 h-[2px] bg-accent" />}
+              <span className="text-micro text-white/30 uppercase tracking-widest group-hover:text-white/50 transition-colors">Published</span>
+              <span className="text-display-md font-light text-primary group-hover:text-white transition-colors">
+                <CountingNumber value={stats.published} />
               </span>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-micro text-white/30 uppercase tracking-widest">Registrations</span>
-              <span className="text-display-md font-light text-primary">
-                <CountingNumber value={stats.totalRegs} />
+
+            {/* Live */}
+            <div 
+              onClick={() => setSelectedStatus(selectedStatus === 'live' ? 'All' : 'live')}
+              className={cn(
+                "group flex flex-col gap-1.5 p-4 border border-white/5 bg-[#141414]/10 hover:bg-[#141414]/30 cursor-pointer transition-all duration-300 relative",
+                selectedStatus === 'live' ? "border-accent/40 bg-accent/5" : ""
+              )}
+            >
+              {selectedStatus === 'live' && <div className="absolute top-0 left-0 right-0 h-[2px] bg-accent" />}
+              <span className="text-micro text-white/30 uppercase tracking-widest group-hover:text-white/50 transition-colors text-red-400">Live</span>
+              <span className="text-display-md font-light text-primary group-hover:text-white transition-colors">
+                <CountingNumber value={stats.live} />
               </span>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-micro text-white/30 uppercase tracking-widest">Upcoming Logs</span>
-              <span className="text-display-md font-light text-primary">
-                <CountingNumber value={stats.upcoming} />
+
+            {/* Completed */}
+            <div 
+              onClick={() => setSelectedStatus(selectedStatus === 'completed' ? 'All' : 'completed')}
+              className={cn(
+                "group flex flex-col gap-1.5 p-4 border border-white/5 bg-[#141414]/10 hover:bg-[#141414]/30 cursor-pointer transition-all duration-300 relative",
+                selectedStatus === 'completed' ? "border-accent/40 bg-accent/5" : ""
+              )}
+            >
+              {selectedStatus === 'completed' && <div className="absolute top-0 left-0 right-0 h-[2px] bg-accent" />}
+              <span className="text-micro text-white/30 uppercase tracking-widest group-hover:text-white/50 transition-colors">Completed</span>
+              <span className="text-display-md font-light text-primary group-hover:text-white transition-colors">
+                <CountingNumber value={stats.completed} />
+              </span>
+            </div>
+
+            {/* Archived */}
+            <div 
+              onClick={() => setSelectedStatus(selectedStatus === 'archived' ? 'All' : 'archived')}
+              className={cn(
+                "group flex flex-col gap-1.5 p-4 border border-white/5 bg-[#141414]/10 hover:bg-[#141414]/30 cursor-pointer transition-all duration-300 relative",
+                selectedStatus === 'archived' ? "border-accent/40 bg-accent/5" : ""
+              )}
+            >
+              {selectedStatus === 'archived' && <div className="absolute top-0 left-0 right-0 h-[2px] bg-accent" />}
+              <span className="text-micro text-white/30 uppercase tracking-widest group-hover:text-white/50 transition-colors">Archived</span>
+              <span className="text-display-md font-light text-primary group-hover:text-white transition-colors">
+                <CountingNumber value={stats.archived} />
               </span>
             </div>
           </div>
@@ -506,8 +640,6 @@ export const OrganizerStudio = () => {
                   const capacity = parseInt(event.capacity) || 0;
                   const currentReg = parseInt(event.registeredCount) || 0;
                   const seatsRemaining = Math.max(capacity - currentReg, 0);
-                  const isClosed = event.status?.toLowerCase() === 'closed' || seatsRemaining <= 0;
-                  const isArchived = event.status?.toLowerCase() === 'archived';
                   const isSelected = selectedIds.has(event.id);
                   
                   // Fill % analytics
@@ -555,16 +687,7 @@ export const OrganizerStudio = () => {
                             <span className="text-[0.6rem] text-accent font-technical uppercase tracking-wider">
                               {event.category || "General"}
                             </span>
-                            <span className={cn(
-                              "text-[0.48rem] font-technical uppercase tracking-wider px-1.5 border leading-tight",
-                              isClosed 
-                                ? "border-red-500/20 bg-red-950/20 text-red-400" 
-                                : isArchived 
-                                  ? "border-white/15 bg-white/5 text-white/40"
-                                  : "border-green-500/20 bg-green-950/20 text-green-400"
-                            )}>
-                              {event.status || "open"}
-                            </span>
+                            {renderStatusBadge(event.status)}
                           </div>
                           <h3 className="text-body-m font-light text-primary group-hover:text-white truncate">
                             {event.title}
@@ -614,15 +737,32 @@ export const OrganizerStudio = () => {
                       </div>
 
                       {/* Right: Quick action toolbar */}
-                      <div className="flex items-center gap-2 mt-4 lg:mt-0 justify-end">
-                        <button
-                          type="button"
-                          onClick={(e) => handleEditOpen(event, e)}
-                          className="p-2 bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/25 text-white/70 hover:text-white transition-all rounded-none"
-                          title="Edit Event"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
+                      <div className="flex items-center gap-2 mt-4 lg:mt-0 justify-end" onClick={(e) => e.stopPropagation()}>
+                        {/* Publish (Only for Drafts) */}
+                        {event.status === 'draft' && (
+                          <button
+                            type="button"
+                            onClick={(e) => handlePublish(event, e)}
+                            className="p-2 bg-accent/15 border border-accent/20 hover:bg-accent/25 hover:border-accent/40 text-accent transition-all rounded-none"
+                            title="Publish Event"
+                          >
+                            <Globe className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+
+                        {/* Edit (Drafts, Published, Open, Closed) */}
+                        {event.status !== 'archived' && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleEditOpen(event, e)}
+                            className="p-2 bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/25 text-white/70 hover:text-white transition-all rounded-none"
+                            title="Edit Event"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+
+                        {/* Duplicate */}
                         <button
                           type="button"
                           onClick={(e) => handleDuplicate(event, e)}
@@ -631,23 +771,57 @@ export const OrganizerStudio = () => {
                         >
                           <Copy className="w-3.5 h-3.5" />
                         </button>
+
+                        {/* View Attendees */}
+                        {event.status !== 'draft' && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/organizer/events/${event.id}/attendees`);
+                            }}
+                            className="p-2 bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/25 text-white/70 hover:text-white transition-all rounded-none"
+                            title="Manage Attendees"
+                          >
+                            <Users className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+
+                        {/* Toggle Registration Close/Open (Only for active events) */}
+                        {(event.status === 'open' || event.status === 'closed') && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleToggleClose(event, e)}
+                            className="p-2 bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/25 text-white/70 hover:text-white transition-all rounded-none"
+                            title={event.status === 'closed' ? "Open Registration" : "Close Registration"}
+                          >
+                            <ToggleRight className={cn("w-3.5 h-3.5", event.status === 'closed' ? "text-red-400 rotate-180" : "text-green-400")} />
+                          </button>
+                        )}
+
+                        {/* Archive (Not for already archived events) */}
+                        {event.status !== 'archived' && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleArchive(event, e)}
+                            className="p-2 bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/25 text-white/70 hover:text-white transition-all rounded-none"
+                            title="Archive Event"
+                          >
+                            <Archive className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+
+                        {/* View Analytics */}
                         <button
                           type="button"
-                          onClick={(e) => handleToggleClose(event, e)}
+                          onClick={(e) => handleViewAnalytics(event, e)}
                           className="p-2 bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/25 text-white/70 hover:text-white transition-all rounded-none"
-                          title={isClosed ? "Open Registration" : "Close Registration"}
+                          title="View Event Analytics"
                         >
-                          <ToggleRight className={cn("w-3.5 h-3.5", isClosed ? "text-red-400 rotate-180" : "text-green-400")} />
+                          <BarChart2 className="w-3.5 h-3.5" />
                         </button>
-                        <button
-                          type="button"
-                          onClick={(e) => handleArchive(event, e)}
-                          className="p-2 bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/25 text-white/70 hover:text-white transition-all rounded-none"
-                          title="Archive Event"
-                          disabled={isArchived}
-                        >
-                          <Archive className="w-3.5 h-3.5" />
-                        </button>
+
+                        {/* Delete */}
                         <button
                           type="button"
                           onClick={(e) => handleDelete(event.id, e)}
@@ -824,7 +998,7 @@ export const OrganizerStudio = () => {
 
                     {/* Status */}
                     <div className="flex flex-col gap-2">
-                      <label className="text-micro text-primary">Status</label>
+                      <label className="text-micro text-primary">Status Override</label>
                       <select
                         value={editForm.status}
                         onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
@@ -832,8 +1006,9 @@ export const OrganizerStudio = () => {
                         required
                         disabled={formSaving}
                       >
-                        <option value="open">Open</option>
-                        <option value="closed">Closed</option>
+                        <option value="draft">Draft</option>
+                        <option value="open">Registration Open</option>
+                        <option value="closed">Registration Closed</option>
                         <option value="archived">Archived</option>
                       </select>
                     </div>

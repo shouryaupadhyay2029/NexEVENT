@@ -1,4 +1,4 @@
-import { collection, doc, query, where, getDocs, deleteDoc, getDoc, runTransaction } from "firebase/firestore";
+import { collection, doc, query, where, getDocs, getDoc, runTransaction, updateDoc, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase/firestore";
 import { logFirebaseError } from "../firebase/errorLogging";
 import { createNotification, logActivity } from "./notificationService";
@@ -35,7 +35,7 @@ export const registerForEvent = async (userId, eventId) => {
   const eventRef = doc(db, "events", eventId);
 
   try {
-    return await runTransaction(db, async (transaction) => {
+    const result = await runTransaction(db, async (transaction) => {
       // 1. Fetch event and registration document
       const eventSnap = await transaction.get(eventRef);
       const registrationSnap = await transaction.get(registrationRef);
@@ -64,11 +64,21 @@ export const registerForEvent = async (userId, eventId) => {
       }
 
       // 5. Build registration document
+      const year = new Date().getFullYear();
+      const randomDigits = Math.floor(100000 + Math.random() * 900000);
+      const regNo = `NEX-${year}-${randomDigits}`;
+
       const registrationData = {
         userId,
         eventId,
         registeredAt: new Date().toISOString(),
-        status: "confirmed"
+        status: "confirmed",
+        checkedIn: false,
+        checkedInAt: null,
+        checkedInBy: null,
+        attendanceStatus: "absent",
+        registrationNumber: regNo,
+        qrToken: `${userId}_${eventId}`
       };
 
       // 6. Write registration and update event count
@@ -121,10 +131,37 @@ export const registerForEvent = async (userId, eventId) => {
 
 export const cancelRegistration = async (registrationId) => {
   const docRef = doc(db, COLLECTION_NAME, registrationId);
+  const [userId, eventId] = registrationId.split('_');
+  const eventRef = doc(db, "events", eventId);
+
   try {
-    const [userId, eventId] = registrationId.split('_');
     const event = await getEvent(eventId);
-    await deleteDoc(docRef);
+    const result = await runTransaction(db, async (transaction) => {
+      const regSnap = await transaction.get(docRef);
+      if (!regSnap.exists()) return false;
+
+      const eventSnap = await transaction.get(eventRef);
+      if (eventSnap.exists()) {
+        const eventData = eventSnap.data();
+        const currentCount = parseInt(eventData.registeredCount) || 0;
+        const newCount = Math.max(currentCount - 1, 0);
+        
+        const updateData = {
+          registeredCount: newCount,
+          updatedAt: new Date().toISOString()
+        };
+        
+        // Reopen registrations if we fall below capacity limit
+        if (eventData.status === 'closed' && newCount < (parseInt(eventData.capacity) || 0)) {
+          updateData.status = 'open';
+        }
+        
+        transaction.update(eventRef, updateData);
+      }
+
+      transaction.delete(docRef);
+      return true;
+    });
 
     if (event) {
       logActivity(
@@ -135,11 +172,75 @@ export const cancelRegistration = async (registrationId) => {
     } else {
       logActivity(userId, `Cancelled Registration`, { eventId });
     }
-    return true;
+    return result;
   } catch (error) {
-    logFirebaseError("[cancelRegistration] Failed to cancel registration.", error);
+    logFirebaseError("[cancelRegistration] Failed to cancel registration transaction.", error);
     throw error;
   }
+};
+
+/**
+ * Checks in an attendee for a registration event.
+ */
+export const checkInAttendee = async (userId, eventId, actorId) => {
+  const registrationId = `${userId}_${eventId}`;
+  const regRef = doc(db, COLLECTION_NAME, registrationId);
+  try {
+    const fields = {
+      checkedIn: true,
+      checkedInAt: new Date().toISOString(),
+      checkedInBy: actorId,
+      attendanceStatus: "present"
+    };
+    await updateDoc(regRef, fields);
+    return true;
+  } catch (error) {
+    logFirebaseError("[checkInAttendee] Failed to check in attendee.", error);
+    throw error;
+  }
+};
+
+/**
+ * Subscribes to real-time registrations for a specific event, resolving profiles in parallel.
+ */
+export const subscribeToEventRegistrations = (eventId, onUpdate) => {
+  const registrationsCol = collection(db, COLLECTION_NAME);
+  const q = query(registrationsCol, where("eventId", "==", eventId));
+  return onSnapshot(q, async (querySnapshot) => {
+    const list = [];
+    querySnapshot.forEach((docSnap) => {
+      list.push(docSnap.data());
+    });
+
+    const resolved = await Promise.all(list.map(async (reg) => {
+      try {
+        const uDoc = await getDoc(doc(db, "users", reg.userId));
+        const uData = uDoc.exists() ? uDoc.data() : {};
+        return {
+          ...reg,
+          studentName: uData.displayName || "Unknown Student",
+          email: uData.email || "",
+          college: uData.college || "N/A",
+          branch: uData.department || uData.branch || "N/A",
+          avatar: uData.avatar || ""
+        };
+      } catch (e) {
+        logFirebaseError("[subscribeToEventRegistrations] User profile fetch failed", e);
+        return {
+          ...reg,
+          studentName: "Unknown Student",
+          email: "",
+          college: "N/A",
+          branch: "N/A",
+          avatar: ""
+        };
+      }
+    }));
+
+    onUpdate(resolved);
+  }, (error) => {
+    logFirebaseError("[subscribeToEventRegistrations] Error in registration stream.", error);
+  });
 };
 
 export const getUserRegistrations = async (userId) => {
