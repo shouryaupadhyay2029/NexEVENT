@@ -29,7 +29,7 @@ const verifyAdminAccess = async () => {
 export const writeAuditLog = async (action, actorId, details = {}) => {
   const logsCol = collection(db, LOGS_COLLECTION);
   const newLogRef = doc(logsCol);
-  
+
   const logData = {
     logId: newLogRef.id,
     action,
@@ -51,30 +51,75 @@ export const writeAuditLog = async (action, actorId, details = {}) => {
  * Club CRUD Operations
  */
 export const createClub = async (clubData) => {
-  const adminUid = await verifyAdminAccess();
-  const clubsCol = collection(db, CLUBS_COLLECTION);
-  const newDocRef = doc(clubsCol);
-
-  const club = {
-    clubId: newDocRef.id,
-    name: clubData.name || "",
-    shortName: clubData.shortName || "",
-    description: clubData.description || "",
-    logo: clubData.logo || "",
-    college: clubData.college || "",
-    department: clubData.department || "",
-    facultyCoordinator: clubData.facultyCoordinator || "",
-    status: clubData.status || "active",
-    createdAt: new Date().toISOString(),
-    createdBy: adminUid
-  };
+  console.log("[createClub] Starting club registration.");
+  let adminUid = null;
+  let newDocRef = null;
+  let club = null;
+  let clubWriteSucceeded = false;
 
   try {
+    console.log("[createClub] Verifying admin access...");
+    adminUid = await verifyAdminAccess();
+    console.log("[createClub] verifyAdminAccess passed.", {
+      adminUid,
+      returnedTrue: adminUid === true,
+      returnedTruthy: !!adminUid,
+    });
+
+    const clubsCol = collection(db, CLUBS_COLLECTION);
+    newDocRef = doc(clubsCol);
+
+    club = {
+      clubId: newDocRef.id,
+      name: clubData.name || "",
+      shortName: clubData.shortName || "",
+      description: clubData.description || "",
+      logo: clubData.logo || "",
+      college: clubData.college || "",
+      department: clubData.department || "",
+      facultyCoordinator: clubData.facultyCoordinator || "",
+      status: clubData.status || "active",
+      createdAt: new Date().toISOString(),
+      createdBy: adminUid
+    };
+
+    console.log("[createClub] Full club payload prepared for Firestore.", {
+      path: newDocRef.path,
+      payload: club,
+    });
+
+    console.log("[createClub] Writing club document to Firestore...");
     await setDoc(newDocRef, club);
+    clubWriteSucceeded = true;
+    console.log("[createClub] Club document write succeeded.", {
+      path: newDocRef.path,
+      clubId: club.clubId,
+    });
+
+    console.log("[createClub] Writing admin audit log...");
     await writeAuditLog("Club Created", adminUid, { clubId: club.clubId, clubName: club.name });
+    console.log("[createClub] Post-Firestore audit step completed.");
+
     return club;
   } catch (error) {
-    logFirebaseError("[createClub] Failed to write club document.", error);
+    console.error("[createClub] Club registration failed.", {
+      phase: !adminUid
+        ? "before Firestore club write: verifyAdminAccess"
+        : club
+          ? clubWriteSucceeded
+            ? "after Firestore club write"
+            : "during Firestore club write: setDoc"
+          : "before Firestore club write: payload preparation",
+      adminUid,
+      clubWriteSucceeded,
+      docPath: newDocRef?.path || null,
+      payload: club,
+      code: error?.code,
+      message: error?.message,
+      stack: error?.stack,
+      error,
+    });
+    logFirebaseError("[createClub] Failed to register club.", error);
     throw error;
   }
 };
@@ -156,29 +201,29 @@ export const updateUserRole = async (targetUid, newRole, updates = {}) => {
   try {
     const uDoc = await getDoc(userRef);
     const prevData = uDoc.exists() ? uDoc.data() : {};
-    
+
     const fields = {
       role: newRole,
       updatedAt: new Date().toISOString(),
       ...updates
     };
-    
+
     await updateDoc(userRef, fields);
-    
-    await writeAuditLog("Role Changed", adminUid, { 
-      targetUid, 
+
+    await writeAuditLog("Role Changed", adminUid, {
+      targetUid,
       targetEmail: prevData.email || "",
-      previousRole: prevData.role || "student", 
-      newRole 
+      previousRole: prevData.role || "student",
+      newRole
     });
-    
+
     if (newRole === "student" && prevData.role === "organizer") {
-      await writeAuditLog("Organizer Removed", adminUid, { 
-        targetUid, 
+      await writeAuditLog("Organizer Removed", adminUid, {
+        targetUid,
         targetEmail: prevData.email || ""
       });
     }
-    
+
     return true;
   } catch (error) {
     logFirebaseError("[updateUserRole] Failed to modify role.", error);
@@ -195,17 +240,17 @@ export const updateUserSuspension = async (targetUid, suspended) => {
   try {
     const uDoc = await getDoc(userRef);
     const prevData = uDoc.exists() ? uDoc.data() : {};
-    
-    await updateDoc(userRef, { 
+
+    await updateDoc(userRef, {
       suspended: !!suspended,
       updatedAt: new Date().toISOString()
     });
-    
-    await writeAuditLog(suspended ? "User Suspended" : "User Unsuspended", adminUid, { 
-      targetUid, 
+
+    await writeAuditLog(suspended ? "User Suspended" : "User Unsuspended", adminUid, {
+      targetUid,
       targetEmail: prevData.email || ""
     });
-    
+
     return true;
   } catch (error) {
     logFirebaseError("[updateUserSuspension] Failed to update user suspension status.", error);
