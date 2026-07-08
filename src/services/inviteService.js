@@ -107,71 +107,100 @@ export const redeemInviteToken = async (tokenString, userId) => {
   const invitesCol = collection(db, COLLECTION_NAME);
   const q = query(invitesCol, where("token", "==", tokenString));
 
+  console.log("[redeemInviteToken] Initiating token verification query.", {
+    path: `collection(${COLLECTION_NAME}) where token == ${tokenString}`,
+    authenticatedUid: userId,
+    operation: "getDocs"
+  });
+
   try {
     const snap = await getDocs(q);
+    console.log("[redeemInviteToken] Token verification query complete.", {
+      empty: snap.empty,
+      size: snap.size
+    });
+
     if (snap.empty) {
       throw new Error("Invalid Token: The provided token does not exist in our registry.");
     }
 
     const inviteDocSnap = snap.docs[0];
-    const inviteData = inviteDocSnap.data();
-    const inviteRef = doc(db, COLLECTION_NAME, inviteData.inviteId);
+    const currentInvite = inviteDocSnap.data();
+    const inviteRef = doc(db, COLLECTION_NAME, currentInvite.inviteId);
     const userRef = doc(db, "users", userId);
 
-    return await runTransaction(db, async (transaction) => {
-      const uDoc = await transaction.get(userRef);
-      const iDoc = await transaction.get(inviteRef);
+    // 1. Fetch user doc to check role
+    console.log("[redeemInviteToken] Fetching user profile document...", { path: userRef.path });
+    const uDoc = await getDoc(userRef);
+    if (!uDoc.exists()) {
+      throw new Error("User record not found.");
+    }
+    const userData = uDoc.data();
+    const userRole = (userData.role || "student").toLowerCase().trim();
 
-      if (!uDoc.exists()) {
-        throw new Error("User record not found.");
-      }
+    if (userRole === "admin") {
+      throw new Error("Already Organizer: Admin accounts bypass organizer restrictions.");
+    }
+    if (userRole === "organizer") {
+      throw new Error("Already Organizer: This account is already verified as an organizer.");
+    }
 
-      const userData = uDoc.data();
-      const currentInvite = iDoc.data();
+    // Check token expiration
+    const expiry = new Date(currentInvite.expiresAt);
+    if (expiry < new Date()) {
+      throw new Error("Expired Token: This invitation token has expired.");
+    }
 
-      const userRole = (userData.role || "student").toLowerCase().trim();
-
-      // Check current user status
-      if (userRole === "admin") {
-        throw new Error("Already Organizer: Admin accounts bypass organizer restrictions.");
-      }
-      if (userRole === "organizer") {
-        throw new Error("Already Organizer: This account is already verified as an organizer.");
-      }
-
-      // Check token status
-      if (currentInvite.used) {
+    // 2. Determine Step 1 action based on token status
+    if (currentInvite.used) {
+      if (currentInvite.usedBy !== userId) {
         throw new Error("Already Used: This invitation token has already been redeemed.");
       }
-
-      // Check token expiration
-      const expiry = new Date(currentInvite.expiresAt);
-      if (expiry < new Date()) {
-        throw new Error("Expired Token: This invitation token has expired.");
-      }
-
-      // Perform transaction updates
-      transaction.update(userRef, {
-        role: currentInvite.role || "organizer",
-        verified: true,
-        clubId: currentInvite.clubId,
-        clubName: currentInvite.clubName,
-        updatedAt: new Date().toISOString()
-      });
-
-      transaction.update(inviteRef, {
+      console.log("[redeemInviteToken] Token already claimed by this user in a previous attempt. Skipping Step 1, proceeding to Step 2 profile upgrade.");
+    } else {
+      // Step 1: Claim the invite
+      const inviteUpdatePayload = {
         used: true,
         usedBy: userId,
         usedAt: new Date().toISOString()
-      });
-
-      return {
-        success: true,
-        clubName: currentInvite.clubName,
-        role: currentInvite.role || "organizer"
       };
+      console.log("[redeemInviteToken] [Step 1] Claiming invitation token...", {
+        path: inviteRef.path,
+        payload: inviteUpdatePayload
+      });
+      await updateDoc(inviteRef, inviteUpdatePayload);
+      console.log("[redeemInviteToken] [Step 1] Invitation token claimed successfully.");
+    }
+
+    // Step 2: Upgrade user profile
+    const userUpdatePayload = {
+      role: currentInvite.role || "organizer",
+      verified: true,
+      clubId: currentInvite.clubId,
+      clubName: currentInvite.clubName,
+      appliedInviteId: currentInvite.inviteId,
+      updatedAt: new Date().toISOString()
+    };
+
+    console.log("[redeemInviteToken] [Step 2] Upgrading user profile to Organizer...", {
+      path: userRef.path,
+      payload: userUpdatePayload
     });
+    await updateDoc(userRef, userUpdatePayload);
+    console.log("[redeemInviteToken] [Step 2] User profile upgraded successfully.");
+
+    return {
+      success: true,
+      clubName: currentInvite.clubName,
+      role: currentInvite.role || "organizer"
+    };
   } catch (error) {
+    console.error("[redeemInviteToken] Failed to complete sequential invite redemption flow.", {
+      authenticatedUid: userId,
+      errorCode: error?.code || "N/A",
+      errorMessage: error?.message,
+      errorDetails: error
+    });
     logFirebaseError("[redeemInviteToken] Failed to redeem invitation token.", error);
     throw error;
   }

@@ -46,15 +46,31 @@ service cloud.firestore {
         request.resource.data.clubId == null &&
         request.resource.data.clubName == null;
 
-      // Admins can change any field; users can update their own details but cannot modify roles, verified state, or club mappings
+      // Admins can change any field; users can update their own details but cannot modify roles, verified state, or club mappings unless redeeming a valid activation token
       allow update: if isAuthenticated() && (
         isAdmin() || (
           request.auth.uid == userId &&
           request.resource.data.uid == resource.data.uid &&
-          request.resource.data.role == resource.data.role &&
-          request.resource.data.verified == resource.data.verified &&
-          request.resource.data.clubId == resource.data.clubId &&
-          request.resource.data.clubName == resource.data.clubName
+          (
+            // Scenario A: Standard profile updates (role, verified status, and club details must remain unchanged)
+            (
+              request.resource.data.role == resource.data.role &&
+              request.resource.data.verified == resource.data.verified &&
+              request.resource.data.clubId == resource.data.clubId &&
+              request.resource.data.clubName == resource.data.clubName
+            ) ||
+            // Scenario B: User redeeming an organizer invitation token
+            (
+              request.resource.data.role == 'organizer' &&
+              request.resource.data.verified == true &&
+              request.resource.data.appliedInviteId != null &&
+              exists(/databases/$(database)/documents/organizerInvites/$(request.resource.data.appliedInviteId)) &&
+              get(/databases/$(database)/documents/organizerInvites/$(request.resource.data.appliedInviteId)).data.usedBy == request.auth.uid &&
+              get(/databases/$(database)/documents/organizerInvites/$(request.resource.data.appliedInviteId)).data.used == true &&
+              get(/databases/$(database)/documents/organizerInvites/$(request.resource.data.appliedInviteId)).data.clubId == request.resource.data.clubId &&
+              get(/databases/$(database)/documents/organizerInvites/$(request.resource.data.appliedInviteId)).data.clubName == request.resource.data.clubName
+            )
+          )
         )
       );
 
