@@ -18,12 +18,18 @@ service cloud.firestore {
 
     // Checks if the user is a verified administrator
     function isAdmin() {
-      return isAuthenticated() && getUserProfile().role.lower() == 'admin';
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        getUserProfile().role != null &&
+        getUserProfile().role.matches('(?i)^\\s*admin\\s*$');
     }
 
     // Checks if the user is a verified organizer
     function isOrganizer() {
-      return isAuthenticated() && getUserProfile().role.lower() == 'organizer';
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        getUserProfile().role != null &&
+        getUserProfile().role.matches('(?i)^\\s*organizer\\s*$');
     }
 
     // ==========================================
@@ -133,8 +139,8 @@ service cloud.firestore {
       // Anyone can discover/read academic club registries
       allow read: if true;
       
-      // Only administrators can manage clubs (Temporarily set to true for rules evaluation verification)
-      allow write: if true;
+      // Only administrators can manage clubs
+      allow write: if isAdmin();
     }
 
     // ==========================================

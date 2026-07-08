@@ -3,8 +3,8 @@ import { db } from "../firebase/firestore";
 import { auth } from "../firebase/config";
 import { logFirebaseError } from "../firebase/errorLogging";
 import { createNotification } from "./notificationService";
-
 import { resolveEventStatus } from "../utils/eventLifecycle";
+import { verifyUserPermission } from "./permissionService";
 
 const COLLECTION_NAME = "events";
 
@@ -21,24 +21,8 @@ export const createEvent = async (eventData) => {
     path: newDocRef.path,
   });
 
-  const currentUser = auth.currentUser;
-  let userProfile = null;
-  if (currentUser) {
-    try {
-      const userDoc = await getDoc(doc(db, "users", currentUser.uid));
-      if (userDoc.exists()) {
-        userProfile = userDoc.data();
-      }
-    } catch (e) {
-      console.error("Failed to fetch creator profile on event creation:", e);
-    }
-  }
-
-  // Ensure role permission check
-  const role = (userProfile?.role || "student").toLowerCase().trim();
-  if (role !== "organizer" && role !== "admin") {
-    throw new Error("403 Access Required: Only verified organizers or admins can publish events.");
-  }
+  const { uid, profile: userProfile } = await verifyUserPermission(["organizer", "admin"]);
+  const role = userProfile.role;
 
   const initialStatus = eventData.status || "draft";
   const nowStr = new Date().toISOString();
@@ -140,22 +124,10 @@ export const getAllEvents = async () => {
 };
 
 const checkPermission = async (eventId) => {
-  const currentUser = auth.currentUser;
-  if (!currentUser) {
-    throw new Error("403 Access Required: User is not authenticated.");
-  }
-  
-  const userDoc = await getDoc(doc(db, "users", currentUser.uid));
-  if (!userDoc.exists()) {
-    throw new Error("403 Access Required: User profile does not exist.");
-  }
-  const userProfile = userDoc.data();
-  const role = (userProfile?.role || "student").toLowerCase().trim();
+  const { uid, profile } = await verifyUserPermission(["organizer", "admin"]);
+  const role = profile.role;
   
   if (role === "admin") return true;
-  if (role !== "organizer") {
-    throw new Error("403 Access Required: Only verified organizers or admins are allowed to perform this operation.");
-  }
   
   if (eventId) {
     const eventDoc = await getDoc(doc(db, COLLECTION_NAME, eventId));
@@ -163,7 +135,7 @@ const checkPermission = async (eventId) => {
       throw new Error("Event not found.");
     }
     const eventData = eventDoc.data();
-    if (eventData.creatorId !== currentUser.uid) {
+    if (eventData.creatorId !== uid) {
       throw new Error("403 Access Required: You do not own this event.");
     }
   }
@@ -242,25 +214,8 @@ export const subscribeToOrganizerEvents = (userId, onUpdate) => {
 export const duplicateEvent = async (event) => {
   const eventsCol = collection(db, COLLECTION_NAME);
   const newDocRef = doc(eventsCol);
-  const currentUser = auth.currentUser;
-  
-  let userProfile = null;
-  if (currentUser) {
-    try {
-      const userDoc = await getDoc(doc(db, "users", currentUser.uid));
-      if (userDoc.exists()) {
-        userProfile = userDoc.data();
-      }
-    } catch (e) {
-      console.error("Failed to fetch creator profile on event duplication:", e);
-    }
-  }
-
-  // Ensure role permission check
-  const role = (userProfile?.role || "student").toLowerCase().trim();
-  if (role !== "organizer" && role !== "admin") {
-    throw new Error("403 Access Required: Only verified organizers or admins can duplicate events.");
-  }
+  const { uid, profile: userProfile } = await verifyUserPermission(["organizer", "admin"]);
+  const role = userProfile.role;
 
   const nowStr = new Date().toISOString();
   const duplicated = {

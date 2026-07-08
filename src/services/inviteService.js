@@ -2,6 +2,7 @@ import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where, runT
 import { db } from "../firebase/firestore";
 import { auth } from "../firebase/config";
 import { logFirebaseError } from "../firebase/errorLogging";
+import { verifyUserPermission } from "./permissionService";
 
 const COLLECTION_NAME = "organizerInvites";
 
@@ -25,15 +26,7 @@ export const generateInviteToken = () => {
  * Admin helper: Creates a new invitation token.
  */
 export const createInvite = async (clubId, clubName, role = "organizer", expiresInDays = 7) => {
-  const currentUser = auth.currentUser;
-  if (!currentUser) throw new Error("Only authenticated administrators can generate invitations.");
-
-  // Fetch admin profile to confirm permission (this is future-ready audit logging)
-  const userDoc = await getDoc(doc(db, "users", currentUser.uid));
-  const adminRole = (userDoc.exists() ? userDoc.data().role : "student").toLowerCase().trim();
-  if (!userDoc.exists() || adminRole !== "admin") {
-    throw new Error("403 Unauthorized: Admin role is required to create invitations.");
-  }
+  const { uid: adminUid } = await verifyUserPermission(["admin"]);
 
   const invitesCol = collection(db, COLLECTION_NAME);
   const newDocRef = doc(invitesCol);
@@ -48,7 +41,7 @@ export const createInvite = async (clubId, clubName, role = "organizer", expires
     clubId: clubId || null,
     clubName: clubName || null,
     role,
-    createdBy: currentUser.uid,
+    createdBy: adminUid,
     createdAt: new Date().toISOString(),
     expiresAt: expiry.toISOString(),
     used: false,

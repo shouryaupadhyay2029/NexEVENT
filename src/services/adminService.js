@@ -2,6 +2,7 @@ import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, 
 import { db } from "../firebase/firestore";
 import { auth } from "../firebase/config";
 import { logFirebaseError } from "../firebase/errorLogging";
+import { verifyUserPermission } from "./permissionService";
 
 const CLUBS_COLLECTION = "clubs";
 const LOGS_COLLECTION = "adminLogs";
@@ -13,14 +14,8 @@ const REGS_COLLECTION = "registrations";
  * Helper to check if current user is admin.
  */
 const verifyAdminAccess = async () => {
-  const currentUser = auth.currentUser;
-  if (!currentUser) throw new Error("Authentication required.");
-  const userDoc = await getDoc(doc(db, USERS_COLLECTION, currentUser.uid));
-  const role = (userDoc.exists() ? userDoc.data().role : "student").toLowerCase().trim();
-  if (!userDoc.exists() || role !== "admin") {
-    throw new Error("403 Forbidden: Administrator role is required.");
-  }
-  return currentUser.uid;
+  const { uid } = await verifyUserPermission(["admin"]);
+  return uid;
 };
 
 /**
@@ -278,53 +273,74 @@ export const getAuditLogs = async (limitCount = 50) => {
   }
 };
 
-/**
- * Compiles real-time metrics across all collections.
- */
 export const getAdminStats = async () => {
   await verifyAdminAccess();
-  try {
-    const [usersSnap, clubsSnap, eventsSnap, regsSnap] = await Promise.all([
-      getDocs(collection(db, USERS_COLLECTION)),
-      getDocs(collection(db, CLUBS_COLLECTION)),
-      getDocs(collection(db, EVENTS_COLLECTION)),
-      getDocs(collection(db, REGS_COLLECTION))
-    ]);
+  
+  let totalUsers = 0;
+  let students = 0;
+  let organizers = 0;
+  let admins = 0;
+  let totalClubs = 0;
+  let totalEvents = 0;
+  let upcomingEvents = 0;
+  let registrations = 0;
 
+  // 1. Query Users
+  try {
+    const usersSnap = await getDocs(collection(db, USERS_COLLECTION));
     const users = [];
     usersSnap.forEach(d => users.push(d.data()));
+    totalUsers = users.length;
+    students = users.filter(u => (u.role || "").toLowerCase().trim() === "student").length;
+    organizers = users.filter(u => (u.role || "").toLowerCase().trim() === "organizer").length;
+    admins = users.filter(u => (u.role || "").toLowerCase().trim() === "admin").length;
+    console.log("[getAdminStats] users ✓");
+  } catch (error) {
+    console.error("[getAdminStats] users ✗ (Missing or insufficient permissions / query failure):", error);
+  }
 
-    const totalUsers = users.length;
-    const students = users.filter(u => u.role === "student").length;
-    const organizers = users.filter(u => u.role === "organizer").length;
-    const admins = users.filter(u => u.role === "admin").length;
+  // 2. Query Clubs
+  try {
+    const clubsSnap = await getDocs(collection(db, CLUBS_COLLECTION));
+    totalClubs = clubsSnap.size;
+    console.log("[getAdminStats] clubs ✓");
+  } catch (error) {
+    console.error("[getAdminStats] clubs ✗ (Missing or insufficient permissions / query failure):", error);
+  }
 
-    const totalClubs = clubsSnap.size;
-    const totalEvents = eventsSnap.size;
-
+  // 3. Query Events
+  try {
+    const eventsSnap = await getDocs(collection(db, EVENTS_COLLECTION));
+    totalEvents = eventsSnap.size;
     const todayStr = new Date().toISOString().split("T")[0];
-    let upcomingEvents = 0;
     eventsSnap.forEach((docSnap) => {
       const e = docSnap.data();
       if (e.date && e.date >= todayStr) {
         upcomingEvents++;
       }
     });
-
-    const registrations = regsSnap.size;
-
-    return {
-      totalUsers,
-      students,
-      organizers,
-      admins,
-      totalClubs,
-      totalEvents,
-      upcomingEvents,
-      registrations
-    };
+    console.log("[getAdminStats] events ✓");
   } catch (error) {
-    logFirebaseError("[getAdminStats] Failed to compile admin dashboard statistics.", error);
-    throw error;
+    console.error("[getAdminStats] events ✗ (Missing or insufficient permissions / query failure):", error);
   }
+
+  // 4. Query Registrations
+  try {
+    const regsSnap = await getDocs(collection(db, REGS_COLLECTION));
+    registrations = regsSnap.size;
+    console.log("[getAdminStats] registrations ✓");
+  } catch (error) {
+    console.error("[getAdminStats] registrations ✗ (Missing or insufficient permissions / query failure):", error);
+  }
+
+  return {
+    totalUsers,
+    students,
+    organizers,
+    admins,
+    totalClubs,
+    totalEvents,
+    upcomingEvents,
+    registrations
+  };
 };
