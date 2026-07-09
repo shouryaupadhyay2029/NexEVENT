@@ -8,7 +8,7 @@
   }
   
   body {
-    color: #FFFFFF;
+    color: rgba(255, 255, 255, 0.82);
     font-family: Inter, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -17,6 +17,7 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
+    color: rgba(255, 255, 255, 0.96);
     font-family: "General Sans", sans-serif;
     letter-spacing: -0.03em;
     font-weight: 400;
@@ -76,7 +77,7 @@
     letter-spacing: 0.28em;
     text-transform: uppercase;
     font-weight: 500;
-    opacity: 0.42; /* reduced opacity default */
+    opacity: 0.60; /* improved contrast */
     transition: opacity 0.4s ease, color 0.4s ease;
   }
 }
@@ -121,4 +122,27 @@ img[loading] {
 img.loaded {
   opacity: 1;
   filter: blur(0) brightness(1);
+}
+
+/* Typography contrast corrections */
+.text-white\/45,
+.text-white\/40,
+.text-white\/35 {
+  color: rgba(255, 255, 255, 0.45) !important;
+}
+
+.text-white\/30,
+.text-white\/25,
+.text-white\/20,
+.text-white\/15,
+.text-white\/10 {
+  color: rgba(255, 255, 255, 0.28) !important;
+}
+
+.text-secondary {
+  color: rgba(255, 255, 255, 0.60) !important;
+}
+
+.text-muted {
+  color: rgba(255, 255, 255, 0.45) !important;
 }

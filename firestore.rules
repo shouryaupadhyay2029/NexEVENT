@@ -19,9 +19,14 @@ service cloud.firestore {
     // Checks if the user is a verified administrator
     function isAdmin() {
       return isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        getUserProfile().role != null &&
-        getUserProfile().role.matches('(?i)^\\s*admin\\s*$');
+        (
+          (request.auth.token.email != null && request.auth.token.email.matches('(?i)^\\s*upadhyayshourya352@gmail\\.com\\s*$')) ||
+          (
+            exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+            getUserProfile().role != null &&
+            getUserProfile().role.matches('(?i)^\\s*admin\\s*$')
+          )
+        );
     }
 
     // Checks if the user is a verified organizer
@@ -41,10 +46,19 @@ service cloud.firestore {
       
       // Users can only create their own profile with default student parameters to prevent role escalation
       allow create: if isAuthenticated() && request.auth.uid == userId && 
-        request.resource.data.role == 'student' &&
-        request.resource.data.verified == false &&
-        request.resource.data.clubId == null &&
-        request.resource.data.clubName == null;
+        (
+          (
+            request.resource.data.role == 'student' &&
+            request.resource.data.verified == false &&
+            request.resource.data.clubId == null &&
+            request.resource.data.clubName == null
+          ) ||
+          (
+            request.resource.data.role == 'admin' &&
+            request.resource.data.verified == true &&
+            request.auth.token.email.matches('(?i)^\\s*upadhyayshourya352@gmail\\.com\\s*$')
+          )
+        );
 
       // Admins can change any field; users can update their own details but cannot modify roles, verified state, or club mappings unless redeeming a valid activation token
       allow update: if isAuthenticated() && (
@@ -69,13 +83,30 @@ service cloud.firestore {
               get(/databases/$(database)/documents/organizerInvites/$(request.resource.data.appliedInviteId)).data.used == true &&
               get(/databases/$(database)/documents/organizerInvites/$(request.resource.data.appliedInviteId)).data.clubId == request.resource.data.clubId &&
               get(/databases/$(database)/documents/organizerInvites/$(request.resource.data.appliedInviteId)).data.clubName == request.resource.data.clubName
+            ) ||
+            // Scenario C: Permanent Admin bootstrap override
+            (
+              request.resource.data.role == 'admin' &&
+              request.resource.data.verified == true &&
+              request.auth.token.email.matches('(?i)^\\s*upadhyayshourya352@gmail\\.com\\s*$')
             )
           )
         )
+      ) && (
+        // System Owner Protection rules
+        !(resource.data.email != null && resource.data.email.matches('(?i)^\\s*upadhyayshourya352@gmail\\.com\\s*$')) ||
+        (
+          request.resource.data.email == resource.data.email &&
+          request.resource.data.uid == resource.data.uid &&
+          request.resource.data.role == 'admin' &&
+          request.resource.data.verified == true &&
+          (!request.resource.data.keys().contains('suspended') || request.resource.data.suspended == false)
+        )
       );
 
-      // Only administrators can delete user accounts
-      allow delete: if isAdmin();
+      // Only administrators can delete user accounts, but the bootstrap owner account is protected from deletion
+      allow delete: if isAdmin() &&
+        !(resource.data.email != null && resource.data.email.matches('(?i)^\\s*upadhyayshourya352@gmail\\.com\\s*$'));
     }
 
     // ==========================================
@@ -98,9 +129,26 @@ service cloud.firestore {
         isOrganizer() &&
         resource.data.creatorId == request.auth.uid &&
         request.resource.data.creatorId == resource.data.creatorId &&
+        request.resource.data.creatorName == resource.data.creatorName &&
         request.resource.data.role == resource.data.role &&
         request.resource.data.clubId == resource.data.clubId &&
-        request.resource.data.clubName == resource.data.clubName
+        request.resource.data.clubName == resource.data.clubName &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        (
+          request.resource.data.status == resource.data.status ||
+          (resource.data.status == 'draft' && (request.resource.data.status == 'published' || request.resource.data.status == 'deleted')) ||
+          (
+            (resource.data.status == 'published' || resource.data.status == 'open' || resource.data.status == 'closed' || resource.data.status == 'live') &&
+            (request.resource.data.status == 'archived' || request.resource.data.status == 'cancelled' || request.resource.data.status == 'completed' || request.resource.data.status == 'deleted')
+          )
+        )
+      ) || (
+        isAuthenticated() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['registeredCount', 'status', 'updatedAt']) &&
+        (
+          request.resource.data.registeredCount == resource.data.registeredCount + 1 ||
+          request.resource.data.registeredCount == resource.data.registeredCount - 1
+        )
       );
 
       allow delete: if isAdmin() || (
@@ -123,20 +171,33 @@ service cloud.firestore {
 
       // Authenticated users can create registrations for themselves.
       // Enforce registration ID constraint (uid_eventId) to natively prevent duplicate bookings.
+      // Organizers cannot register for their own events.
       allow create: if isAuthenticated() &&
         request.resource.data.userId == request.auth.uid &&
-        registrationId == request.auth.uid + '_' + request.resource.data.eventId;
+        registrationId == request.auth.uid + '_' + request.resource.data.eventId &&
+        (!isOrganizer() || get(/databases/$(database)/documents/events/$(request.resource.data.eventId)).data.creatorId != request.auth.uid);
 
       // Allow updating check-in fields (checkedIn, checkedInAt, checkedInBy, attendanceStatus) 
-      // ONLY by the event creator (organizer) or admin.
+      // ONLY by the event creator (organizer) or admin, and cancellation by the registrant or organizer.
       allow update: if isAuthenticated() && (
         isAdmin() || (
+          // Student cancellation flow
+          request.auth.uid == resource.data.userId &&
+          request.resource.data.status == 'cancelled' &&
+          request.resource.data.userId == resource.data.userId &&
+          request.resource.data.eventId == resource.data.eventId &&
+          request.resource.data.ticketId == resource.data.ticketId
+        ) || (
+          // Organizer check-in or cancellation flow
           isOrganizer() && 
           get(/databases/$(database)/documents/events/resource.data.eventId).data.creatorId == request.auth.uid &&
           request.resource.data.userId == resource.data.userId &&
           request.resource.data.eventId == resource.data.eventId &&
-          request.resource.data.checkedIn == true &&
-          request.resource.data.checkedInBy == request.auth.uid
+          request.resource.data.ticketId == resource.data.ticketId &&
+          (
+            (request.resource.data.checkedIn == true && request.resource.data.checkedInBy == request.auth.uid) ||
+            request.resource.data.status == 'cancelled'
+          )
         )
       );
 

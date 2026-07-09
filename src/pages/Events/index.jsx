@@ -423,7 +423,7 @@ export const Events = () => {
 
                         {/* Top quick badges overlay */}
                         <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-10 pointer-events-none">
-                          <span className="text-[0.52rem] font-technical uppercase tracking-wider px-2 py-0.5 border border-white/10 bg-[#0a0a0a]/90 text-white/50">
+                          <span className="text-[0.52rem] font-technical uppercase tracking-wider px-2 py-0.5 border border-white/10 bg-[#0a0a0a]/90 text-secondary">
                             {event.category || "General"}
                           </span>
                           <span className={cn(
@@ -499,16 +499,65 @@ export const Events = () => {
                           {event.description || "Explore and join this educational experience hosted in the campus archive halls."}
                         </p>
 
+                        {/* Registration Stats & Badge */}
+                        <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-white/5 text-micro font-technical uppercase">
+                          <div className="flex justify-between text-white/40">
+                            <span>Remaining: {seatsRemaining}</span>
+                            <span>Registered: {currentReg}</span>
+                          </div>
+                          {event.registrationDeadline && (
+                            <span className="text-[10px] text-white/35 font-technical lowercase first-letter:uppercase">
+                              Deadline: {formatDate(event.registrationDeadline)}
+                            </span>
+                          )}
+                          <div className="flex justify-between items-center mt-2 gap-3">
+                            <div className="flex flex-wrap gap-1.5">
+                              {registered && (
+                                <span className="px-2 py-0.5 border border-green-500/20 bg-green-950/20 text-green-400 text-[9px] font-technical uppercase leading-tight select-none">
+                                  Already Registered
+                                </span>
+                              )}
+                              {isClosed && (
+                                <span className="px-2 py-0.5 border border-red-500/20 bg-red-950/20 text-red-400 text-[9px] font-technical uppercase leading-tight select-none">
+                                  Capacity Full
+                                </span>
+                              )}
+                            </div>
+                            
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (registered) {
+                                  navigate(`/my-events`);
+                                } else if (isClosed) {
+                                  navigate(`/events/${event.id}`);
+                                } else {
+                                  handleRegister(event.id, e);
+                                }
+                              }}
+                              className={cn(
+                                "px-3 py-1.5 text-[0.6rem] font-technical uppercase tracking-wider font-semibold border transition-all select-none focus:outline-none",
+                                registered
+                                  ? "border-green-500/30 bg-green-950/10 text-green-400 hover:bg-green-950/25"
+                                  : isClosed
+                                    ? "border-red-500/20 bg-red-950/10 text-red-400 cursor-not-allowed"
+                                    : "border-accent bg-accent/5 text-accent hover:bg-accent hover:text-black"
+                              )}
+                              disabled={isClosed && !registered}
+                            >
+                              {registered ? "View Ticket" : isClosed ? "Closed" : "Register"}
+                            </button>
+                          </div>
+                        </div>
+
                         {/* Logistics info */}
-                        <div className="flex items-center justify-between text-micro text-white/40 pt-4 mt-2 border-t border-white/5 font-ui">
+                        <div className="flex items-center justify-between text-micro text-white/30 pt-3 mt-1.5 border-t border-white/5 font-ui">
                           <span className="flex items-center gap-1.5">
                             <Calendar className="w-3.5 h-3.5 text-white/20" strokeWidth={1.5} />
                             {formatDate(event.date)}
                           </span>
-                          <span className="flex items-center gap-1.5">
-                            <Users className="w-3.5 h-3.5 text-white/20" strokeWidth={1.5} />
-                            {isClosed ? "Fully Booked" : `${seatsRemaining} / ${capacity} seats`}
-                          </span>
+                          <span className="truncate max-w-[150px]">{event.venue}</span>
                         </div>
                       </div>
 

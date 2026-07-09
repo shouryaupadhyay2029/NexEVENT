@@ -5,7 +5,8 @@ import { getEvent } from '../../services/eventService';
 import { 
   subscribeToEventRegistrations, 
   checkInAttendee, 
-  cancelRegistration 
+  cancelRegistration,
+  checkInByTicket
 } from '../../services/registrationService';
 import { PageTransition } from '../../components/layout/PageTransition';
 import { PageContainer } from '../../components/layout/PageContainer';
@@ -141,20 +142,38 @@ export const Attendees = () => {
   };
 
   const handleScanResult = async (data) => {
-    const parts = data.split('_');
-    if (parts.length !== 2) {
-      setScanError("Invalid Ticket");
-      return;
-    }
+    let ticketId = "";
+    let scannedUserId = "";
+    let scannedEventId = "";
 
-    const [scannedUserId, scannedEventId] = parts;
+    try {
+      // Attempt parsing JSON ticket QR format
+      const payload = JSON.parse(data);
+      ticketId = payload.ticketId;
+      scannedEventId = payload.eventId;
+      scannedUserId = payload.userId;
+    } catch (e) {
+      // Fallback to legacy string format: userId_eventId
+      const parts = data.split('_');
+      if (parts.length === 2) {
+        scannedUserId = parts[0];
+        scannedEventId = parts[1];
+      } else {
+        setScanError("Invalid Ticket");
+        return;
+      }
+    }
 
     if (scannedEventId !== eventId) {
       setScanError("Wrong Event");
       return;
     }
 
-    const attendee = attendees.find(a => a.userId === scannedUserId);
+    const attendee = attendees.find(a => 
+      (ticketId && a.ticketId === ticketId) || 
+      (!ticketId && a.userId === scannedUserId)
+    );
+
     if (!attendee) {
       setScanError("Registration Not Found");
       return;
@@ -171,12 +190,16 @@ export const Attendees = () => {
         streamRef.current = null;
       }
       
-      await checkInAttendee(scannedUserId, eventId, user.uid);
+      if (ticketId) {
+        await checkInByTicket(scannedUserId, eventId, ticketId, user.uid);
+      } else {
+        await checkInAttendee(scannedUserId, eventId, user.uid);
+      }
       setScannedAttendee(attendee);
       triggerToast('success', `${attendee.studentName} checked in present.`);
     } catch (e) {
       console.error("Checkin fail:", e);
-      setScanError("Failed to update check-in status.");
+      setScanError(e.message || "Failed to update check-in status.");
     }
   };
 
@@ -342,7 +365,7 @@ export const Attendees = () => {
 
     try {
       await Promise.all(
-        Array.from(selectedIds).map(uid => cancelRegistration(`${uid}_${eventId}`))
+        Array.from(selectedIds).map(uid => cancelRegistration(`${uid}_${eventId}`, "organizer"))
       );
       setSelectedIds(new Set());
       triggerToast('success', "Selected registrations removed.");
@@ -359,12 +382,13 @@ export const Attendees = () => {
       return;
     }
 
-    const headers = ["Student Name", "Email", "College", "Branch", "Registration Time", "Check-in Status"];
+    const headers = ["Student Name", "Email", "College", "Branch", "Ticket ID", "Registration Time", "Check-in Status"];
     const rows = filteredAttendees.map(att => [
       `"${(att.studentName || 'Unknown Student').replace(/"/g, '""')}"`,
       `"${(att.email || '').replace(/"/g, '""')}"`,
       `"${(att.college || 'N/A').replace(/"/g, '""')}"`,
       `"${(att.branch || 'N/A').replace(/"/g, '""')}"`,
+      `"${(att.ticketId || 'N/A').replace(/"/g, '""')}"`,
       `"${new Date(att.registeredAt).toLocaleString()}"`,
       att.checkedIn ? "Present" : "Absent"
     ]);
@@ -578,12 +602,13 @@ export const Attendees = () => {
                   className="rounded-none border-white/20 bg-[#111] focus:ring-0 focus:ring-offset-0 cursor-pointer"
                 />
               </div>
-              <span className="w-[20%]">Student Name</span>
-              <span className="w-[20%]">Email Address</span>
-              <span className="w-[15%]">College Campus</span>
-              <span className="w-[15%]">Branch / Dept</span>
-              <span className="w-[12%]">Reg Date</span>
-              <span className="w-[13%] text-right">Verification Gate</span>
+              <span className="w-[18%]">Student Name</span>
+              <span className="w-[18%]">Email Address</span>
+              <span className="w-[12%]">College Campus</span>
+              <span className="w-[12%]">Branch / Dept</span>
+              <span className="w-[15%]">Ticket ID</span>
+              <span className="w-[10%]">Reg Date</span>
+              <span className="w-[10%] text-right">Verification Gate</span>
             </div>
 
             {filteredAttendees.length === 0 ? (
@@ -594,7 +619,7 @@ export const Attendees = () => {
               paginatedAttendees.map((att) => {
                 const isSelected = selectedIds.has(att.userId);
                 return (
-                  <div key={att.userId} className="flex flex-col lg:flex-row lg:items-center justify-between p-6 hover:bg-white/[0.01] gap-4 lg:gap-0">
+                  <div key={att.userId} className="flex flex-col lg:flex-row lg:items-center justify-between p-6 hover:bg-white/[0.01] gap-4 lg:gap-0 font-ui">
                     
                     {/* Selector Column */}
                     <div className="w-full lg:w-[5%] flex items-center">
@@ -607,7 +632,7 @@ export const Attendees = () => {
                     </div>
 
                     {/* Name column */}
-                    <div className="w-full lg:w-[20%] flex items-center gap-3 min-w-0">
+                    <div className="w-full lg:w-[18%] flex items-center gap-3 min-w-0">
                       <div className="w-8 h-8 rounded-full bg-[#1c1c1c] border border-white/10 flex items-center justify-center font-display text-xs uppercase text-primary overflow-hidden shrink-0">
                         {att.avatar ? <img src={att.avatar} alt={att.studentName} className="w-full h-full object-cover" /> : att.studentName[0]}
                       </div>
@@ -618,21 +643,24 @@ export const Attendees = () => {
                     </div>
 
                     {/* Email */}
-                    <span className="w-full lg:w-[20%] text-xs text-white/50 font-light truncate select-all">{att.email}</span>
+                    <span className="w-full lg:w-[18%] text-xs text-white/50 font-light truncate select-all">{att.email}</span>
 
                     {/* College */}
-                    <span className="w-full lg:w-[15%] text-xs text-white/50 font-light truncate">{att.college}</span>
+                    <span className="w-full lg:w-[12%] text-xs text-white/50 font-light truncate">{att.college}</span>
 
                     {/* Branch */}
-                    <span className="w-full lg:w-[15%] text-xs text-white/50 font-light truncate">{att.branch}</span>
+                    <span className="w-full lg:w-[12%] text-xs text-white/50 font-light truncate">{att.branch}</span>
+
+                    {/* Ticket ID */}
+                    <span className="w-full lg:w-[15%] text-xs font-mono text-white/40 truncate select-all">{att.ticketId || "N/A"}</span>
 
                     {/* Reg Date */}
-                    <span className="w-full lg:w-[12%] text-xs text-white/30 font-technical uppercase">
+                    <span className="w-full lg:w-[10%] text-xs text-white/30 font-technical uppercase">
                       {new Date(att.registeredAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </span>
 
                     {/* Check In Actions */}
-                    <div className="w-full lg:w-[13%] flex items-center justify-start lg:justify-end gap-3.5">
+                    <div className="w-full lg:w-[10%] flex items-center justify-start lg:justify-end gap-3.5">
                       {att.checkedIn ? (
                         <span className="text-[10px] font-technical uppercase tracking-wider text-green-400 bg-green-950/20 border border-green-500/20 px-2 py-1 flex items-center gap-1 leading-none select-none">
                           <UserCheck className="w-3.5 h-3.5" />

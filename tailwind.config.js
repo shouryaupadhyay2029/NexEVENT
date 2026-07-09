@@ -12,9 +12,11 @@ export default {
         elevated: "#1c1c1c",
         border: "rgba(255, 255, 255, 0.08)",
         divider: "rgba(255, 255, 255, 0.04)",
-        primary: "#FFFFFF",
-        secondary: "rgba(255, 255, 255, 0.75)",
+        primary: "rgba(255, 255, 255, 0.96)",
+        body: "rgba(255, 255, 255, 0.82)",
+        secondary: "rgba(255, 255, 255, 0.60)",
         muted: "rgba(255, 255, 255, 0.45)",
+        disabled: "rgba(255, 255, 255, 0.28)",
         accent: {
           DEFAULT: "#C96A2B",
           hover: "#E07A35"

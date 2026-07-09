@@ -10,14 +10,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils/cn';
 import { 
   createClub, updateClub, deleteClub, getAllClubs, 
-  getAllUsers, updateUserRole, getAuditLogs, getAdminStats, updateUserSuspension
+  getAllUsers, updateUserRole, getAuditLogs, updateUserSuspension,
+  subscribeToAdminStats
 } from '../../services/adminService';
 import { updateEvent, deleteEvent, getAllEvents } from '../../services/eventService';
 import { createInvite, revokeInvite, getInvites } from '../../services/inviteService';
 import { 
   Shield, Layers, Ticket, Users, Calendar, FileText, Plus, Edit2, 
   Trash2, Copy, Check, X, Search, Sliders,
-  Ban, ShieldCheck, UserMinus, UserCheck
+  Ban, ShieldCheck, UserMinus, UserCheck, Lock
 } from 'lucide-react';
 
 const TABS = [
@@ -100,16 +101,6 @@ export const AdminConsole = () => {
     setTimeout(() => setToast(null), 4500);
   };
 
-  const loadDashboardStats = async () => {
-    try {
-      const data = await getAdminStats();
-      setStats(data);
-    } catch (e) {
-      console.error("[Admin] Failed to load dashboard statistics:", e);
-      triggerToast('error', 'Failed to retrieve dashboard stats.');
-    }
-  };
-
   const loadClubs = async () => {
     const data = await getAllClubs();
     setClubs(data);
@@ -137,10 +128,10 @@ export const AdminConsole = () => {
 
   // Central refresh mechanism
   const refreshData = async () => {
+    if (activeTab === 'dashboard') return;
     setLoading(true);
     try {
-      if (activeTab === 'dashboard') await loadDashboardStats();
-      else if (activeTab === 'clubs') await loadClubs();
+      if (activeTab === 'clubs') await loadClubs();
       else if (activeTab === 'invitations') {
         await Promise.all([loadInvites(), loadClubs()]);
       }
@@ -156,6 +147,21 @@ export const AdminConsole = () => {
       setLoading(false);
     }
   };
+
+  // Real-time statistics subscription
+  useEffect(() => {
+    if (activeTab !== 'dashboard') return;
+
+    setLoading(true);
+    const unsubscribe = subscribeToAdminStats((newStats) => {
+      setStats(newStats);
+      setLoading(false);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [activeTab]);
 
   useEffect(() => {
     refreshData();
@@ -858,19 +864,31 @@ export const AdminConsole = () => {
 
                               {/* Privilege badge */}
                               <div className="w-full md:w-1/6">
-                                <span className={cn(
-                                  "text-[0.52rem] font-technical uppercase px-2 py-0.5 border leading-tight tracking-wider",
-                                  u.role === 'admin' ? 'border-accent/40 bg-accent/15 text-accent' :
-                                  u.role === 'organizer' ? 'border-green-500/20 bg-green-950/20 text-green-400' :
-                                  'border-white/10 bg-white/5 text-white/40'
-                                )}>
-                                  {u.role || 'student'}
-                                </span>
+                                {u.email && u.email.toLowerCase().trim() === "upadhyayshourya352@gmail.com" ? (
+                                  <span className="text-[0.52rem] font-technical uppercase px-2 py-0.5 border border-red-500/25 bg-red-950/20 text-red-400 leading-tight tracking-wider flex items-center gap-1 w-fit">
+                                    <Shield className="w-3 h-3 shrink-0" />
+                                    <span>SYSTEM OWNER</span>
+                                  </span>
+                                ) : (
+                                  <span className={cn(
+                                    "text-[0.52rem] font-technical uppercase px-2 py-0.5 border leading-tight tracking-wider",
+                                    u.role === 'admin' ? 'border-accent/40 bg-accent/15 text-accent' :
+                                    u.role === 'organizer' ? 'border-green-500/20 bg-green-950/20 text-green-400' :
+                                    'border-white/10 bg-white/5 text-white/40'
+                                  )}>
+                                    {u.role || 'student'}
+                                  </span>
+                                )}
                               </div>
 
                               {/* Administrative actions */}
                               <div className="w-full md:w-1/4 flex gap-3 justify-start md:justify-end items-center">
-                                {!isCurrentUser && (
+                                {u.email && u.email.toLowerCase().trim() === "upadhyayshourya352@gmail.com" ? (
+                                  <span className="text-[0.52rem] font-technical uppercase px-2 py-1 border border-red-500/25 bg-red-950/20 text-red-400 leading-none tracking-wider flex items-center gap-1.5 select-none font-bold">
+                                    <Lock className="w-3 h-3 text-red-400 shrink-0 animate-pulse" />
+                                    <span>Protected Account</span>
+                                  </span>
+                                ) : !isCurrentUser ? (
                                   <>
                                     {u.role === 'student' && (
                                       <button 
@@ -925,7 +943,7 @@ export const AdminConsole = () => {
                                       <span>{u.suspended ? "Unsuspend" : "Suspend"}</span>
                                     </button>
                                   </>
-                                )}
+                                ) : null}
                               </div>
 
                             </div>
@@ -1404,7 +1422,9 @@ export const AdminConsole = () => {
                       </div>
                       <div className="flex justify-between items-center border-b border-white/5 pb-2">
                         <span className="text-micro text-white/20 uppercase tracking-widest">Privilege Role</span>
-                        <span className="font-technical uppercase text-accent font-semibold">{u.role || 'student'}</span>
+                        <span className="font-technical uppercase text-accent font-semibold">
+                          {u.email && u.email.toLowerCase().trim() === "upadhyayshourya352@gmail.com" ? 'SYSTEM OWNER' : (u.role || 'student')}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center border-b border-white/5 pb-2">
                         <span className="text-micro text-white/20 uppercase tracking-widest">Club Association</span>

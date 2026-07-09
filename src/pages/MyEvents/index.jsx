@@ -14,47 +14,52 @@ import { motion, AnimatePresence } from 'framer-motion';
 export const MyEvents = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' | 'registered' | 'past'
+  const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' | 'past' | 'cancelled' | 'completed'
   const [loading, setLoading] = useState(true);
   const [registeredEvents, setRegisteredEvents] = useState([]);
   const [regs, setRegs] = useState({});
   const [selectedEventForPass, setSelectedEventForPass] = useState(null);
   const [error, setError] = useState('');
+  const [toast, setToast] = useState(null);
+
+  const triggerToast = (type, message) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  const fetchUserEvents = async () => {
+    if (!user?.uid) return;
+    setLoading(true);
+    setError('');
+    try {
+      // Fetch user registrations and all events
+      const [registrations, events] = await Promise.all([
+        getUserRegistrations(user.uid),
+        getAllEvents()
+      ]);
+
+      const regsMap = {};
+      registrations.forEach(r => {
+        regsMap[r.eventId] = r;
+      });
+      setRegs(regsMap);
+
+      const registeredIds = new Set(registrations.map(r => r.eventId));
+      // Filter events that user has registered for
+      const filteredReg = events.filter(e => registeredIds.has(e.id));
+      // Sort by date ascending (soonest first)
+      filteredReg.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+      setRegisteredEvents(filteredReg);
+    } catch (err) {
+      console.error("Failed to load user events:", err);
+      setError("Unable to retrieve events list.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchUserEvents = async () => {
-      if (!user?.uid) return;
-      setLoading(true);
-      setError('');
-      try {
-        // Fetch user registrations and all events
-        const [registrations, events] = await Promise.all([
-          getUserRegistrations(user.uid),
-          getAllEvents()
-        ]);
-
-        const registeredIds = new Set(registrations.map(r => r.eventId));
-        
-        const regsMap = {};
-        registrations.forEach(r => {
-          regsMap[r.eventId] = r;
-        });
-        setRegs(regsMap);
-
-        // Filter events that user has registered for
-        const filteredReg = events.filter(e => registeredIds.has(e.id));
-        // Sort by date ascending (soonest first)
-        filteredReg.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-
-        setRegisteredEvents(filteredReg);
-      } catch (err) {
-        console.error("Failed to load user events:", err);
-        setError("Unable to retrieve events list.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchUserEvents();
   }, [user]);
 
@@ -71,10 +76,34 @@ export const MyEvents = () => {
   const todayStr = new Date().toISOString().split('T')[0];
 
   const filteredEvents = registeredEvents.filter(event => {
-    if (activeTab === 'registered') return true;
+    const reg = regs[event.id] || {};
+    
+    // Cancelled Registrations tab
+    if (activeTab === 'cancelled') {
+      return reg.status === 'cancelled';
+    }
+    
+    // Hide cancelled registrations from all other tabs
+    if (reg.status === 'cancelled') {
+      return false;
+    }
+
+    // Completed Registrations tab
+    if (activeTab === 'completed') {
+      return reg.status === 'completed' || event.date < todayStr;
+    }
+
+    // Upcoming Registrations tab
     const isUpcoming = event.date && event.date >= todayStr;
-    if (activeTab === 'upcoming') return isUpcoming;
-    if (activeTab === 'past') return !isUpcoming;
+    if (activeTab === 'upcoming') {
+      return isUpcoming && reg.status !== 'completed';
+    }
+
+    // Past Registrations tab
+    if (activeTab === 'past') {
+      return !isUpcoming;
+    }
+
     return false;
   });
 
@@ -91,22 +120,59 @@ export const MyEvents = () => {
     }
   };
 
+  const handleCancelBooking = async (eventId, eventTitle) => {
+    const regId = `${user.uid}_${eventId}`;
+    if (!window.confirm(`Are you sure you want to cancel your registration for "${eventTitle}"? This cannot be undone.`)) {
+      return;
+    }
+    try {
+      await cancelRegistration(regId, "student");
+      triggerToast('success', `Cancelled registration for: "${eventTitle}".`);
+      await fetchUserEvents(); // Refresh data to update remaining capacity and status
+    } catch (err) {
+      console.error("Cancellation failure: ", err);
+      triggerToast('error', err.message || "Failed to cancel booking.");
+    }
+  };
+
   return (
     <PageTransition>
       <PageContainer>
-        <SectionWrapper className="max-w-4xl py-12 md:py-20 flex flex-col gap-12">
+        <SectionWrapper className="max-w-4xl py-12 md:py-20 flex flex-col gap-12 text-left relative">
+          
+          {/* TOAST FEEDBACK NOTIFICATIONS */}
+          <AnimatePresence>
+            {toast && (
+              <motion.div
+                initial={{ opacity: 0, y: -20, filter: "blur(4px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -20, filter: "blur(4px)" }}
+                className={`fixed top-6 right-6 z-50 px-6 py-4 border backdrop-blur-md flex items-center gap-4 shadow-lg min-w-[300px] ${
+                  toast.type === 'success' 
+                    ? 'border-green-500/20 bg-green-950/80 text-green-200' 
+                    : 'border-red-500/20 bg-red-950/80 text-red-200'
+                }`}
+              >
+                <span className="text-[0.6rem] font-technical uppercase border border-current px-1.5 py-0.5">
+                  {toast.type}
+                </span>
+                <span className="text-xs font-ui tracking-wide">{toast.message}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Header */}
           <div className="relative">
             <AxisMarker index="02" label="Registration Log" />
-            <h1 className="text-display-lg font-light mt-6 text-primary">My Events</h1>
+            <h1 className="text-display-lg font-light mt-6 text-primary">My Registrations</h1>
             <p className="text-body-lg text-secondary max-w-xl mt-4 font-light leading-relaxed">
-              Track your upcoming bookings, complete event log, and past academic archives.
+              Track your upcoming bookings, cancelled tickets, and past academic event archives.
             </p>
           </div>
 
           {/* Tab Selector */}
           <div className="flex gap-6 border-b border-white/5 pb-2 mt-8">
-            {['upcoming', 'registered', 'past'].map((tab) => (
+            {['upcoming', 'past', 'cancelled', 'completed'].map((tab) => (
               <button
                 key={tab}
                 type="button"
@@ -126,7 +192,6 @@ export const MyEvents = () => {
           {/* List Area */}
           <div className="flex flex-col gap-1.5 min-h-[30vh]">
             {loading ? (
-              // Premium minimal skeleton loader
               <div className="flex flex-col gap-3">
                 {[1, 2, 3].map(i => (
                   <div key={i} className="h-16 w-full bg-white/5 animate-pulse" />
@@ -137,7 +202,6 @@ export const MyEvents = () => {
                 {error}
               </div>
             ) : displayEvents.length === 0 ? (
-              // Graceful minimal empty state
               <div className="flex flex-col py-16 border border-dashed border-white/5 items-center justify-center text-center select-none font-ui">
                 <span className="text-[0.6rem] font-technical text-white/20 uppercase tracking-[0.25em] mb-3">
                   Archive Status // Empty
@@ -155,58 +219,104 @@ export const MyEvents = () => {
             ) : (
               // Events List Layout
               <div className="flex flex-col border border-white/5 divide-y divide-white/5 rounded-none overflow-hidden font-ui">
-                {displayEvents.map((event) => (
-                  <div
-                    key={event.id}
-                    onClick={() => navigate(`/events/${event.id}`)}
-                    className="group relative flex flex-col md:flex-row md:items-center justify-between p-6 hover:bg-white/[0.02] cursor-pointer transition-all duration-300"
-                  >
-                    <div className="flex flex-col gap-2.5">
-                      {/* Top Row: Category */}
-                      <span className="text-micro text-accent font-technical uppercase tracking-widest">
-                        {event.category || "General"}
-                      </span>
-                      
-                      {/* Event Title */}
-                      <h3 className="text-body-l font-light text-primary group-hover:text-white transition-colors duration-200">
-                        {event.title}
-                      </h3>
-                      
-                      {/* Details Meta */}
-                      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-micro text-white/40">
-                        <span className="flex items-center gap-1.5">
-                          <Calendar className="w-3.5 h-3.5" strokeWidth={1.5} />
-                          {formatDate(event.date)}
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                          <Clock className="w-3.5 h-3.5" strokeWidth={1.5} />
-                          {event.time || "TBA"}
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                          <MapPin className="w-3.5 h-3.5" strokeWidth={1.5} />
-                          {event.venue || "TBA"}
-                        </span>
+                {displayEvents.map((event) => {
+                  const reg = regs[event.id] || {};
+                  const isCancelled = reg.status === 'cancelled';
+                  const qrPayload = reg.ticketQR || JSON.stringify({ ticketId: reg.ticketId, eventId: event.id, userId: user.uid });
+                  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(qrPayload)}&color=ffffff&bgcolor=141414`;
+
+                  return (
+                    <div
+                      key={event.id}
+                      onClick={() => navigate(`/events/${event.id}`)}
+                      className="group relative flex flex-col md:flex-row md:items-center justify-between p-6 hover:bg-white/[0.02] cursor-pointer transition-all duration-300 gap-4"
+                    >
+                      <div className="flex items-start gap-5 flex-grow min-w-0">
+                        {/* Mini QR Preview on the left */}
+                        {!isCancelled && reg.ticketId && (
+                          <div className="w-16 h-16 shrink-0 border border-white/10 bg-black flex items-center justify-center p-1 group-hover:border-accent/40 transition-colors">
+                            <img src={qrUrl} alt="QR Mini" className="w-full h-full object-contain" />
+                          </div>
+                        )}
+
+                        <div className="flex flex-col gap-2.5 min-w-0">
+                          {/* Top Row: Category + Status Badge */}
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <span className="text-micro text-secondary font-technical uppercase tracking-widest">
+                              {event.category || "General"}
+                            </span>
+                            <span className={cn(
+                              "text-[0.55rem] font-technical uppercase px-2 py-0.5 border leading-tight",
+                              reg.status === 'cancelled'
+                                ? "border-red-500/20 bg-red-950/20 text-red-400"
+                                : reg.checkedIn
+                                  ? "border-green-500/20 bg-green-950/20 text-green-400"
+                                  : "border-accent/25 bg-accent/5 text-accent"
+                            )}>
+                              {reg.status === 'cancelled' ? "Cancelled" : reg.checkedIn ? "Checked In" : "Confirmed"}
+                            </span>
+                          </div>
+
+                          {/* Event Title */}
+                          <h3 className="text-body-l font-light text-primary group-hover:text-white transition-colors duration-200 truncate">
+                            {event.title}
+                          </h3>
+
+                          {/* Details Meta */}
+                          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-micro text-white/40">
+                            <span className="flex items-center gap-1.5">
+                              <Calendar className="w-3.5 h-3.5" strokeWidth={1.5} />
+                              {formatDate(event.date)}
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5" strokeWidth={1.5} />
+                              {event.time || "TBA"}
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                              <MapPin className="w-3.5 h-3.5" strokeWidth={1.5} />
+                              {event.venue || "TBA"}
+                            </span>
+                          </div>
+
+                          {/* Ticket ID Display */}
+                          {reg.ticketId && (
+                            <span className="text-[10px] text-white/30 font-mono tracking-wider">
+                              Ticket ID: <span className="text-white/60 select-all font-bold">{reg.ticketId}</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end mt-4 md:mt-0 gap-4" onClick={(e) => e.stopPropagation()}>
+                        {!isCancelled && (
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedEventForPass(event)}
+                              className="px-3 py-1.5 border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-xs font-technical uppercase tracking-wider transition-all select-none focus:outline-none"
+                            >
+                              View Pass
+                            </button>
+                            {/* Cancel Button only for upcoming confirmed bookings */}
+                            {event.date && event.date >= todayStr && reg.status !== 'completed' && (
+                              <button
+                                type="button"
+                                onClick={() => handleCancelBooking(event.id, event.title)}
+                                className="px-3 py-1.5 border border-red-500/10 hover:border-red-500/20 bg-red-950/10 hover:bg-red-950/20 text-xs font-technical uppercase tracking-wider transition-all text-red-400 select-none focus:outline-none"
+                              >
+                                Cancel
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        <ChevronRight 
+                          className="w-4 h-4 text-white/20 hover:text-white/60 cursor-pointer" 
+                          onClick={() => navigate(`/events/${event.id}`)}
+                        />
                       </div>
                     </div>
-
-                    <div className="flex items-center justify-end mt-4 md:mt-0 gap-4" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedEventForPass(event)}
-                        className="px-3 py-1.5 border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-xs font-technical uppercase tracking-wider transition-all select-none focus:outline-none"
-                      >
-                        View Pass
-                      </button>
-                      <span className="text-[0.6rem] font-technical uppercase px-2 py-0.5 border border-white/10 bg-white/5 text-white/50 tracking-wider">
-                        Registered
-                      </span>
-                      <ChevronRight 
-                        className="w-4 h-4 text-white/20 hover:text-white/60 cursor-pointer" 
-                        onClick={() => navigate(`/events/${event.id}`)}
-                      />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -216,9 +326,9 @@ export const MyEvents = () => {
             {selectedEventForPass && (() => {
               const eventItem = selectedEventForPass;
               const regDoc = regs[eventItem.id] || {};
-              const regNo = regDoc.registrationNumber || "PENDING";
+              const regNo = regDoc.ticketId || "PENDING";
               const isCheckedIn = regDoc.checkedIn || false;
-              const qrPayload = `${user.uid}_${eventItem.id}`;
+              const qrPayload = regDoc.ticketQR || JSON.stringify({ ticketId: regDoc.ticketId, eventId: eventItem.id, userId: user.uid });
               const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrPayload)}&color=ffffff&bgcolor=141414`;
               const EASE = [0.16, 1, 0.3, 1];
 

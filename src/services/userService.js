@@ -65,6 +65,13 @@ export const updateUser = async (uid, userData) => {
 export const deleteUser = async (uid) => {
   const userRef = doc(db, COLLECTION_NAME, uid);
   try {
+    const docSnap = await getDoc(userRef);
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      if (data.email && data.email.toLowerCase().trim() === "upadhyayshourya352@gmail.com") {
+        throw new Error("Action denied: The bootstrap administrator account is protected and cannot be deleted.");
+      }
+    }
     await deleteDoc(userRef);
     return true;
   } catch (error) {
@@ -94,6 +101,7 @@ export const checkAndCreateUserProfile = async (user) => {
   }
 
   if (!docSnap || !docSnap.exists()) {
+    const isPermanentAdmin = user.email && user.email.toLowerCase().trim() === "upadhyayshourya352@gmail.com";
     const defaultProfile = {
       uid: user.uid,
       displayName: user.displayName || "",
@@ -109,10 +117,10 @@ export const checkAndCreateUserProfile = async (user) => {
       linkedin: "",
       portfolio: "",
       interests: [],
-      role: "student",
+      role: isPermanentAdmin ? "admin" : "student",
       clubId: null,
       clubName: null,
-      verified: false,
+      verified: isPermanentAdmin ? true : false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -125,6 +133,18 @@ export const checkAndCreateUserProfile = async (user) => {
   }
 
   const currentData = docSnap.data();
+  const isPermanentAdmin = user.email && user.email.toLowerCase().trim() === "upadhyayshourya352@gmail.com";
+  if (isPermanentAdmin && (currentData.role !== "admin" || !currentData.verified || currentData.suspended === true)) {
+    currentData.role = "admin";
+    currentData.verified = true;
+    currentData.suspended = false;
+    try {
+      await updateDoc(userRef, { role: "admin", verified: true, suspended: false });
+    } catch (updateErr) {
+      logFirebaseError("[checkAndCreateUserProfile] Failed to force admin role.", updateErr);
+    }
+  }
+
   const requiredDefaults = {
     bio: "",
     college: "",

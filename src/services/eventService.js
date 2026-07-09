@@ -3,7 +3,7 @@ import { db } from "../firebase/firestore";
 import { auth } from "../firebase/config";
 import { logFirebaseError } from "../firebase/errorLogging";
 import { createNotification } from "./notificationService";
-import { resolveEventStatus } from "../utils/eventLifecycle";
+import { resolveEventStatus, isValidStatusTransition } from "../utils/eventLifecycle";
 import { verifyUserPermission } from "./permissionService";
 
 const COLLECTION_NAME = "events";
@@ -23,6 +23,7 @@ export const createEvent = async (eventData) => {
 
   const { uid, profile: userProfile } = await verifyUserPermission(["organizer", "admin"]);
   const role = userProfile.role;
+  const currentUser = auth.currentUser;
 
   const initialStatus = eventData.status || "draft";
   const nowStr = new Date().toISOString();
@@ -30,7 +31,7 @@ export const createEvent = async (eventData) => {
   const defaultEvent = {
     id: newDocRef.id,
     creatorId: currentUser?.uid || "",
-    creatorName: currentUser?.displayName || currentUser?.email || "Unknown Creator",
+    creatorName: userProfile?.displayName || userProfile?.email || currentUser?.displayName || currentUser?.email || "Unknown Creator",
     clubId: userProfile?.clubId || null,
     clubName: userProfile?.clubName || null,
     role: role,
@@ -41,10 +42,15 @@ export const createEvent = async (eventData) => {
     venue: eventData.venue || "",
     organizer: eventData.organizer || "",
     date: eventData.date || "",
+    endDate: eventData.endDate || eventData.date || "",
     time: eventData.time || "",
     capacity: eventData.capacity ? Number(eventData.capacity) : 0,
     registeredCount: eventData.registeredCount || 0,
     registrationDeadline: eventData.registrationDeadline || "",
+    tags: Array.isArray(eventData.tags) 
+      ? eventData.tags 
+      : (eventData.tags ? eventData.tags.split(',').map(t => t.trim()).filter(Boolean) : []),
+    visibility: eventData.visibility || "public",
     
     // Lifecycle Status Parameters
     status: initialStatus,
@@ -101,8 +107,10 @@ export const getAllEvents = async () => {
     const events = [];
     querySnapshot.forEach((doc) => {
       const data = doc.data();
-      data.status = resolveEventStatus(data);
-      events.push(data);
+      if (data.status !== "deleted") {
+        data.status = resolveEventStatus(data);
+        events.push(data);
+      }
     });
     return events;
   } catch (error) {
@@ -112,8 +120,10 @@ export const getAllEvents = async () => {
       const events = [];
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        data.status = resolveEventStatus(data);
-        events.push(data);
+        if (data.status !== "deleted") {
+          data.status = resolveEventStatus(data);
+          events.push(data);
+        }
       });
       return events;
     } catch (cacheError) {
@@ -146,10 +156,33 @@ const checkPermission = async (eventId) => {
 export const updateEvent = async (eventId, eventData) => {
   await checkPermission(eventId);
   const docRef = doc(db, COLLECTION_NAME, eventId);
+  const docSnap = await getDoc(docRef);
+  if (!docSnap.exists()) {
+    throw new Error("Event not found.");
+  }
+  const currentEvent = docSnap.data();
+
+  // Validate status transition
+  if (eventData.status && !isValidStatusTransition(currentEvent.status, eventData.status)) {
+    throw new Error(`Invalid status transition from ${currentEvent.status} to ${eventData.status}`);
+  }
+
+  // Strip read-only fields to prevent editing
+  const {
+    id,
+    creatorId,
+    creatorName,
+    clubId,
+    clubName,
+    createdAt,
+    ...updatableData
+  } = eventData;
+
   const updateData = {
+    ...updatableData,
     updatedAt: new Date().toISOString(),
-    ...eventData,
   };
+
   try {
     await updateDoc(docRef, updateData);
     const updatedSnap = await getDoc(docRef);
@@ -183,7 +216,11 @@ export const deleteEvent = async (eventId) => {
   await checkPermission(eventId);
   const docRef = doc(db, COLLECTION_NAME, eventId);
   try {
-    await deleteDoc(docRef);
+    // Perform soft delete by setting status = "deleted"
+    await updateDoc(docRef, {
+      status: "deleted",
+      updatedAt: new Date().toISOString()
+    });
     return true;
   } catch (error) {
     logFirebaseError("[deleteEvent] Failed to delete event.", error);
@@ -193,17 +230,23 @@ export const deleteEvent = async (eventId) => {
 
 /**
  * Subscribes to real-time events created/managed by a specific organizer.
- * Queries Firestore directly using creatorId to enforce strict UID ownership.
+ * Queries all events if user is admin; otherwise queries using creatorId.
+ * Filters out deleted events.
  */
-export const subscribeToOrganizerEvents = (userId, onUpdate) => {
+export const subscribeToOrganizerEvents = (userId, role, onUpdate) => {
   const eventsCol = collection(db, COLLECTION_NAME);
-  const q = query(eventsCol, where("creatorId", "==", userId));
+  const q = (role === "admin")
+    ? query(eventsCol)
+    : query(eventsCol, where("creatorId", "==", userId));
+
   return onSnapshot(q, (querySnapshot) => {
     const list = [];
     querySnapshot.forEach((doc) => {
       const data = doc.data();
-      data.status = resolveEventStatus(data);
-      list.push(data);
+      if (data.status !== "deleted") {
+        data.status = resolveEventStatus(data);
+        list.push(data);
+      }
     });
     onUpdate(list);
   }, (error) => {
@@ -216,6 +259,7 @@ export const duplicateEvent = async (event) => {
   const newDocRef = doc(eventsCol);
   const { uid, profile: userProfile } = await verifyUserPermission(["organizer", "admin"]);
   const role = userProfile.role;
+  const currentUser = auth.currentUser;
 
   const nowStr = new Date().toISOString();
   const duplicated = {

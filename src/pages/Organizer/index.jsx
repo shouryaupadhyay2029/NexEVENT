@@ -7,6 +7,7 @@ import {
   deleteEvent, 
   duplicateEvent 
 } from '../../services/eventService';
+import { isValidStatusTransition } from '../../utils/eventLifecycle';
 import { PageTransition } from '../../components/layout/PageTransition';
 import { PageContainer } from '../../components/layout/PageContainer';
 import { SectionWrapper } from '../../components/layout/SectionWrapper';
@@ -103,7 +104,7 @@ const CountingNumber = ({ value }) => {
 };
 
 export const OrganizerStudio = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
 
   // State
@@ -114,6 +115,15 @@ export const OrganizerStudio = () => {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedDate, setSelectedDate] = useState('All');
+  const [filterSpecificDate, setFilterSpecificDate] = useState('');
+
+  // Delete Confirmation Modal State
+  const [deleteConfirmation, setDeleteConfirmation] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: null
+  });
 
   // Edit Event Modal State
   const [editingEvent, setEditingEvent] = useState(null);
@@ -123,10 +133,14 @@ export const OrganizerStudio = () => {
     category: '',
     venue: '',
     date: '',
+    endDate: '',
     time: '',
     capacity: 0,
     status: 'open',
-    registrationDeadline: ''
+    registrationDeadline: '',
+    image: '',
+    tags: '',
+    visibility: 'public'
   });
   const [formSaving, setFormSaving] = useState(false);
   const [formError, setFormError] = useState('');
@@ -136,17 +150,18 @@ export const OrganizerStudio = () => {
 
   // Real-time Firestore Subscription
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!user?.uid || !profile?.role) return;
     setLoading(true);
     const unsubscribe = subscribeToOrganizerEvents(
       user.uid,
+      profile.role,
       (list) => {
         setEvents(list);
         setLoading(false);
       }
     );
     return () => unsubscribe();
-  }, [user]);
+  }, [user, profile]);
 
   const triggerToast = (type, message) => {
     setToast({ type, message });
@@ -158,7 +173,7 @@ export const OrganizerStudio = () => {
   const stats = useMemo(() => {
     const total = events.length;
     const drafts = events.filter(e => e.status === 'draft').length;
-    const published = events.filter(e => e.status === 'open' || e.status === 'closed' || e.status === 'published').length;
+    const published = events.filter(e => e.status === 'open' || e.status === 'closed' || e.status === 'published' || e.status === 'live').length;
     const live = events.filter(e => e.status === 'live').length;
     const completed = events.filter(e => e.status === 'completed').length;
     const archived = events.filter(e => e.status === 'archived').length;
@@ -196,10 +211,14 @@ export const OrganizerStudio = () => {
       category: event.category || '',
       venue: event.venue || '',
       date: event.date || '',
+      endDate: event.endDate || event.date || '',
       time: event.time || '',
       capacity: event.capacity ? Number(event.capacity) : 0,
-      status: event.status || 'open',
-      registrationDeadline: event.registrationDeadline || ''
+      status: event.status || 'draft',
+      registrationDeadline: event.registrationDeadline || '',
+      image: event.image || '',
+      tags: Array.isArray(event.tags) ? event.tags.join(', ') : (event.tags || ''),
+      visibility: event.visibility || 'public'
     });
     setFormError('');
   };
@@ -210,18 +229,29 @@ export const OrganizerStudio = () => {
       setFormError("All required fields must be populated.");
       return;
     }
+    if (editForm.endDate && editForm.date && editForm.endDate < editForm.date) {
+      setFormError("End date must be on or after start date.");
+      return;
+    }
+    // Check status transition validity
+    if (!isValidStatusTransition(editingEvent.status, editForm.status)) {
+      setFormError(`Invalid status transition from ${editingEvent.status} to ${editForm.status}`);
+      return;
+    }
+
     setFormSaving(true);
     setFormError('');
     try {
       await updateEvent(editingEvent.id, {
         ...editForm,
-        capacity: Number(editForm.capacity)
+        capacity: Number(editForm.capacity),
+        tags: editForm.tags.split(',').map(t => t.trim()).filter(Boolean)
       });
       triggerToast('success', "Event successfully updated.");
       setEditingEvent(null);
     } catch (err) {
       console.error("[Organizer] Failed to update event:", err);
-      setFormError("Failed to update event document.");
+      setFormError(err.message || "Failed to update event document.");
     } finally {
       setFormSaving(false);
     }
@@ -240,9 +270,14 @@ export const OrganizerStudio = () => {
 
   const handlePublish = async (event, e) => {
     if (e) e.stopPropagation();
+    // Validate status transition: draft to published
+    if (!isValidStatusTransition(event.status, 'published')) {
+      triggerToast('error', `Cannot publish from current state: ${event.status}`);
+      return;
+    }
     try {
       await updateEvent(event.id, { 
-        status: 'open',
+        status: 'published',
         publishedAt: new Date().toISOString(),
         lastStatusChange: new Date().toISOString()
       });
@@ -258,8 +293,8 @@ export const OrganizerStudio = () => {
     const views = event.views || 0;
     const shares = event.shares || 0;
     const registrations = event.registeredCount || 0;
-    const checkIns = event.checkIns || 0;
-    triggerToast('success', `Analytics Registry // Views: ${views} | Shares: ${shares} | Bookings: ${registrations} | Check-ins: ${checkIns}`);
+    const bookmarks = event.favorites || event.bookmarks || 0;
+    triggerToast('success', `Analytics Registry // Views: ${views} | Shares: ${shares} | Registrations: ${registrations} | Bookmarks: ${bookmarks}`);
   };
 
   const handleToggleClose = async (event, e) => {
@@ -292,34 +327,50 @@ export const OrganizerStudio = () => {
     }
   };
 
-  const handleDelete = async (eventId, e) => {
+  const handleDelete = (eventId, eventTitle, e) => {
     if (e) e.stopPropagation();
-    if (!window.confirm("Are you sure you want to permanently delete this event? This action is irreversible.")) return;
-    try {
-      await deleteEvent(eventId);
-      triggerToast('success', "Event permanently deleted.");
-      setSelectedIds(prev => {
-        const next = new Set(prev);
-        next.delete(eventId);
-        return next;
-      });
-    } catch (err) {
-      console.error("[Organizer] Failed to delete event:", err);
-      triggerToast('error', "Failed to delete event.");
-    }
+    setDeleteConfirmation({
+      isOpen: true,
+      title: "Delete permanently?",
+      message: `Are you sure you want to permanently delete "${eventTitle}"? This will soft-delete the event in the system.`,
+      onConfirm: async () => {
+        try {
+          await deleteEvent(eventId);
+          triggerToast('success', "Event permanently deleted.");
+          setSelectedIds(prev => {
+            const next = new Set(prev);
+            next.delete(eventId);
+            return next;
+          });
+        } catch (err) {
+          console.error("[Organizer] Failed to delete event:", err);
+          triggerToast('error', "Failed to delete event.");
+        } finally {
+          setDeleteConfirmation(prev => ({ ...prev, isOpen: false }));
+        }
+      }
+    });
   };
 
   // Bulk action triggers
-  const handleBulkDelete = async () => {
-    if (!window.confirm(`Are you sure you want to permanently delete the ${selectedIds.size} selected events?`)) return;
-    try {
-      await Promise.all(Array.from(selectedIds).map(id => deleteEvent(id)));
-      triggerToast('success', "Selected events deleted.");
-      setSelectedIds(new Set());
-    } catch (err) {
-      console.error("[Organizer] Failed to bulk delete events:", err);
-      triggerToast('error', "Failed to complete bulk delete operations.");
-    }
+  const handleBulkDelete = () => {
+    setDeleteConfirmation({
+      isOpen: true,
+      title: "Delete permanently?",
+      message: `Are you sure you want to permanently delete the ${selectedIds.size} selected events?`,
+      onConfirm: async () => {
+        try {
+          await Promise.all(Array.from(selectedIds).map(id => deleteEvent(id)));
+          triggerToast('success', "Selected events deleted.");
+          setSelectedIds(new Set());
+        } catch (err) {
+          console.error("[Organizer] Failed to bulk delete events:", err);
+          triggerToast('error', "Failed to complete bulk delete operations.");
+        } finally {
+          setDeleteConfirmation(prev => ({ ...prev, isOpen: false }));
+        }
+      }
+    });
   };
 
   const handleBulkArchive = async () => {
@@ -365,8 +416,8 @@ export const OrganizerStudio = () => {
 
     // Status
     if (selectedStatus !== 'All') {
-      if (selectedStatus === 'published') {
-        list = list.filter(e => e.status === 'open' || e.status === 'closed' || e.status === 'published');
+      if (selectedStatus.toLowerCase() === 'published') {
+        list = list.filter(e => e.status === 'open' || e.status === 'closed' || e.status === 'published' || e.status === 'live');
       } else {
         list = list.filter(e => (e.status || '').toLowerCase() === selectedStatus.toLowerCase());
       }
@@ -382,6 +433,9 @@ export const OrganizerStudio = () => {
         if (selectedDate === 'Past') {
           return e.date < todayStr;
         }
+        if (selectedDate === 'Specific' && filterSpecificDate) {
+          return e.date === filterSpecificDate;
+        }
         return true;
       });
     }
@@ -390,7 +444,7 @@ export const OrganizerStudio = () => {
     list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
     return list;
-  }, [events, searchQuery, selectedCategory, selectedStatus, selectedDate, todayStr]);
+  }, [events, searchQuery, selectedCategory, selectedStatus, selectedDate, filterSpecificDate, todayStr]);
 
   const formatDate = (dateStr) => {
     if (!dateStr) return "";
@@ -542,9 +596,11 @@ export const OrganizerStudio = () => {
                   className="bg-[#111] border border-white/10 text-white/80 px-3 py-1.5 rounded-none focus:outline-none focus:border-accent cursor-pointer hover:bg-white/[0.02]"
                 >
                   <option value="All">All States</option>
-                  <option value="Open">Open</option>
-                  <option value="Closed">Closed</option>
-                  <option value="Archived">Archived</option>
+                  <option value="draft">Draft</option>
+                  <option value="published">Published</option>
+                  <option value="archived">Archived</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="completed">Completed</option>
                 </select>
               </div>
 
@@ -558,7 +614,16 @@ export const OrganizerStudio = () => {
                   <option value="All">Any Time</option>
                   <option value="Upcoming">Upcoming Only</option>
                   <option value="Past">Past Only</option>
+                  <option value="Specific">Specific Date</option>
                 </select>
+                {selectedDate === 'Specific' && (
+                  <input
+                    type="date"
+                    value={filterSpecificDate}
+                    onChange={(e) => setFilterSpecificDate(e.target.value)}
+                    className="bg-[#111] border border-white/10 text-white/80 px-2 py-1 focus:outline-none focus:border-accent font-ui rounded-none text-xs"
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -692,8 +757,10 @@ export const OrganizerStudio = () => {
                           <h3 className="text-body-m font-light text-primary group-hover:text-white truncate">
                             {event.title}
                           </h3>
-                          <div className="text-[0.62rem] text-white/30 uppercase tracking-widest font-technical flex flex-wrap gap-x-2">
-                            <span>{formatDate(event.date)}</span>
+                          <div className="text-[0.62rem] text-white/30 uppercase tracking-widest font-technical flex flex-wrap gap-x-2 gap-y-1">
+                            <span>Start: {formatDate(event.date)}</span>
+                            <span>•</span>
+                            <span>Created: {formatDate(event.createdAt)}</span>
                             <span>•</span>
                             <span>{event.venue || "TBA"}</span>
                           </div>
@@ -701,9 +768,9 @@ export const OrganizerStudio = () => {
                       </div>
 
                       {/* Center: Analytics metric widgets (flat typography) */}
-                      <div className="flex flex-row md:flex-row md:items-center gap-8 lg:gap-10 shrink-0 text-left">
+                      <div className="flex flex-row md:flex-row md:items-center gap-6 lg:gap-8 shrink-0 text-left">
                         {/* Metrics Group: Fill status */}
-                        <div className="flex flex-col gap-1 w-28 md:w-36">
+                        <div className="flex flex-col gap-1 w-24 md:w-28">
                           <div className="flex justify-between text-micro text-white/30 uppercase tracking-wider font-technical">
                             <span>Fill Rate</span>
                             <span>{fillPercent}%</span>
@@ -718,21 +785,27 @@ export const OrganizerStudio = () => {
                               style={{ width: `${fillPercent}%` }} 
                             />
                           </div>
-                          <span className="text-[0.6rem] text-white/20 font-technical uppercase">
-                            {currentReg} / {capacity} registered
+                          <span className="text-[0.55rem] text-white/20 font-technical uppercase">
+                            {currentReg} / {capacity}
                           </span>
                         </div>
 
-                        {/* Views placeholder */}
-                        <div className="flex flex-col gap-0.5">
+                        {/* Views */}
+                        <div className="flex flex-col gap-0.5 min-w-[40px]">
                           <span className="text-micro text-white/30 uppercase tracking-widest">Views</span>
-                          <span className="text-body font-light text-primary">{mockViews}</span>
+                          <span className="text-body font-light text-primary">{event.views || 0}</span>
                         </div>
 
-                        {/* Capacity seats remaining */}
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-micro text-white/30 uppercase tracking-widest">Remaining</span>
-                          <span className="text-body font-light text-primary">{seatsRemaining}</span>
+                        {/* Registrations */}
+                        <div className="flex flex-col gap-0.5 min-w-[50px]">
+                          <span className="text-micro text-white/30 uppercase tracking-widest">Registrations</span>
+                          <span className="text-body font-light text-primary">{currentReg}</span>
+                        </div>
+
+                        {/* Bookmarks */}
+                        <div className="flex flex-col gap-0.5 min-w-[55px]">
+                          <span className="text-micro text-white/30 uppercase tracking-widest">Bookmarks</span>
+                          <span className="text-body font-light text-primary">{event.favorites || event.bookmarks || 0}</span>
                         </div>
                       </div>
 
@@ -824,7 +897,7 @@ export const OrganizerStudio = () => {
                         {/* Delete */}
                         <button
                           type="button"
-                          onClick={(e) => handleDelete(event.id, e)}
+                          onClick={(e) => handleDelete(event.id, event.title, e)}
                           className="p-2 bg-red-950/20 border border-red-500/10 hover:bg-red-950/40 text-red-400 hover:text-red-300 transition-all rounded-none"
                           title="Delete Event"
                         >
@@ -919,6 +992,19 @@ export const OrganizerStudio = () => {
                       </select>
                     </div>
 
+                    {/* Image URL */}
+                    <div className="flex flex-col gap-2">
+                      <label className="text-micro text-primary">Event Image URL</label>
+                      <input
+                        type="url"
+                        value={editForm.image}
+                        onChange={(e) => setEditForm({ ...editForm, image: e.target.value })}
+                        className="w-full bg-[#111] border border-white/10 px-4 py-2.5 text-sm text-white/80 focus:outline-none focus:border-accent rounded-none transition-colors"
+                        required
+                        disabled={formSaving}
+                      />
+                    </div>
+
                     {/* Description */}
                     <div className="flex flex-col gap-2">
                       <label className="text-micro text-primary">Event Description</label>
@@ -945,13 +1031,25 @@ export const OrganizerStudio = () => {
                     </div>
 
                     {/* Grid: Date & Time */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="flex flex-col gap-2">
-                        <label className="text-micro text-primary">Event Date</label>
+                        <label className="text-micro text-primary">Start Date</label>
                         <input
                           type="date"
                           value={editForm.date}
                           onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                          className="w-full bg-[#111] border border-white/10 px-4 py-2.5 text-sm text-white/80 focus:outline-none focus:border-accent rounded-none transition-colors"
+                          required
+                          disabled={formSaving}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-micro text-primary">End Date</label>
+                        <input
+                          type="date"
+                          value={editForm.endDate}
+                          onChange={(e) => setEditForm({ ...editForm, endDate: e.target.value })}
+                          min={editForm.date}
                           className="w-full bg-[#111] border border-white/10 px-4 py-2.5 text-sm text-white/80 focus:outline-none focus:border-accent rounded-none transition-colors"
                           required
                           disabled={formSaving}
@@ -1007,10 +1105,39 @@ export const OrganizerStudio = () => {
                         disabled={formSaving}
                       >
                         <option value="draft">Draft</option>
-                        <option value="open">Registration Open</option>
-                        <option value="closed">Registration Closed</option>
+                        <option value="published">Published</option>
                         <option value="archived">Archived</option>
+                        <option value="cancelled">Cancelled</option>
+                        <option value="completed">Completed</option>
                       </select>
+                    </div>
+
+                    {/* Grid: Tags & Visibility */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="flex flex-col gap-2">
+                        <label className="text-micro text-primary">Tags (Comma-separated)</label>
+                        <input
+                          type="text"
+                          value={editForm.tags}
+                          onChange={(e) => setEditForm({ ...editForm, tags: e.target.value })}
+                          placeholder="e.g. tech, workshop"
+                          className="w-full bg-[#111] border border-white/10 px-4 py-2.5 text-sm text-white/80 focus:outline-none focus:border-accent rounded-none transition-colors"
+                          disabled={formSaving}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-micro text-primary">Visibility</label>
+                        <select
+                          value={editForm.visibility}
+                          onChange={(e) => setEditForm({ ...editForm, visibility: e.target.value })}
+                          className="w-full bg-[#111] border border-white/10 px-4 py-2.5 text-sm text-white/80 focus:outline-none focus:border-accent rounded-none cursor-pointer"
+                          required
+                          disabled={formSaving}
+                        >
+                          <option value="public">Public</option>
+                          <option value="private">Private</option>
+                        </select>
+                      </div>
                     </div>
 
                     {/* Actions */}
@@ -1033,6 +1160,65 @@ export const OrganizerStudio = () => {
                       </Button>
                     </div>
                   </form>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+
+          {/* DELETE PERMANENTLY CONFIRMATION MODAL */}
+          <AnimatePresence>
+            {deleteConfirmation.isOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                {/* Backdrop */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setDeleteConfirmation(prev => ({ ...prev, isOpen: false }))}
+                  className="absolute inset-0 bg-[#090909]/85 backdrop-blur-md"
+                />
+
+                {/* Modal box */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.96, y: 16, filter: 'blur(8px)' }}
+                  animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, scale: 0.96, y: 16, filter: 'blur(8px)' }}
+                  transition={{ duration: 0.3, ease: EASE }}
+                  className="bg-[#141414]/95 border border-red-500/20 backdrop-blur-2xl w-full max-w-md p-6 z-10 flex flex-col rounded-none shadow-[0_32px_60px_-16px_rgba(0,0,0,0.9)] relative text-left font-ui"
+                >
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-3 text-red-400">
+                      <span className="text-[0.6rem] font-technical uppercase border border-red-500/30 px-2 py-0.5 tracking-wider bg-red-950/20">
+                        Warning
+                      </span>
+                      <h3 className="text-body font-medium uppercase tracking-wider text-red-200">
+                        {deleteConfirmation.title}
+                      </h3>
+                    </div>
+                    
+                    <p className="text-xs text-white/60 leading-relaxed font-light font-ui">
+                      {deleteConfirmation.message}
+                    </p>
+
+                    <div className="flex justify-end gap-3 pt-4 border-t border-white/5 mt-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setDeleteConfirmation(prev => ({ ...prev, isOpen: false }))}
+                        size="sm"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={deleteConfirmation.onConfirm}
+                        className="bg-red-600 hover:bg-red-700 text-white border-red-600 focus:border-red-700 rounded-none"
+                        size="sm"
+                      >
+                        Delete Permanently
+                      </Button>
+                    </div>
+                  </div>
                 </motion.div>
               </div>
             )}

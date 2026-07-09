@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, orderBy, limit } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, orderBy, limit, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase/firestore";
 import { auth } from "../firebase/config";
 import { logFirebaseError } from "../firebase/errorLogging";
@@ -197,6 +197,10 @@ export const updateUserRole = async (targetUid, newRole, updates = {}) => {
     const uDoc = await getDoc(userRef);
     const prevData = uDoc.exists() ? uDoc.data() : {};
 
+    if (prevData.email && prevData.email.toLowerCase().trim() === "upadhyayshourya352@gmail.com") {
+      throw new Error("Action denied: The bootstrap administrator account is protected and cannot be modified.");
+    }
+
     const fields = {
       role: newRole,
       updatedAt: new Date().toISOString(),
@@ -235,6 +239,10 @@ export const updateUserSuspension = async (targetUid, suspended) => {
   try {
     const uDoc = await getDoc(userRef);
     const prevData = uDoc.exists() ? uDoc.data() : {};
+
+    if (prevData.email && prevData.email.toLowerCase().trim() === "upadhyayshourya352@gmail.com") {
+      throw new Error("Action denied: The bootstrap administrator account is protected and cannot be suspended.");
+    }
 
     await updateDoc(userRef, {
       suspended: !!suspended,
@@ -342,5 +350,90 @@ export const getAdminStats = async () => {
     totalEvents,
     upcomingEvents,
     registrations
+  };
+};
+
+/**
+ * Subscribes to real-time aggregations of system stats for the Admin Dashboard.
+ */
+export const subscribeToAdminStats = (onUpdate) => {
+  let usersList = [];
+  let clubsList = [];
+  let eventsList = [];
+  let registrationsList = [];
+
+  const checkAndEmit = () => {
+    const totalUsers = usersList.length;
+    const students = usersList.filter(u => (u.role || "").toLowerCase().trim() === "student").length;
+    const organizers = usersList.filter(u => (u.role || "").toLowerCase().trim() === "organizer").length;
+    const admins = usersList.filter(u => (u.role || "").toLowerCase().trim() === "admin").length;
+
+    const totalClubs = clubsList.length;
+
+    // Filter out events whose status is "deleted"
+    const nonDeletedEvents = eventsList.filter(e => e.status !== "deleted");
+    const totalEvents = nonDeletedEvents.length;
+
+    // Upcoming events count should include only: status == "published" && eventDate >= today
+    const todayStr = new Date().toISOString().split("T")[0];
+    const upcomingEvents = nonDeletedEvents.filter(e => 
+      e.status === "published" && e.date && e.date >= todayStr
+    ).length;
+
+    const registrations = registrationsList.length;
+
+    onUpdate({
+      totalUsers,
+      students,
+      organizers,
+      admins,
+      totalClubs,
+      totalEvents,
+      upcomingEvents,
+      registrations
+    });
+  };
+
+  const unsubUsers = onSnapshot(collection(db, USERS_COLLECTION), (snap) => {
+    const list = [];
+    snap.forEach(d => list.push(d.data()));
+    usersList = list;
+    checkAndEmit();
+  }, (err) => {
+    console.error("[subscribeToAdminStats] users error:", err);
+  });
+
+  const unsubClubs = onSnapshot(collection(db, CLUBS_COLLECTION), (snap) => {
+    const list = [];
+    snap.forEach(d => list.push(d.data()));
+    clubsList = list;
+    checkAndEmit();
+  }, (err) => {
+    console.error("[subscribeToAdminStats] clubs error:", err);
+  });
+
+  const unsubEvents = onSnapshot(collection(db, EVENTS_COLLECTION), (snap) => {
+    const list = [];
+    snap.forEach(d => list.push(d.data()));
+    eventsList = list;
+    checkAndEmit();
+  }, (err) => {
+    console.error("[subscribeToAdminStats] events error:", err);
+  });
+
+  const unsubRegs = onSnapshot(collection(db, REGS_COLLECTION), (snap) => {
+    const list = [];
+    snap.forEach(d => list.push(d.data()));
+    registrationsList = list;
+    checkAndEmit();
+  }, (err) => {
+    console.error("[subscribeToAdminStats] registrations error:", err);
+  });
+
+  return () => {
+    unsubUsers();
+    unsubClubs();
+    unsubEvents();
+    unsubRegs();
   };
 };

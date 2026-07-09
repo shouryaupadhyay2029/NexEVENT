@@ -11,9 +11,10 @@
  * - open: Registration open (default published active state).
  */
 export const resolveEventStatus = (event) => {
-  // If explicitly draft, archived, or closed, preserve manual state
-  if (event.status === 'draft' || event.status === 'archived' || event.status === 'closed') {
-    return event.status;
+  // If explicitly draft, archived, closed, cancelled, completed, or deleted preserve manual state
+  const s = (event.status || 'draft').toLowerCase();
+  if (s === 'draft' || s === 'archived' || s === 'closed' || s === 'cancelled' || s === 'completed' || s === 'deleted') {
+    return s;
   }
 
   const now = new Date();
@@ -58,4 +59,34 @@ export const resolveEventStatus = (event) => {
 
   // 3. Default state for published events
   return 'open';
+};
+
+/**
+ * Validates status transitions:
+ * - draft -> published (or deleted)
+ * - published -> archived | cancelled | completed (or deleted)
+ */
+export const isValidStatusTransition = (currentStatus, nextStatus) => {
+  let current = (currentStatus || 'draft').toLowerCase();
+  let next = (nextStatus || 'draft').toLowerCase();
+
+  // Normalize open, closed, live to published
+  if (current === 'open' || current === 'closed' || current === 'live') {
+    current = 'published';
+  }
+  if (next === 'open' || next === 'closed' || next === 'live') {
+    next = 'published';
+  }
+
+  if (current === next) return true;
+
+  if (current === 'draft') {
+    return next === 'published' || next === 'deleted';
+  }
+
+  if (current === 'published') {
+    return next === 'archived' || next === 'cancelled' || next === 'completed' || next === 'deleted';
+  }
+
+  return false;
 };

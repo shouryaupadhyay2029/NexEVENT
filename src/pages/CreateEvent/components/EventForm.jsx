@@ -18,10 +18,13 @@ export const EventForm = () => {
     venue: '',
     organizer: '',
     date: '',
+    endDate: '',
     time: '',
     capacity: '',
     registrationDeadline: '',
-    status: 'open',
+    tags: '',
+    visibility: 'public',
+    status: 'published',
   });
 
   const [errors, setErrors] = useState({});
@@ -60,6 +63,12 @@ export const EventForm = () => {
       newErrors.date = "Event date must be in the future";
     }
 
+    if (formData.date && formData.endDate) {
+      if (formData.endDate < formData.date) {
+        newErrors.endDate = "End date must be on or after start date";
+      }
+    }
+
     if (formData.date && formData.registrationDeadline) {
       if (formData.registrationDeadline > formData.date) {
         newErrors.registrationDeadline = "Deadline must be on or before the event date";
@@ -84,12 +93,13 @@ export const EventForm = () => {
     setLoading(true);
     try {
       console.log("Submitting event creation request to Firestore...");
+      const finalStatus = submitStatus === 'open' ? 'published' : submitStatus;
       await createEvent({
         ...formData,
-        status: submitStatus
+        status: finalStatus
       });
       console.log("Event created successfully.");
-      triggerToast('success', submitStatus === 'draft' ? "Event saved as Draft successfully." : "Event published successfully.");
+      triggerToast('success', finalStatus === 'draft' ? "Event saved as Draft successfully." : "Event published successfully.");
       setFormData({
         title: '',
         description: '',
@@ -98,9 +108,12 @@ export const EventForm = () => {
         venue: '',
         organizer: '',
         date: '',
+        endDate: '',
         time: '',
         capacity: '',
         registrationDeadline: '',
+        tags: '',
+        visibility: 'public',
         status: 'draft',
       });
       setErrors({});
@@ -205,13 +218,21 @@ export const EventForm = () => {
       </div>
 
       {/* Grid: Date & Time */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <DatePicker
-          label="Event Date"
+          label="Start Date"
           value={formData.date}
           min={new Date().toISOString().split('T')[0]}
           onChange={(date) => setFormData({ ...formData, date })}
           error={errors.date}
+        />
+
+        <DatePicker
+          label="End Date"
+          value={formData.endDate}
+          min={formData.date || new Date().toISOString().split('T')[0]}
+          onChange={(endDate) => setFormData({ ...formData, endDate })}
+          error={errors.endDate}
         />
 
         <DatePicker
@@ -237,6 +258,32 @@ export const EventForm = () => {
           onChange={(deadline) => setFormData({ ...formData, registrationDeadline: deadline })}
           error={errors.registrationDeadline}
         />
+      </div>
+
+      {/* Grid: Tags & Visibility */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="flex flex-col gap-3 text-left">
+          <label className="text-micro text-primary">Tags (Comma-separated)</label>
+          <input
+            type="text"
+            value={formData.tags}
+            onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+            placeholder="e.g. hackathon, coding, artificial intelligence"
+            className="w-full bg-[#111] border border-white/10 px-4 py-3 text-sm text-white/80 placeholder-white/20 focus:outline-none focus:border-accent font-ui rounded-none transition-colors"
+          />
+        </div>
+
+        <div className="flex flex-col gap-3 text-left">
+          <label className="text-micro text-primary">Visibility</label>
+          <select
+            value={formData.visibility}
+            onChange={(e) => setFormData({ ...formData, visibility: e.target.value })}
+            className="w-full bg-[#111] border border-white/10 px-4 py-3 text-sm text-white/80 focus:outline-none focus:border-accent font-ui rounded-none transition-colors cursor-pointer"
+          >
+            <option value="public">Public (Visible on Discovery)</option>
+            <option value="private">Private (Hidden from Discovery)</option>
+          </select>
+        </div>
       </div>
 
       {/* Actions */}
