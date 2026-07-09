@@ -100,7 +100,7 @@ service cloud.firestore {
           request.resource.data.uid == resource.data.uid &&
           request.resource.data.role == 'admin' &&
           request.resource.data.verified == true &&
-          (!request.resource.data.keys().contains('suspended') || request.resource.data.suspended == false)
+          (!('suspended' in resource.data) || request.resource.data.suspended == false)
         )
       );
 
@@ -164,9 +164,13 @@ service cloud.firestore {
       // Registrants can read their own; Admins can read all; 
       // Organizers can read registrations ONLY if they created the linked event.
       allow read: if isAuthenticated() && (
-        request.auth.uid == resource.data.userId || 
-        isAdmin() || 
-        (isOrganizer() && get(/databases/$(database)/documents/events/resource.data.eventId).data.creatorId == request.auth.uid)
+        resource == null || (
+          resource != null && (
+            request.auth.uid == resource.data.userId || 
+            isAdmin() || 
+            (isOrganizer() && get(/databases/$(database)/documents/events/$(resource.data.eventId)).data.creatorId == request.auth.uid)
+          )
+        )
       );
 
       // Authenticated users can create registrations for themselves.
@@ -190,7 +194,7 @@ service cloud.firestore {
         ) || (
           // Organizer check-in or cancellation flow
           isOrganizer() && 
-          get(/databases/$(database)/documents/events/resource.data.eventId).data.creatorId == request.auth.uid &&
+          get(/databases/$(database)/documents/events/$(resource.data.eventId)).data.creatorId == request.auth.uid &&
           request.resource.data.userId == resource.data.userId &&
           request.resource.data.eventId == resource.data.eventId &&
           request.resource.data.ticketId == resource.data.ticketId &&
@@ -205,7 +209,7 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && (
         request.auth.uid == resource.data.userId || 
         isAdmin() ||
-        (isOrganizer() && get(/databases/$(database)/documents/events/resource.data.eventId).data.creatorId == request.auth.uid)
+        (isOrganizer() && get(/databases/$(database)/documents/events/$(resource.data.eventId)).data.creatorId == request.auth.uid)
       );
     }
 
