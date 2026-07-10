@@ -290,11 +290,10 @@ export const OrganizerStudio = () => {
 
   const handleViewAnalytics = (event, e) => {
     if (e) e.stopPropagation();
-    const views = event.views || 0;
     const shares = event.shares || 0;
     const registrations = event.registeredCount || 0;
     const bookmarks = event.favorites || event.bookmarks || 0;
-    triggerToast('success', `Analytics Registry // Views: ${views} | Shares: ${shares} | Registrations: ${registrations} | Bookmarks: ${bookmarks}`);
+    triggerToast('success', `Analytics Registry // Shares: ${shares} | Registrations: ${registrations} | Bookmarks: ${bookmarks}`);
   };
 
   const handleToggleClose = async (event, e) => {
@@ -709,7 +708,6 @@ export const OrganizerStudio = () => {
                   
                   // Fill % analytics
                   const fillPercent = capacity > 0 ? Math.min(Math.round((currentReg / capacity) * 100), 100) : 0;
-                  const mockViews = Math.max((currentReg * 3) + (parseInt(event.id.charCodeAt(0)) || 14), 18);
 
                   return (
                     <div
@@ -788,12 +786,6 @@ export const OrganizerStudio = () => {
                           <span className="text-[0.55rem] text-white/20 font-technical uppercase">
                             {currentReg} / {capacity}
                           </span>
-                        </div>
-
-                        {/* Views */}
-                        <div className="flex flex-col gap-0.5 min-w-[40px]">
-                          <span className="text-micro text-white/30 uppercase tracking-widest">Views</span>
-                          <span className="text-body font-light text-primary">{event.views || 0}</span>
                         </div>
 
                         {/* Registrations */}

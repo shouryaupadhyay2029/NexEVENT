@@ -4,11 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { User, Calendar, Settings, LogOut, Sliders, Shield } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useMagnet } from '../../hooks/useMagnet';
+import { useConfirm } from '../../context/ConfirmContext';
 
 const EASE = [0.16, 1, 0.3, 1];
 
 export const ProfileDropdown = () => {
   const { user, profile, logout } = useAuth();
+  const confirm = useConfirm();
   const [isOpen, setIsOpen] = useState(false);
   const [ringActive, setRingActive] = useState(false);
   const dropdownRef = useRef(null);
@@ -43,7 +45,16 @@ export const ProfileDropdown = () => {
 
   const handleLogout = async () => {
     setIsOpen(false);
-    await logout();
+    const confirmed = await confirm({
+      title: 'Sign Out',
+      message: 'You are about to end your current NexEvent session.',
+      variant: 'logout',
+      confirmText: 'Sign Out',
+      cancelText: 'Cancel'
+    });
+    if (confirmed) {
+      await logout();
+    }
   };
 
   const getInitial = () => user?.displayName?.[0] || user?.email?.[0] || 'U';

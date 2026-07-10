@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { getUserRegistrations } from '../../services/registrationService';
+import { getUserRegistrations, cancelRegistration } from '../../services/registrationService';
 import { getAllEvents } from '../../services/eventService';
 import { PageTransition } from '../../components/layout/PageTransition';
 import { PageContainer } from '../../components/layout/PageContainer';
@@ -10,10 +10,12 @@ import { AxisMarker } from '../../components/layout/AxisMarker';
 import { cn } from '../../utils/cn';
 import { Calendar, Clock, MapPin, ChevronRight, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useConfirm } from '../../context/ConfirmContext';
 
 export const MyEvents = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' | 'past' | 'cancelled' | 'completed'
   const [loading, setLoading] = useState(true);
   const [registeredEvents, setRegisteredEvents] = useState([]);
@@ -122,17 +124,24 @@ export const MyEvents = () => {
 
   const handleCancelBooking = async (eventId, eventTitle) => {
     const regId = `${user.uid}_${eventId}`;
-    if (!window.confirm(`Are you sure you want to cancel your registration for "${eventTitle}"? This cannot be undone.`)) {
-      return;
-    }
-    try {
-      await cancelRegistration(regId, "student");
-      triggerToast('success', `Cancelled registration for: "${eventTitle}".`);
-      await fetchUserEvents(); // Refresh data to update remaining capacity and status
-    } catch (err) {
-      console.error("Cancellation failure: ", err);
-      triggerToast('error', err.message || "Failed to cancel booking.");
-    }
+    await confirm({
+      title: 'Cancel Registration',
+      message: `Are you sure you want to cancel your registration for "${eventTitle}"? This cannot be undone.`,
+      variant: 'danger',
+      confirmText: 'Cancel Registration',
+      cancelText: 'Keep Registration',
+      onConfirm: async () => {
+        try {
+          await cancelRegistration(regId, "student");
+          triggerToast('success', `Cancelled registration for: "${eventTitle}".`);
+          await fetchUserEvents();
+        } catch (err) {
+          console.error("Cancellation failure: ", err);
+          triggerToast('error', err.message || "Failed to cancel booking.");
+          throw err;
+        }
+      }
+    });
   };
 
   return (

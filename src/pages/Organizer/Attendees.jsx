@@ -20,6 +20,7 @@ import {
   Printer, CheckCircle2, ChevronLeft, ChevronRight, UserCheck,
   Camera, XCircle
 } from 'lucide-react';
+import { useConfirm } from '../../context/ConfirmContext';
 
 const PAGE_SIZE = 10;
 
@@ -27,6 +28,7 @@ export const Attendees = () => {
   const { eventId } = useParams();
   const { user, profile } = useAuth();
   const navigate = useNavigate();
+  const confirm = useConfirm();
 
   // Main State
   const [event, setEvent] = useState(null);
@@ -358,21 +360,28 @@ export const Attendees = () => {
     }
   };
 
-  // 3. Bulk Cancel Registrations
   const handleBulkRemove = async () => {
     if (selectedIds.size === 0) return;
-    if (!window.confirm(`Warning: Are you sure you want to cancel registrations for the ${selectedIds.size} selected students? This will reclaim seat capacity.`)) return;
-
-    try {
-      await Promise.all(
-        Array.from(selectedIds).map(uid => cancelRegistration(`${uid}_${eventId}`, "organizer"))
-      );
-      setSelectedIds(new Set());
-      triggerToast('success', "Selected registrations removed.");
-    } catch (e) {
-      console.error("[Attendees] Failed to remove bookings:", e);
-      triggerToast('error', "Failed to remove some bookings.");
-    }
+    await confirm({
+      title: 'Cancel Registrations',
+      message: `Warning: Are you sure you want to cancel registrations for the ${selectedIds.size} selected students? This will reclaim seat capacity.`,
+      variant: 'danger',
+      confirmText: 'Cancel Registrations',
+      cancelText: 'Keep Registrations',
+      onConfirm: async () => {
+        try {
+          await Promise.all(
+            Array.from(selectedIds).map(uid => cancelRegistration(`${uid}_${eventId}`, "organizer"))
+          );
+          setSelectedIds(new Set());
+          triggerToast('success', "Selected registrations removed.");
+        } catch (e) {
+          console.error("[Attendees] Failed to remove bookings:", e);
+          triggerToast('error', "Failed to remove some bookings.");
+          throw e;
+        }
+      }
+    });
   };
 
   // 4. Export CSV

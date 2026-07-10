@@ -20,6 +20,7 @@ import {
   Trash2, Copy, Check, X, Search, Sliders,
   Ban, ShieldCheck, UserMinus, UserCheck, Lock
 } from 'lucide-react';
+import { useConfirm } from '../../context/ConfirmContext';
 
 const TABS = [
   { id: 'dashboard', label: 'Dashboard', index: '01' },
@@ -59,6 +60,7 @@ const AdminCounter = ({ value }) => {
 export const AdminConsole = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const confirm = useConfirm();
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(true);
@@ -204,15 +206,24 @@ export const AdminConsole = () => {
 
   // Invite revocation
   const handleRevokeInvite = async (inviteId) => {
-    if (!window.confirm('Are you sure you want to immediately revoke this invitation token?')) return;
-    try {
-      await revokeInvite(inviteId);
-      triggerToast('success', 'Invitation successfully revoked.');
-      loadInvites();
-    } catch (err) {
-      console.error("[Admin] Failed to revoke invitation token:", err);
-      triggerToast('error', 'Failed to revoke token.');
-    }
+    await confirm({
+      title: 'Revoke Invitation',
+      message: 'Are you sure you want to immediately revoke this invitation token?',
+      variant: 'danger',
+      confirmText: 'Revoke Token',
+      cancelText: 'Keep Token',
+      onConfirm: async () => {
+        try {
+          await revokeInvite(inviteId);
+          triggerToast('success', 'Invitation successfully revoked.');
+          loadInvites();
+        } catch (err) {
+          console.error("[Admin] Failed to revoke invitation token:", err);
+          triggerToast('error', 'Failed to revoke token.');
+          throw err;
+        }
+      }
+    });
   };
 
   // Club Create / Edit save
@@ -242,15 +253,24 @@ export const AdminConsole = () => {
 
   // Club Delete
   const handleDeleteClub = async (clubId) => {
-    if (!window.confirm('Are you sure you want to delete this club? All verification linked to this club id will be lost.')) return;
-    try {
-      await deleteClub(clubId);
-      triggerToast('success', 'Club permanently removed.');
-      loadClubs();
-    } catch (err) {
-      console.error("[Admin] Failed to delete club:", err);
-      triggerToast('error', 'Failed to delete club.');
-    }
+    await confirm({
+      title: 'Delete Club Registry',
+      message: 'Are you sure you want to delete this club? All verification linked to this club id will be lost.',
+      variant: 'danger',
+      confirmText: 'Delete Club',
+      cancelText: 'Keep Club',
+      onConfirm: async () => {
+        try {
+          await deleteClub(clubId);
+          triggerToast('success', 'Club permanently removed.');
+          loadClubs();
+        } catch (err) {
+          console.error("[Admin] Failed to delete club:", err);
+          triggerToast('error', 'Failed to delete club.');
+          throw err;
+        }
+      }
+    });
   };
 
   const handleEditClubOpen = (club) => {
@@ -279,42 +299,60 @@ export const AdminConsole = () => {
   // User promotion / demotion actions
   const handleUserRoleChange = async (targetUid, newRole) => {
     const actionText = newRole === 'organizer' ? 'promote user to organizer' : newRole === 'admin' ? 'promote user to admin' : 'demote user to student';
-    if (!window.confirm(`Are you sure you want to ${actionText}?`)) return;
+    const isDangerAction = newRole === 'student';
+    
+    await confirm({
+      title: newRole === 'student' ? 'Demote User Role' : 'Promote User Role',
+      message: `Are you sure you want to ${actionText}?`,
+      variant: isDangerAction ? 'danger' : 'warning',
+      confirmText: newRole === 'student' ? 'Demote' : 'Promote',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        let updates = {};
+        if (newRole === 'student') {
+          updates = { clubId: null, clubName: null, verified: false };
+        } else if (newRole === 'organizer') {
+          const defaultClub = clubs[0];
+          updates = { 
+            clubId: defaultClub?.clubId || null, 
+            clubName: defaultClub?.name || null,
+            verified: true 
+          };
+        }
 
-    let updates = {};
-    if (newRole === 'student') {
-      updates = { clubId: null, clubName: null, verified: false };
-    } else if (newRole === 'organizer') {
-      // Pick first club by default or prompt, for simplicity:
-      const defaultClub = clubs[0];
-      updates = { 
-        clubId: defaultClub?.clubId || null, 
-        clubName: defaultClub?.name || null,
-        verified: true 
-      };
-    }
-
-    try {
-      await updateUserRole(targetUid, newRole, updates);
-      triggerToast('success', 'User role upgraded/modified successfully.');
-      loadUsers();
-    } catch (err) {
-      triggerToast('error', err.message || 'Failed to update user role.');
-    }
+        try {
+          await updateUserRole(targetUid, newRole, updates);
+          triggerToast('success', 'User role upgraded/modified successfully.');
+          loadUsers();
+        } catch (err) {
+          triggerToast('error', err.message || 'Failed to update user role.');
+          throw err;
+        }
+      }
+    });
   };
 
   const handleToggleUserSuspension = async (targetUser) => {
     const isSuspended = !!targetUser.suspended;
     const actionText = isSuspended ? "unsuspend" : "suspend";
-    if (!window.confirm(`Are you sure you want to ${actionText} ${targetUser.displayName || 'this user'}?`)) return;
-    try {
-      await updateUserSuspension(targetUser.uid, !isSuspended);
-      triggerToast('success', `User account ${actionText}ed successfully.`);
-      loadUsers();
-    } catch (e) {
-      console.error("[Admin] Failed to toggle user suspension:", e);
-      triggerToast('error', `Failed to ${actionText} user.`);
-    }
+    await confirm({
+      title: isSuspended ? 'Unsuspend User Account' : 'Suspend User Account',
+      message: `Are you sure you want to ${actionText} ${targetUser.displayName || 'this user'}?`,
+      variant: isSuspended ? 'success' : 'danger',
+      confirmText: isSuspended ? 'Unsuspend' : 'Suspend',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await updateUserSuspension(targetUser.uid, !isSuspended);
+          triggerToast('success', `User account ${actionText}ed successfully.`);
+          loadUsers();
+        } catch (e) {
+          console.error("[Admin] Failed to toggle user suspension:", e);
+          triggerToast('error', `Failed to ${actionText} user.`);
+          throw e;
+        }
+      }
+    });
   };
 
   const handleToggleClubStatus = async (club, newStatus) => {
@@ -330,15 +368,24 @@ export const AdminConsole = () => {
 
   // Event administrative operations
   const handleAdminDeleteEvent = async (eventId) => {
-    if (!window.confirm('ADMIN WARNING: Are you sure you want to permanently delete this event? This action will bypass creator checking.')) return;
-    try {
-      await deleteEvent(eventId);
-      triggerToast('success', 'Event document deleted.');
-      loadEvents();
-    } catch (err) {
-      console.error("[Admin] Failed to delete event:", err);
-      triggerToast('error', 'Failed to delete event.');
-    }
+    await confirm({
+      title: 'Delete Event Permanently',
+      message: 'ADMIN WARNING: Are you sure you want to permanently delete this event? This action will bypass creator checking.',
+      variant: 'danger',
+      confirmText: 'Delete Event',
+      cancelText: 'Keep Event',
+      onConfirm: async () => {
+        try {
+          await deleteEvent(eventId);
+          triggerToast('success', 'Event document deleted.');
+          loadEvents();
+        } catch (err) {
+          console.error("[Admin] Failed to delete event:", err);
+          triggerToast('error', 'Failed to delete event.');
+          throw err;
+        }
+      }
+    });
   };
 
   const handleAdminToggleEventClose = async (event) => {

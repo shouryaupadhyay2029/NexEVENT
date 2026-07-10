@@ -60,7 +60,6 @@ export const createEvent = async (eventData) => {
     lastStatusChange: nowStr,
 
     // Analytics Preparation Fields
-    views: 0,
     shares: 0,
     registrations: 0,
     checkIns: 0,
@@ -281,7 +280,6 @@ export const duplicateEvent = async (event) => {
     lastStatusChange: nowStr,
 
     // Analytics Preparation Fields
-    views: 0,
     shares: 0,
     registrations: 0,
     checkIns: 0,

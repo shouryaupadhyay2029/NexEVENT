@@ -80,6 +80,32 @@
     opacity: 0.60; /* improved contrast */
     transition: opacity 0.4s ease, color 0.4s ease;
   }
+
+  /* Custom Scrollbar Styles */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: #0d0d0d;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: #e96b24; /* Matte orange */
+    border-radius: 4px;
+    border: 2px solid #0d0d0d;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: #f27c38; /* Brighter orange */
+  }
+
+  /* Firefox Scrollbar support */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #e96b24 #0d0d0d;
+  }
 }
 
 @layer utilities {
