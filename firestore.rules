@@ -79,8 +79,9 @@ service cloud.firestore {
               request.resource.data.verified == true &&
               request.resource.data.appliedInviteId != null &&
               exists(/databases/$(database)/documents/organizerInvites/$(request.resource.data.appliedInviteId)) &&
-              get(/databases/$(database)/documents/organizerInvites/$(request.resource.data.appliedInviteId)).data.usedBy == request.auth.uid &&
-              get(/databases/$(database)/documents/organizerInvites/$(request.resource.data.appliedInviteId)).data.used == true &&
+              get(/databases/$(database)/documents/organizerInvites/$(request.resource.data.appliedInviteId)).data.used == false &&
+              (!('usedBy' in get(/databases/$(database)/documents/organizerInvites/$(request.resource.data.appliedInviteId)).data) || get(/databases/$(database)/documents/organizerInvites/$(request.resource.data.appliedInviteId)).data.usedBy == null) &&
+              (!('status' in get(/databases/$(database)/documents/organizerInvites/$(request.resource.data.appliedInviteId)).data) || get(/databases/$(database)/documents/organizerInvites/$(request.resource.data.appliedInviteId)).data.status == 'pending') &&
               get(/databases/$(database)/documents/organizerInvites/$(request.resource.data.appliedInviteId)).data.clubId == request.resource.data.clubId &&
               get(/databases/$(database)/documents/organizerInvites/$(request.resource.data.appliedInviteId)).data.clubName == request.resource.data.clubName
             ) ||
@@ -234,18 +235,22 @@ service cloud.firestore {
       // Only administrators can create or revoke invites
       allow create, delete: if isAdmin();
 
-      // Allow users to update an invite ONLY when redeeming it (setting used = true and signing their uid)
+      // Allow users to update an invite ONLY when redeeming it (setting used = true, status = 'consumed' and signing their uid)
       allow update: if isAuthenticated() && (
-        isAdmin() || (
-          !resource.data.used &&
-          request.resource.data.used == true &&
-          request.resource.data.usedBy == request.auth.uid &&
-          request.resource.data.usedAt != null &&
-          request.resource.data.token == resource.data.token &&
-          request.resource.data.expiresAt == resource.data.expiresAt &&
-          request.resource.data.clubId == resource.data.clubId &&
-          request.resource.data.clubName == resource.data.clubName &&
-          request.resource.data.role == resource.data.role
+        !resource.data.used &&
+        (!('status' in resource.data) || resource.data.status != 'consumed') &&
+        (
+          isAdmin() || (
+            request.resource.data.used == true &&
+            request.resource.data.status == 'consumed' &&
+            request.resource.data.usedBy == request.auth.uid &&
+            request.resource.data.usedAt != null &&
+            request.resource.data.token == resource.data.token &&
+            request.resource.data.expiresAt == resource.data.expiresAt &&
+            request.resource.data.clubId == resource.data.clubId &&
+            request.resource.data.clubName == resource.data.clubName &&
+            request.resource.data.role == resource.data.role
+          )
         )
       );
     }
