@@ -1,10 +1,10 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { motion, AnimatePresence, useSpring, useMotionValue } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { User, Calendar, Settings, LogOut, Sliders, Shield } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useMagnet } from '../../hooks/useMagnet';
 import { useConfirm } from '../../context/ConfirmContext';
+import { cn } from '../../utils/cn';
 
 const EASE = [0.16, 1, 0.3, 1];
 
@@ -16,7 +16,7 @@ export const ProfileDropdown = () => {
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
 
-  // Avatar magnetic pull (stronger — 8px, it's a small target)
+  // Avatar magnetic pull (stronger — 7px, it's a small target)
   const { ref: avatarRef, x: avatarX, y: avatarY, handlers: avatarHandlers } = useMagnet({
     maxDelta: 7,
     damping: 22,
@@ -64,16 +64,47 @@ export const ProfileDropdown = () => {
   const showAdmin = role === 'admin';
 
   const menuItems = [
-    { icon: User, label: 'Profile', onClick: () => { setIsOpen(false); navigate('/profile'); } },
-    { icon: Calendar, label: 'My Events', onClick: () => { setIsOpen(false); navigate('/my-events'); } },
+    { index: '01', label: 'PROFILE', to: '/profile' },
+    { index: '02', label: 'MY REGISTRATIONS', to: '/my-events' },
     ...(showStudio ? [
-      { icon: Sliders, label: 'Organizer Studio', onClick: () => { setIsOpen(false); navigate('/organizer'); } }
+      { index: '03', label: 'ORGANIZER STUDIO', to: '/organizer' }
     ] : []),
     ...(showAdmin ? [
-      { icon: Shield, label: 'Admin Console', onClick: () => { setIsOpen(false); navigate('/admin'); } }
+      { index: '04', label: 'ADMIN CONSOLE', to: '/admin' }
     ] : []),
-    { icon: Settings, label: 'Settings', onClick: () => { setIsOpen(false); navigate('/settings'); } },
+    { index: '05', label: 'SETTINGS', to: '/settings' },
   ];
+
+  const containerVariants = {
+    hidden: { opacity: 0, y: -6 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.35,
+        ease: EASE,
+        when: "beforeChildren",
+        staggerChildren: 0.03
+      }
+    },
+    exit: {
+      opacity: 0,
+      y: -6,
+      transition: {
+        duration: 0.2,
+        ease: EASE
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 3 },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: { duration: 0.25, ease: EASE }
+    }
+  };
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -82,13 +113,13 @@ export const ProfileDropdown = () => {
         ref={avatarRef}
         style={{ x: avatarX, y: avatarY }}
         {...avatarHandlers}
-        whileTap={{ scale: 0.93, transition: { duration: 0.13, ease: [0.16, 1, 0.3, 1] } }}
+        whileTap={{ scale: 0.93, transition: { duration: 0.13, ease: EASE } }}
         onClick={() => setIsOpen(!isOpen)}
         onMouseEnter={() => setRingActive(true)}
         onMouseLeave={() => setRingActive(false)}
         className="w-9 h-9 rounded-full bg-[#111] border border-white/[0.09] text-white flex items-center justify-center font-display text-base uppercase focus:outline-none relative z-50 will-change-transform"
       >
-        {/* Rotating arc — one clean revolution on hover in, fades on hover out */}
+        {/* Rotating arc */}
         <motion.span
           className="absolute inset-[-3px] rounded-full"
           style={{
@@ -109,7 +140,7 @@ export const ProfileDropdown = () => {
         <motion.span
           className="absolute inset-0 rounded-full"
           animate={{ opacity: ringActive ? 1 : 0 }}
-          transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
+          transition={{ duration: 0.25, ease: EASE }}
           style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%)' }}
         />
         {profile?.avatar || user?.photoURL ? (
@@ -126,73 +157,117 @@ export const ProfileDropdown = () => {
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 14, filter: "blur(16px)", scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, filter: "blur(0px)", scale: 1 }}
-            exit={{ opacity: 0, y: 14, filter: "blur(16px)", scale: 0.97 }}
-            transition={{ duration: 0.3, ease: EASE }}
-            className="absolute right-0 top-[calc(100%+12px)] w-[280px] rounded-[20px] bg-[#141414]/95 backdrop-blur-2xl border border-white/10 shadow-[0_24px_40px_-12px_rgba(0,0,0,0.7)] overflow-hidden flex flex-col z-50 group/panel"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="absolute right-0 top-[calc(100%+14px)] w-[360px] rounded-[4px] bg-[#0a0a0a]/95 border border-white/[0.08] backdrop-blur-[16px] shadow-[0_24px_50px_-16px_rgba(0,0,0,0.85)] flex flex-col z-50 overflow-hidden"
           >
-            {/* Micro grain */}
+            {/* Matte orange 1px structural accent marker at the top */}
+            <div className="w-full h-[1px] bg-accent absolute top-0 left-0 z-[15] pointer-events-none" />
+
+            {/* Subtle internal top light highlight line / tonal layer */}
+            <div className="absolute inset-[1px] border-t border-white/[0.04] bg-white/[0.01] pointer-events-none z-[2]" />
+
+            {/* Global stationary noise texture overlay */}
             <div
-              className="absolute inset-0 opacity-[0.02] mix-blend-overlay pointer-events-none"
-              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")` }}
+              className="absolute inset-0 opacity-[0.04] mix-blend-overlay pointer-events-none z-[1]"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+              }}
             />
 
-            {/* Radial header glow */}
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{ background: 'radial-gradient(circle at 50% 0%, rgba(255,255,255,0.03) 0%, transparent 70%)' }}
-            />
+            {/* Actual Content Container (renders above the grain overlay & tonal layer) */}
+            <div className="relative z-[10] flex flex-col w-full h-full">
 
-            {/* Header: Profile Card */}
-            <div className="px-5 py-5 flex items-center gap-4 relative z-10">
-              <div className="relative w-12 h-12 rounded-full bg-[#1c1c1c] border border-white/10 flex items-center justify-center text-xl font-display text-primary shadow-inner overflow-hidden">
-                {profile?.avatar || user?.photoURL ? (
-                  <img 
-                    src={profile?.avatar || user?.photoURL} 
-                    alt={profile?.displayName || user?.displayName || "User"} 
-                    className="w-full h-full object-cover rounded-full" 
-                  />
-                ) : (
-                  getInitial()
-                )}
-                <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-green-500 border-2 border-[#141414] shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
+              {/* Top Micro Header */}
+              <div className="px-5 pt-5 pb-3 flex items-center justify-between text-[0.55rem] font-mono tracking-[0.25em] text-white/45 uppercase shrink-0 border-b border-white/[0.07] select-none">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-accent shrink-0" />
+                  <span>[USR.01]</span>
+                </div>
+                <span>IDENTITY REGISTRY</span>
               </div>
-              <div className="flex flex-col">
-                <p className="text-body text-primary font-medium tracking-tight truncate max-w-[160px]">
-                  {profile?.displayName || user?.displayName || 'Campus User'}
-                </p>
-                <p className="text-metadata text-muted truncate max-w-[160px]">
-                  {profile?.email || user?.email}
-                </p>
-                <div className="mt-1">
-                  <span className="inline-block px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[0.6rem] font-technical tracking-widest text-secondary uppercase">
-                    {profile?.role || 'Student'}
-                  </span>
+
+              {/* Identity Composition Section */}
+              <motion.div variants={itemVariants} className="px-5 py-5 flex items-center gap-5 shrink-0 text-left">
+                {/* Frame with Corner markers */}
+                <div className="relative w-16 h-16 border border-white/10 p-1 bg-[#111] shrink-0 select-none">
+                  <span className="absolute -top-[1px] -left-[1px] w-1.5 h-[1px] bg-accent" />
+                  <span className="absolute -top-[1px] -left-[1px] w-[1px] h-1.5 bg-accent" />
+                  <span className="absolute -bottom-[1px] -right-[1px] w-1.5 h-[1px] bg-accent" />
+                  <span className="absolute -bottom-[1px] -right-[1px] w-[1px] h-1.5 bg-accent" />
+                  
+                  <div className="w-full h-full overflow-hidden bg-black flex items-center justify-center font-display text-lg uppercase text-primary relative">
+                    {profile?.avatar || user?.photoURL ? (
+                      <img 
+                        src={profile?.avatar || user?.photoURL} 
+                        alt={profile?.displayName || user?.displayName || "User"} 
+                        className="w-full h-full object-cover grayscale" 
+                      />
+                    ) : (
+                      getInitial()
+                    )}
+                    {/* Status Indicator */}
+                    <span className="absolute bottom-1 right-1 w-1.5 h-1.5 bg-green-500 shrink-0" />
+                  </div>
+                </div>
+
+                {/* Text */}
+                <div className="flex flex-col min-w-0">
+                  <p className="text-body-lg text-white/96 font-light tracking-tight truncate max-w-[220px]">
+                    {profile?.displayName || user?.displayName || 'Campus User'}
+                  </p>
+                  <p className="text-[0.68rem] text-white/45 truncate max-w-[220px] font-mono mt-0.5 select-all">
+                    {profile?.email || user?.email}
+                  </p>
+                  <div className="mt-2.5">
+                    <span className="inline-block px-2 py-0.5 border border-white/10 bg-white/[0.02] text-[0.52rem] font-mono tracking-[0.2em] text-white/60 uppercase">
+                      {user?.email && user.email.toLowerCase().trim() === "upadhyayshourya352@gmail.com"
+                        ? "ACCESS // SYSTEM OWNER"
+                        : `PRIVILEGE // ${role}`}
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Structural Divider */}
+              <div className="px-5 py-2.5 flex items-center justify-between text-[0.52rem] font-mono tracking-[0.22em] text-white/28 uppercase border-y border-white/[0.07] bg-[#111111]/40 select-none">
+                <span>ACCESS DIRECTORY</span>
+                <span>{menuItems.length.toString().padStart(2, '0')} // REG</span>
+              </div>
+
+              {/* Directory Links */}
+              <div className="flex flex-col font-ui">
+                {menuItems.map((item) => (
+                  <motion.div key={item.index} variants={itemVariants}>
+                    <MenuItem 
+                      index={item.index} 
+                      label={item.label} 
+                      onClick={() => { setIsOpen(false); navigate(item.to); }} 
+                    />
+                  </motion.div>
+                ))}
+
+                <motion.div variants={itemVariants} className="border-t border-white/[0.07] mt-1 pt-1">
+                  <LogoutItem onClick={handleLogout} />
+                </motion.div>
+              </div>
+
+              {/* Registry Footer */}
+              <div className="px-5 py-4 bg-[#090909]/40 border-t border-white/[0.07] flex items-center justify-between text-[0.52rem] font-mono tracking-[0.2em] text-white/28 uppercase shrink-0 select-none">
+                <div className="flex flex-col gap-0.5 text-left">
+                  <span>REGISTRY // NEXEVENT</span>
+                  <span>AUTHENTICATED NODE</span>
+                </div>
+                <div className="flex items-center gap-2 text-white/45">
+                  <span className="w-1.5 h-1.5 bg-green-500 shrink-0" />
+                  <span>ACTIVE</span>
                 </div>
               </div>
+
             </div>
 
-            <div className="h-[1px] w-full bg-white/5 relative z-10" />
-
-            {/* Menu Items */}
-            <div className="py-2 flex flex-col relative z-10">
-              {menuItems.map((item, index) => (
-                <MenuItem key={index} icon={item.icon} label={item.label} onClick={item.onClick} />
-              ))}
-
-              <div className="h-[1px] w-full bg-white/5 my-2" />
-
-              <MenuItem icon={LogOut} label="Logout" onClick={handleLogout} isDanger />
-            </div>
-
-            {/* Footer */}
-            <div className="px-5 py-3 bg-[#111111]/50 border-t border-white/5 relative z-10">
-              <div className="flex justify-between items-center text-technical text-[0.6rem] text-muted uppercase tracking-widest">
-                <span>NexEvent</span>
-                <span>Build 0.1</span>
-              </div>
-            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -200,64 +275,142 @@ export const ProfileDropdown = () => {
   );
 };
 
-// MenuItem — 2–3px magnetic drift toward cursor, spring return on exit
-const MenuItem = ({ icon: Icon, label, onClick, isDanger }) => {
-  const { ref, x, y, handlers } = useMagnet({ maxDelta: 3, damping: 35, stiffness: 350 });
-
+// MenuItem
+const MenuItem = ({ index, label, onClick }) => {
   return (
     <motion.button
-      ref={ref}
+      type="button"
       onClick={onClick}
-      style={{ x, y }}
-      {...handlers}
       initial="rest"
       whileHover="hover"
       whileTap="tap"
-      className="relative flex items-center w-full px-5 py-2.5 outline-none group text-left cursor-pointer will-change-transform"
+      className="relative flex items-center w-full px-5 py-3 outline-none group text-left cursor-pointer transition-all duration-300 font-mono text-[0.72rem] tracking-[0.18em] uppercase overflow-hidden"
     >
-      {/* Background interpolation */}
       <motion.div
-        className="absolute inset-0 bg-white/0 z-0 pointer-events-none"
+        className="absolute inset-0 bg-white/0 pointer-events-none"
         variants={{
           rest: { backgroundColor: "rgba(255,255,255,0)" },
-          hover: { backgroundColor: "rgba(255,255,255,0.03)" },
-          tap: { backgroundColor: "rgba(255,255,255,0.01)" }
+          hover: { backgroundColor: "rgba(255,255,255,0.03)" }
         }}
-        transition={{ duration: 0.18, ease: EASE }}
+        transition={{ duration: 0.3, ease: EASE }}
       />
 
-      {/* Left accent line */}
       <motion.div
-        className={`absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-4 rounded-r-full ${isDanger ? 'bg-red-400' : 'bg-primary'}`}
+        className="absolute bottom-0 left-0 h-[1px] bg-accent origin-left"
+        initial={{ scaleX: 0 }}
         variants={{
-          rest: { opacity: 0, scaleY: 0 },
-          hover: { opacity: 1, scaleY: 1 }
+          rest: { scaleX: 0 },
+          hover: { scaleX: 1 }
         }}
-        transition={{ duration: 0.18, ease: EASE }}
+        transition={{ duration: 0.3, ease: EASE }}
+        style={{ width: "100%" }}
       />
 
-      <div className="relative z-10 flex items-center gap-3 w-full">
-        {/* Icon */}
-        <motion.div
-          variants={{
-            rest: { x: 0, color: isDanger ? 'rgba(248,113,113,0.7)' : 'rgba(255,255,255,0.45)' },
-            hover: { x: 4, color: isDanger ? 'rgba(248,113,113,1)' : 'rgba(255,255,255,1)' }
-          }}
-          transition={{ duration: 0.18, ease: EASE }}
-        >
-          <Icon className="w-[18px] h-[18px]" strokeWidth={1.5} />
-        </motion.div>
+      <div className="relative z-10 flex items-center justify-between w-full">
+        <div className="flex items-center gap-6">
+          <motion.span
+            variants={{
+              rest: { color: "rgba(255,255,255,0.45)" },
+              hover: { color: "var(--color-accent, #e96b24)" }
+            }}
+            transition={{ duration: 0.3, ease: EASE }}
+            className="text-[0.62rem]"
+          >
+            {index}
+          </motion.span>
 
-        {/* Text */}
+          <motion.span
+            variants={{
+              rest: { x: 0, color: "rgba(255,255,255,0.82)" },
+              hover: { x: 4, color: "rgba(255,255,255,0.96)" }
+            }}
+            transition={{ duration: 0.3, ease: EASE }}
+            className="font-ui font-light"
+          >
+            {label}
+          </motion.span>
+        </div>
+
         <motion.span
           variants={{
-            rest: { x: 0, color: isDanger ? 'rgba(248,113,113,0.7)' : 'rgba(255,255,255,0.75)' },
-            hover: { x: 2, color: isDanger ? 'rgba(248,113,113,1)' : 'rgba(255,255,255,1)' }
+            rest: { rotate: 0, x: 0, y: 0, color: "rgba(255,255,255,0.45)" },
+            hover: { x: 2, y: -2, color: "rgba(255,255,255,0.82)" }
           }}
-          transition={{ duration: 0.18, ease: EASE }}
-          className="font-ui text-[0.9375rem] font-medium tracking-tight"
+          transition={{ duration: 0.3, ease: EASE }}
+          className="text-[0.72rem]"
         >
-          {label}
+          ↗
+        </motion.span>
+      </div>
+    </motion.button>
+  );
+};
+
+// LogoutItem
+const LogoutItem = ({ onClick }) => {
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      initial="rest"
+      whileHover="hover"
+      whileTap="tap"
+      className="relative flex items-center w-full px-5 py-3 outline-none group text-left cursor-pointer transition-all duration-300 font-mono text-[0.72rem] tracking-[0.18em] uppercase overflow-hidden"
+    >
+      <motion.div
+        className="absolute inset-0 bg-red-500/0 pointer-events-none"
+        variants={{
+          rest: { backgroundColor: "rgba(239,68,68,0)" },
+          hover: { backgroundColor: "rgba(239,68,68,0.02)" }
+        }}
+        transition={{ duration: 0.3, ease: EASE }}
+      />
+
+      <motion.div
+        className="absolute bottom-0 left-0 h-[1px] bg-red-500/50 origin-left"
+        initial={{ scaleX: 0 }}
+        variants={{
+          rest: { scaleX: 0 },
+          hover: { scaleX: 1 }
+        }}
+        transition={{ duration: 0.3, ease: EASE }}
+        style={{ width: "100%" }}
+      />
+
+      <div className="relative z-10 flex items-center justify-between w-full">
+        <div className="flex items-center gap-6">
+          <motion.span
+            variants={{
+              rest: { color: "rgba(255,255,255,0.45)" },
+              hover: { color: "rgba(239,68,68,0.8)" }
+            }}
+            transition={{ duration: 0.3, ease: EASE }}
+            className="text-[0.62rem]"
+          >
+            [ ! ]
+          </motion.span>
+
+          <motion.span
+            variants={{
+              rest: { x: 0, color: "rgba(255,255,255,0.82)" },
+              hover: { x: 4, color: "rgba(255,255,255,0.96)" }
+            }}
+            transition={{ duration: 0.3, ease: EASE }}
+            className="font-ui font-light"
+          >
+            TERMINATE SESSION
+          </motion.span>
+        </div>
+
+        <motion.span
+          variants={{
+            rest: { x: 0, color: "rgba(255,255,255,0.45)" },
+            hover: { x: 3, color: "rgba(239,68,68,0.8)" }
+          }}
+          transition={{ duration: 0.3, ease: EASE }}
+          className="text-[0.72rem]"
+        >
+          →
         </motion.span>
       </div>
     </motion.button>

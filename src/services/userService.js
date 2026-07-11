@@ -89,17 +89,30 @@ export const checkAndCreateUserProfile = async (user) => {
 
   const userRef = doc(db, COLLECTION_NAME, user.uid);
   let docSnap = null;
+  let fetchedSuccessfully = false;
+
   try {
     docSnap = await getDoc(userRef);
+    fetchedSuccessfully = true;
   } catch (error) {
     logFirebaseError("[checkAndCreateUserProfile] Failed to get user profile from server, trying cache.", error);
     try {
       docSnap = await getDocFromCache(userRef);
+      fetchedSuccessfully = true;
     } catch (cacheErr) {
       logFirebaseError("[checkAndCreateUserProfile] Cache user profile get failed.", cacheErr);
     }
   }
 
+  // If both server and cache checks failed (we got errors from both),
+  // we CANNOT verify the existence of the document.
+  // We must THROW the error and abort to avoid overwriting existing data.
+  if (!fetchedSuccessfully) {
+    throw new Error("[checkAndCreateUserProfile] Failed to fetch user profile (both network and cache failed). Aborting to prevent accidental profile overwrite.");
+  }
+
+  // Now we are certain that docSnap was successfully retrieved.
+  // If it does not exist, we initialize it.
   if (!docSnap || !docSnap.exists()) {
     const isPermanentAdmin = user.email && user.email.toLowerCase().trim() === "upadhyayshourya352@gmail.com";
     const defaultProfile = {
@@ -125,9 +138,11 @@ export const checkAndCreateUserProfile = async (user) => {
       updatedAt: new Date().toISOString(),
     };
     try {
-      await setDoc(userRef, defaultProfile);
+      // Use merge: true for extra safety to never overwrite pre-existing fields
+      await setDoc(userRef, defaultProfile, { merge: true });
     } catch (writeErr) {
       logFirebaseError("[checkAndCreateUserProfile] Failed to write default user profile.", writeErr);
+      throw writeErr;
     }
     return defaultProfile;
   }

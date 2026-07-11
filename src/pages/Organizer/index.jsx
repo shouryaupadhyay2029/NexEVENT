@@ -766,7 +766,7 @@ export const OrganizerStudio = () => {
                       </div>
 
                       {/* Center: Analytics metric widgets (flat typography) */}
-                      <div className="flex flex-row md:flex-row md:items-center gap-6 lg:gap-8 shrink-0 text-left">
+                      <div className="flex flex-wrap md:items-center gap-6 lg:gap-8 shrink-0 text-left">
                         {/* Metrics Group: Fill status */}
                         <div className="flex flex-col gap-1 w-24 md:w-28">
                           <div className="flex justify-between text-micro text-white/30 uppercase tracking-wider font-technical">

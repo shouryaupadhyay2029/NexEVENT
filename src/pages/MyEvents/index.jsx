@@ -180,14 +180,17 @@ export const MyEvents = () => {
           </div>
 
           {/* Tab Selector */}
-          <div className="flex gap-6 border-b border-white/5 pb-2 mt-8">
+          <div className="w-full overflow-x-auto scrollbar-none snap-x snap-mandatory flex gap-6 border-b border-white/5 pb-2 mt-8 px-1">
             {['upcoming', 'past', 'cancelled', 'completed'].map((tab) => (
               <button
                 key={tab}
                 type="button"
-                onClick={() => setActiveTab(tab)}
+                onClick={(e) => {
+                  setActiveTab(tab);
+                  e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                }}
                 className={cn(
-                  "text-micro font-technical uppercase tracking-wider pb-2 focus:outline-none transition-colors border-b",
+                  "text-micro font-technical uppercase tracking-wider pb-2 focus:outline-none transition-colors border-b snap-center whitespace-nowrap",
                   activeTab === tab 
                     ? "border-accent text-accent" 
                     : "border-transparent text-white/40 hover:text-white"

@@ -467,17 +467,18 @@ export const AdminConsole = () => {
           </div>
 
           {/* TAB BAR NAVIGATOR (Minimal architectural vertical/horizontal dividers) */}
-          <div className="flex flex-wrap gap-x-8 gap-y-4 border-b border-white/5 pb-2 mt-4 select-none font-ui">
+          <div className="w-full overflow-x-auto scrollbar-none snap-x snap-mandatory flex gap-x-8 border-b border-white/5 pb-2 mt-4 select-none font-ui px-1">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => {
+                onClick={(e) => {
                   setActiveTab(tab.id);
                   setGeneratedInvite(null);
+                  e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
                 }}
                 className={cn(
-                  "text-micro font-technical uppercase tracking-widest pb-3 border-b-2 transition-all focus:outline-none flex items-center gap-1.5",
+                  "text-micro font-technical uppercase tracking-widest pb-3 border-b-2 transition-all focus:outline-none flex items-center gap-1.5 snap-center whitespace-nowrap",
                   activeTab === tab.id 
                     ? "border-accent text-accent" 
                     : "border-transparent text-white/30 hover:text-white"
@@ -783,7 +784,7 @@ export const AdminConsole = () => {
                     {/* Right column: List of pending/expired invites */}
                     <div className="flex flex-col gap-6">
                       <span className="text-micro text-white/30 uppercase tracking-widest font-technical">Token Registry Log</span>
-                      <div className="flex flex-col gap-3 max-h-[70vh] overflow-y-auto pr-2 divide-y divide-white/5">
+                      <div className="flex flex-col gap-3 max-h-[50vh] md:max-h-[70vh] scroll-container pr-2 divide-y divide-white/5">
                         {invites.length === 0 ? (
                           <span className="text-xs text-white/30 font-technical uppercase">No tokens logged.</span>
                         ) : (
@@ -1213,7 +1214,7 @@ export const AdminConsole = () => {
                       <button onClick={refreshData} className="text-[10px] font-technical uppercase tracking-wider text-accent">Refresh</button>
                     </div>
 
-                    <div className="flex flex-col border border-white/5 divide-y divide-white/5 max-h-[75vh] overflow-y-auto pr-2">
+                    <div className="flex flex-col border border-white/5 divide-y divide-white/5 max-h-[55vh] md:max-h-[75vh] scroll-container pr-2">
                       {auditLogs.length === 0 ? (
                         <div className="py-16 text-center text-white/20 text-xs font-technical uppercase">No logs recorded.</div>
                       ) : (

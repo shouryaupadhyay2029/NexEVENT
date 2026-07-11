@@ -172,3 +172,26 @@ img.loaded {
 .text-muted {
   color: rgba(255, 255, 255, 0.45) !important;
 }
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none !important;
+}
+.scrollbar-none {
+  -ms-overflow-style: none !important;  /* IE and Edge */
+  scrollbar-width: none !important;  /* Firefox */
+}
+
+.scroll-container {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: auto !important;
+}
+
+@media (max-width: 768px) {
+  .scroll-container::-webkit-scrollbar {
+    width: 3px !important;
+    height: 3px !important;
+  }
+}
+
+
