@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { trackEvent } from '../../services/analyticsService';
 import { useAuth } from '../../hooks/useAuth';
 import { updateUser } from '../../services/userService';
 import { getUserRegistrations } from '../../services/registrationService';
@@ -51,6 +52,10 @@ const CountingNumber = ({ value }) => {
 
 export const Profile = () => {
   const { user, profile, refreshProfile } = useAuth();
+
+  useEffect(() => {
+    trackEvent("profile_view");
+  }, []);
   const navigate = useNavigate();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [registrations, setRegistrations] = useState([]);

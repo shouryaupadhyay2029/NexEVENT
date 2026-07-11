@@ -1,5 +1,6 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { trackEvent } from '../../services/analyticsService';
 import { useAuth } from '../../hooks/useAuth';
 import { getAllEvents } from '../../services/eventService';
 import { registerForEvent, getUserRegistrations } from '../../services/registrationService';
@@ -98,6 +99,38 @@ export const Events = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Track page view
+  useEffect(() => {
+    trackEvent("archive_view");
+  }, []);
+
+  // Debounced search logging
+  useEffect(() => {
+    if (!searchQuery.trim()) return;
+    const timer = setTimeout(() => {
+      trackEvent("event_search", {
+        search_length: searchQuery.trim().length,
+        results_count: processedEvents.length
+      });
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [searchQuery, processedEvents.length]);
+
+  // Track filter selections
+  const isInitialFilterMount = useRef(true);
+  useEffect(() => {
+    if (isInitialFilterMount.current) {
+      isInitialFilterMount.current = false;
+      return;
+    }
+    trackEvent("event_filter", {
+      category: selectedCategory,
+      status: selectedStatus,
+      date_range: selectedDate,
+      results_count: processedEvents.length
+    });
+  }, [selectedCategory, selectedStatus, selectedDate, processedEvents.length]);
+
   const triggerToast = (type, message) => {
     setToast({ type, message });
     setTimeout(() => setToast(null), 4000);
@@ -128,6 +161,12 @@ export const Events = () => {
         return evt;
       }));
       triggerToast('success', 'Successfully registered for this event.');
+      const matchedEvent = events.find(evt => evt.id === eventId);
+      trackEvent("event_registration", {
+        event_id: eventId,
+        event_category: matchedEvent?.category || "General",
+        registration_source: "directory"
+      });
     } catch (err) {
       console.error("[Events] Failed to register for event.", err);
       triggerToast('error', err.message || 'Registration transaction failed.');

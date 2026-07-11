@@ -8,6 +8,7 @@ import {
   cancelRegistration,
   checkInByTicket
 } from '../../services/registrationService';
+import { trackEvent } from '../../services/analyticsService';
 import { PageTransition } from '../../components/layout/PageTransition';
 import { PageContainer } from '../../components/layout/PageContainer';
 import { SectionWrapper } from '../../components/layout/SectionWrapper';
@@ -370,9 +371,16 @@ export const Attendees = () => {
       cancelText: 'Keep Registrations',
       onConfirm: async () => {
         try {
+          const uids = Array.from(selectedIds);
           await Promise.all(
-            Array.from(selectedIds).map(uid => cancelRegistration(`${uid}_${eventId}`, "organizer"))
+            uids.map(uid => cancelRegistration(`${uid}_${eventId}`, "organizer"))
           );
+          uids.forEach(_uid => {
+            trackEvent("registration_cancelled", {
+              event_id: eventId,
+              actor_role: "organizer"
+            });
+          });
           setSelectedIds(new Set());
           triggerToast('success', "Selected registrations removed.");
         } catch (e) {

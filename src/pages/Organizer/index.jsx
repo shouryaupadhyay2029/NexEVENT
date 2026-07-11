@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { trackEvent } from '../../services/analyticsService';
 import { useAuth } from '../../hooks/useAuth';
 import { 
   subscribeToOrganizerEvents, 
@@ -106,6 +107,10 @@ const CountingNumber = ({ value }) => {
 export const OrganizerStudio = () => {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    trackEvent("organizer_studio_view");
+  }, []);
 
   // State
   const [events, setEvents] = useState([]);

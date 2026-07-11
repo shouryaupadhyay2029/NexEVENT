@@ -3,6 +3,7 @@ import { db } from "../firebase/firestore";
 import { auth } from "../firebase/config";
 import { logFirebaseError } from "../firebase/errorLogging";
 import { verifyUserPermission } from "./permissionService";
+import { trackEvent } from "./analyticsService";
 
 const COLLECTION_NAME = "organizerInvites";
 
@@ -53,6 +54,11 @@ export const createInvite = async (clubId, clubName, role = "organizer", expires
 
   try {
     await setDoc(newDocRef, inviteData);
+    trackEvent("organizer_invite_created", {
+      invite_id: inviteData.inviteId,
+      invited_role: inviteData.role,
+      invited_club: inviteData.clubName || undefined
+    });
     return inviteData;
   } catch (error) {
     logFirebaseError("[createInvite] Failed to create invitation.", error);
@@ -198,6 +204,11 @@ export const redeemInviteToken = async (tokenString, userId) => {
     });
 
     console.log("[redeemInviteToken] Transaction committed successfully.");
+    trackEvent("organizer_invite_redeemed", {
+      invite_id: currentInvite.inviteId,
+      granted_role: result.role,
+      granted_club: result.clubName || undefined
+    });
     return result;
   } catch (error) {
     console.error("[redeemInviteToken] Failed to complete invite redemption transaction.", error);

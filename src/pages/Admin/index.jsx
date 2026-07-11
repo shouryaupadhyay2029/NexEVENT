@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { trackEvent } from '../../services/analyticsService';
 import { useAuth } from '../../hooks/useAuth';
 import { PageTransition } from '../../components/layout/PageTransition';
 import { PageContainer } from '../../components/layout/PageContainer';
@@ -61,6 +62,10 @@ export const AdminConsole = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const confirm = useConfirm();
+
+  useEffect(() => {
+    trackEvent("admin_console_view");
+  }, []);
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(true);

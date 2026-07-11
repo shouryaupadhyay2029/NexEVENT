@@ -12,6 +12,7 @@ import {
 import { checkAndCreateUserProfile, getUser } from '../services/userService';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase/firestore';
+import { trackEvent } from '../services/analyticsService';
 
 export const AuthContext = createContext();
 
@@ -101,19 +102,35 @@ export const AuthProvider = ({ children }) => {
   }, [currentUser]);
 
   const login = async (email, password) => {
-    return signInWithEmail(email, password);
+    const result = await signInWithEmail(email, password);
+    if (result.user && !result.error) {
+      trackEvent("login_success", { method: "email" });
+    }
+    return result;
   };
 
   const signup = async (email, password, displayName) => {
-    return signUpWithEmail(email, password, displayName);
+    const result = await signUpWithEmail(email, password, displayName);
+    if (result.user && !result.error) {
+      trackEvent("signup_success", { method: "email" });
+    }
+    return result;
   };
 
   const googleLogin = async () => {
-    return signInWithGoogle();
+    const result = await signInWithGoogle();
+    if (result.user && !result.error) {
+      trackEvent("login_success", { method: "google" });
+    }
+    return result;
   };
 
   const logout = async () => {
-    return firebaseLogout();
+    const result = await firebaseLogout();
+    if (!result.error) {
+      trackEvent("logout");
+    }
+    return result;
   };
 
   const resetPassword = async (email) => {

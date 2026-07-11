@@ -5,6 +5,7 @@ import { logFirebaseError } from "../firebase/errorLogging";
 import { createNotification } from "./notificationService";
 import { resolveEventStatus, isValidStatusTransition } from "../utils/eventLifecycle";
 import { verifyUserPermission } from "./permissionService";
+import { trackEvent } from "./analyticsService";
 
 const COLLECTION_NAME = "events";
 
@@ -72,6 +73,16 @@ export const createEvent = async (eventData) => {
   try {
     console.log("[createEvent] Creating Firestore document with setDoc...");
     await setDoc(newDocRef, defaultEvent);
+    trackEvent("event_created", {
+      event_id: defaultEvent.id,
+      event_category: defaultEvent.category || "General"
+    });
+    if (defaultEvent.status === "published" || defaultEvent.status === "open") {
+      trackEvent("event_published", {
+        event_id: defaultEvent.id,
+        event_category: defaultEvent.category || "General"
+      });
+    }
     console.log("[createEvent] Firestore success.", {
       id: newDocRef.id,
       path: newDocRef.path,
@@ -187,6 +198,21 @@ export const updateEvent = async (eventId, eventData) => {
     const updatedSnap = await getDoc(docRef);
     const updatedEvent = updatedSnap.data();
 
+    // Track update
+    trackEvent("event_updated", {
+      event_id: eventId,
+      event_category: updatedEvent.category || "General"
+    });
+
+    // Track publication if status transitioned to published or open
+    if ((updatedEvent.status === "published" || updatedEvent.status === "open") && 
+        currentEvent.status !== "published" && currentEvent.status !== "open") {
+      trackEvent("event_published", {
+        event_id: eventId,
+        event_category: updatedEvent.category || "General"
+      });
+    }
+
     // Notify registered attendees in the background
     const registrationsCol = collection(db, "registrations");
     const q = query(registrationsCol, where("eventId", "==", eventId));
@@ -219,6 +245,9 @@ export const deleteEvent = async (eventId) => {
     await updateDoc(docRef, {
       status: "deleted",
       updatedAt: new Date().toISOString()
+    });
+    trackEvent("event_deleted", {
+      event_id: eventId
     });
     return true;
   } catch (error) {

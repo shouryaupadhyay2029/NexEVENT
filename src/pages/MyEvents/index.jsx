@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { getUserRegistrations, cancelRegistration } from '../../services/registrationService';
+import { trackEvent } from '../../services/analyticsService';
 import { getAllEvents } from '../../services/eventService';
 import { PageTransition } from '../../components/layout/PageTransition';
 import { PageContainer } from '../../components/layout/PageContainer';
@@ -134,6 +135,10 @@ export const MyEvents = () => {
         try {
           await cancelRegistration(regId, "student");
           triggerToast('success', `Cancelled registration for: "${eventTitle}".`);
+          trackEvent("registration_cancelled", {
+            event_id: eventId,
+            actor_role: "student"
+          });
           await fetchUserEvents();
         } catch (err) {
           console.error("Cancellation failure: ", err);

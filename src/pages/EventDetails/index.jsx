@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { trackEvent } from '../../services/analyticsService';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PageTransition } from '../../components/layout/PageTransition';
@@ -18,6 +19,7 @@ export const EventDetails = () => {
   const { eventId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const trackedIdRef = useRef(null);
   
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -38,6 +40,15 @@ export const EventDetails = () => {
       try {
         const data = await getEvent(eventId);
         setEvent(data);
+        
+        if (data && trackedIdRef.current !== data.id) {
+          trackedIdRef.current = data.id;
+          trackEvent("event_view", {
+            event_id: data.id,
+            event_category: data.category || "General",
+            event_status: data.status || "Published"
+          });
+        }
         
         if (user && data) {
           const registered = await checkUserRegistration(user.uid, eventId);
@@ -74,6 +85,11 @@ export const EventDetails = () => {
         };
       });
       triggerToast("success", "Successfully registered for this event.");
+      trackEvent("event_registration", {
+        event_id: event.id,
+        event_category: event.category || "General",
+        registration_source: "details"
+      });
     } catch (err) {
       console.error("Registration transaction failure: ", err);
       triggerToast("error", err.message || "Failed to complete registration.");
