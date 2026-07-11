@@ -208,6 +208,9 @@ export const Profile = () => {
   const upcomingCount = registeredEvents.filter(e => e.date && e.date >= todayStr).length;
   const completedCount = registeredEvents.filter(e => e.date && e.date < todayStr).length;
 
+  const isAcmUser = profile?.clubId === 'bUV2wixWWSV61cUexUY7' || (profile?.clubName && profile.clubName.toLowerCase().trim() === 'acm');
+  const avatarUrl = isAcmUser ? '/club-logos/acm-logo.png' : profile?.avatar;
+
   return (
     <PageTransition>
       <PageContainer>
@@ -218,8 +221,8 @@ export const Profile = () => {
             {/* Avatar block with magnetic trigger */}
             <div className="relative group/avatar cursor-pointer shrink-0" onClick={() => setIsOpen(false) || setIsEditOpen(true)}>
               <div className="w-28 h-28 md:w-32 md:h-32 rounded-full overflow-hidden border border-white/10 bg-[#141414] relative transition-all duration-500 group-hover/avatar:border-white/30">
-                {profile?.avatar ? (
-                  <img src={profile.avatar} alt={profile.displayName} className="w-full h-full object-cover transition-transform duration-700 group-hover/avatar:scale-105" />
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={profile?.displayName || 'User'} className="w-full h-full object-cover transition-transform duration-700 group-hover/avatar:scale-105" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-4xl font-display text-white/20 uppercase">
                     {profile?.displayName?.[0] || user?.email?.[0] || 'U'}

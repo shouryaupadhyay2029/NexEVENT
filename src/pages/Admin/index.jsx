@@ -601,7 +601,13 @@ export const AdminConsole = () => {
                               <div className="flex justify-between items-start gap-4">
                                 <div className="flex items-center gap-3">
                                   <div className="w-10 h-10 border border-white/10 bg-black flex items-center justify-center text-xs font-technical uppercase">
-                                    {c.logo ? <img src={c.logo} alt={c.name} className="w-full h-full object-cover" /> : c.shortName}
+                                    {(() => {
+                                      const isAcm = c.clubId === 'bUV2wixWWSV61cUexUY7' || (c.shortName && c.shortName.toLowerCase().trim() === 'acm');
+                                      const logoUrl = isAcm ? '/club-logos/acm-logo.png' : c.logo;
+                                      return logoUrl ? (
+                                        <img src={logoUrl} alt={`${c.name} logo`} className="w-full h-full object-cover" />
+                                      ) : c.shortName;
+                                    })()}
                                   </div>
                                   <div className="flex flex-col">
                                     <h4 className="text-body-m font-light text-primary">{c.name}</h4>

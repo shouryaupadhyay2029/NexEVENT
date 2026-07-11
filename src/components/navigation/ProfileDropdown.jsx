@@ -106,6 +106,9 @@ export const ProfileDropdown = () => {
     }
   };
 
+  const isAcmUser = profile?.clubId === 'bUV2wixWWSV61cUexUY7' || (profile?.clubName && profile.clubName.toLowerCase().trim() === 'acm');
+  const avatarUrl = isAcmUser ? '/club-logos/acm-logo.png' : (profile?.avatar || user?.photoURL);
+
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Avatar Button */}
@@ -144,9 +147,9 @@ export const ProfileDropdown = () => {
           transition={{ duration: 0.25, ease: EASE }}
           style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%)' }}
         />
-        {profile?.avatar || user?.photoURL ? (
+        {avatarUrl ? (
           <img
-            src={profile?.avatar || user?.photoURL}
+            src={avatarUrl}
             alt={profile?.displayName || user?.displayName || "User"}
             width={36}
             height={36}
@@ -202,9 +205,9 @@ export const ProfileDropdown = () => {
                   <span className="absolute -bottom-[1px] -right-[1px] w-[1px] h-1.5 bg-accent" />
                   
                   <div className="w-full h-full overflow-hidden bg-black flex items-center justify-center font-display text-lg uppercase text-primary relative">
-                    {profile?.avatar || user?.photoURL ? (
+                    {avatarUrl ? (
                       <img 
-                        src={profile?.avatar || user?.photoURL} 
+                        src={avatarUrl} 
                         alt={profile?.displayName || user?.displayName || "User"} 
                         width={64}
                         height={64}
