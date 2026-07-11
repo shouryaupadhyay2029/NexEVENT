@@ -99,37 +99,7 @@ export const Events = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Track page view
-  useEffect(() => {
-    trackEvent("archive_view");
-  }, []);
 
-  // Debounced search logging
-  useEffect(() => {
-    if (!searchQuery.trim()) return;
-    const timer = setTimeout(() => {
-      trackEvent("event_search", {
-        search_length: searchQuery.trim().length,
-        results_count: processedEvents.length
-      });
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [searchQuery, processedEvents.length]);
-
-  // Track filter selections
-  const isInitialFilterMount = useRef(true);
-  useEffect(() => {
-    if (isInitialFilterMount.current) {
-      isInitialFilterMount.current = false;
-      return;
-    }
-    trackEvent("event_filter", {
-      category: selectedCategory,
-      status: selectedStatus,
-      date_range: selectedDate,
-      results_count: processedEvents.length
-    });
-  }, [selectedCategory, selectedStatus, selectedDate, processedEvents.length]);
 
   const triggerToast = (type, message) => {
     setToast({ type, message });
@@ -278,6 +248,38 @@ export const Events = () => {
 
     return list;
   }, [events, searchQuery, selectedCategory, selectedStatus, selectedDate, selectedSort, todayStr, nextWeekStr]);
+
+  // Track page view
+  useEffect(() => {
+    trackEvent("archive_view");
+  }, []);
+
+  // Debounced search logging
+  useEffect(() => {
+    if (!searchQuery.trim()) return;
+    const timer = setTimeout(() => {
+      trackEvent("event_search", {
+        search_length: searchQuery.trim().length,
+        results_count: processedEvents.length
+      });
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [searchQuery, processedEvents.length]);
+
+  // Track filter selections
+  const isInitialFilterMount = useRef(true);
+  useEffect(() => {
+    if (isInitialFilterMount.current) {
+      isInitialFilterMount.current = false;
+      return;
+    }
+    trackEvent("event_filter", {
+      category: selectedCategory,
+      status: selectedStatus,
+      date_range: selectedDate,
+      results_count: processedEvents.length
+    });
+  }, [selectedCategory, selectedStatus, selectedDate, processedEvents.length]);
 
   const formatDate = (dateStr) => {
     if (!dateStr) return "";
