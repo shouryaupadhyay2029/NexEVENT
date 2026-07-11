@@ -22,6 +22,7 @@ const AccessRequired = React.lazy(() => import('./pages/AccessRequired').then(m 
 const ActivateOrganizer = React.lazy(() => import('./pages/ActivateOrganizer').then(m => ({ default: m.ActivateOrganizer })));
 const AdminConsole = React.lazy(() => import('./pages/Admin').then(m => ({ default: m.AdminConsole })));
 const ErrorPage = React.lazy(() => import('./pages/Error').then(m => ({ default: m.ErrorPage })));
+const About = React.lazy(() => import('./pages/About').then(m => ({ default: m.About })));
 
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { OrganizerRoute } from './routes/OrganizerRoute';
@@ -130,7 +131,7 @@ const AnimatedRoutes = () => {
         {/* Existing Routes */}
         <Route path="/events" element={<Events />} />
         <Route path="/discover" element={<DummyPage title="Discover" desc="Scroll down to see the transparent navigation bar smoothly transition to a blurred state with a hairline bottom border." />} />
-        <Route path="/about" element={<DummyPage title="About Us" desc="This page inherited the editorial grid overlay, the noise texture, and the global background system automatically." />} />
+        <Route path="/about" element={<About />} />
         <Route path="/support" element={<DummyPage title="Support" desc="Premium architectural foundation complete." />} />
         <Route path="*" element={<ErrorPage type="404" />} />
       </Routes>
