@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { trackEvent } from '../../services/analyticsService';
 import { useAuth } from '../../hooks/useAuth';
+import { resolveEventImage } from '../../utils/eventImage';
 import { 
   subscribeToOrganizerEvents, 
   updateEvent, 
@@ -740,13 +741,15 @@ export const OrganizerStudio = () => {
 
                         {/* Event Cover Image */}
                         <div className="w-16 h-16 shrink-0 border border-white/10 overflow-hidden bg-[#111]">
-                          {event.image ? (
-                            <img src={event.image} alt={event.title} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-white/10 text-[0.45rem] font-technical uppercase">
-                              No image
-                            </div>
-                          )}
+                          <img
+                            src={resolveEventImage(event)}
+                            alt={event.title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.src = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=200&auto=format&fit=crop&fm=webp';
+                              e.currentTarget.onerror = null;
+                            }}
+                          />
                         </div>
 
                         {/* Core text stack */}

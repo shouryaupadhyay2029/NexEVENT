@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { trackEvent } from '../../services/analyticsService';
 import { useAuth } from '../../hooks/useAuth';
+import { resolveEventImage } from '../../utils/eventImage';
 import { PageTransition } from '../../components/layout/PageTransition';
 import { PageContainer } from '../../components/layout/PageContainer';
 import { SectionWrapper } from '../../components/layout/SectionWrapper';
@@ -1135,7 +1136,15 @@ export const AdminConsole = () => {
                               {/* Thumbnail + Title */}
                               <div className="flex items-start gap-4 lg:w-1/2 min-w-0">
                                 <div className="w-12 h-12 border border-white/10 shrink-0 bg-black">
-                                  {event.image && <img src={event.image} alt={event.title} className="w-full h-full object-cover" />}
+                                  <img
+                                     src={resolveEventImage(event)}
+                                     alt={event.title}
+                                     className="w-full h-full object-cover"
+                                     onError={(e) => {
+                                       e.currentTarget.src = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=200&auto=format&fit=crop&fm=webp';
+                                       e.currentTarget.onerror = null;
+                                     }}
+                                   />
                                 </div>
                                 <div className="flex flex-col min-w-0 gap-0.5">
                                   <div className="flex items-center gap-2">

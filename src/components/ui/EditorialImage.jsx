@@ -2,28 +2,76 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '../../utils/cn';
 
-export const EditorialImage = ({ 
-  src, 
-  alt = 'Editorial Image', 
-  className, 
+const EDITORIAL_FALLBACK =
+  'https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=800&auto=format&fit=crop&fm=webp';
+
+/**
+ * EditorialImage — premium image component with film grain, vignette, and
+ * zoom physics. Uses identical finite-state machine as Image.jsx:
+ *
+ *   LOADING → LOADED          (onLoad)
+ *   LOADING → FALLBACK        (onError, once)
+ *   FALLBACK → LOADED         (fallback onLoad)
+ *   FALLBACK → TERMINAL_ERROR (fallback onError → show transparent, no loop)
+ *
+ * StrictMode rescue: no-dep useEffect checks img.complete after every render
+ * to correct any state poisoning from the double-invocation of useEffect([src]).
+ */
+export const EditorialImage = ({
+  src,
+  alt = 'Editorial Image',
+  className,
   wrapperClassName,
   aspectRatio = 'aspect-video',
   grayscale = false,
   width,
   height
 }) => {
-  const [isLoaded, setIsLoaded] = useState(false);
   const imgRef = useRef(null);
 
-  // Handle cached images where onLoad might not fire
+  const [imgState, setImgState] = useState(() => ({
+    currentSrc: src || EDITORIAL_FALLBACK,
+    isLoaded: false,
+    fallbackAttempted: false,
+  }));
+
+  // When src prop changes from outside, reset state
   useEffect(() => {
-    if (imgRef.current && imgRef.current.complete) {
-      console.log(`[EditorialImage] Image cached/complete: ${src}`);
-      setIsLoaded(true);
-    } else {
-      setIsLoaded(false);
+    const resolved = src || EDITORIAL_FALLBACK;
+    setImgState({
+      currentSrc: resolved,
+      isLoaded: false,
+      fallbackAttempted: false,
+    });
+  }, [src]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // StrictMode rescue: runs after every render (no deps).
+  // If StrictMode's second useEffect([src]) invocation reset isLoaded=false
+  // after onLoad had already fired, this detects img.complete=true and fixes it.
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img && img.complete && img.naturalWidth > 0 && !imgState.isLoaded) {
+      setImgState((prev) => ({ ...prev, isLoaded: true }));
     }
-  }, [src]);
+  }); // intentionally no deps — runs after every render, O(1) cost
+
+  const handleLoad = () => {
+    setImgState((prev) => ({ ...prev, isLoaded: true }));
+  };
+
+  const handleError = () => {
+    setImgState((prev) => {
+      if (!prev.fallbackAttempted) {
+        return {
+          currentSrc: EDITORIAL_FALLBACK,
+          isLoaded: false,
+          fallbackAttempted: true,
+        };
+      }
+      // Terminal: fallback failed too — remove veil so at least the bg shows
+      return { ...prev, isLoaded: true };
+    });
+  };
 
   return (
     <div className={cn(
@@ -31,42 +79,34 @@ export const EditorialImage = ({
       aspectRatio,
       wrapperClassName
     )}>
-      {/* 1. Vignette layer for soft shadows at edges */}
+      {/* 1. Vignette layer */}
       <div className="absolute inset-0 z-10 pointer-events-none bg-[radial-gradient(circle_at_center,transparent_30%,rgba(0,0,0,0.45)_100%)] transition-opacity duration-700 group-hover:opacity-80" />
 
-      {/* 2. Micro SVG Film Grain for premium printed look */}
-      <div 
+      {/* 2. Micro SVG Film Grain */}
+      <div
         className="absolute inset-0 z-10 pointer-events-none mix-blend-overlay opacity-[0.03]"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
         }}
       />
 
-      {/* 3. The actual Image with fade and zoom physics */}
+      {/* 3. The actual image — ALWAYS in DOM, never conditionally removed */}
       <motion.img
         ref={imgRef}
-        src={src}
+        src={imgState.currentSrc}
         alt={alt}
         width={width}
         height={height}
-        onLoad={() => {
-          console.log(`[EditorialImage] Image loaded via onLoad: ${src}`);
-          setIsLoaded(true);
-        }}
-        onError={(e) => {
-          console.error(`[EditorialImage] Image failed to load: ${src}`, e);
-        }}
-        initial={{ 
-          opacity: 0, 
-          scale: 1.05
-        }}
-        animate={{ 
-          opacity: isLoaded ? 1 : 0, 
-          scale: isLoaded ? 1 : 1.05
+        onLoad={handleLoad}
+        onError={handleError}
+        initial={{ opacity: 0, scale: 1.05 }}
+        animate={{
+          opacity: imgState.isLoaded ? 1 : 0,
+          scale: imgState.isLoaded ? 1 : 1.05,
         }}
         whileHover={{
           scale: 1.03,
-          transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] }
+          transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] },
         }}
         transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
         className={cn(
@@ -76,9 +116,8 @@ export const EditorialImage = ({
         )}
       />
 
-      {/* 4. Fine white outline boundary for layered depth */}
+      {/* 4. Fine white outline boundary */}
       <div className="absolute inset-0 pointer-events-none border border-white/5 z-20" />
     </div>
   );
 };
-

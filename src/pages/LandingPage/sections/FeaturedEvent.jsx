@@ -4,6 +4,7 @@ import { AxisMarker } from "../../../components/layout/AxisMarker";
 import { Button } from "../../../components/ui/Button";
 import { EditorialImage } from "../../../components/ui/EditorialImage";
 import { RevealSection, RevealItem } from "../../../components/ui/RevealSection";
+import { resolveEventImage } from "../../../utils/eventImage";
 import { cn } from "../../../utils/cn";
 const formatDate = (dateStr) => {
   if (!dateStr) return "";
@@ -110,7 +111,7 @@ export const FeaturedEvent = ({ event, loading }) => {
             className="w-full relative mb-24 group cursor-pointer select-none focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
           >
             <EditorialImage
-              src={event.image}
+              src={resolveEventImage(event)}
               alt={event.title}
               aspectRatio="aspect-[21/9]"
               grayscale={true}

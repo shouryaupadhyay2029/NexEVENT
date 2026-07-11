@@ -4,6 +4,7 @@ import { motion, useTransform } from 'framer-motion';
 import { EditorialImage } from './EditorialImage';
 import { useAmbientLight } from '../../hooks/useMagnet';
 import { cn } from '../../utils/cn';
+import { resolveEventImage } from '../../utils/eventImage';
 
 /**
  * EventCard — individual upcoming event card with ambient light shift on cursor movement.
@@ -58,7 +59,7 @@ export const EventCard = ({ event, index, className }) => {
       {/* Image */}
       <div className="w-full relative mb-8">
         <EditorialImage
-          src={event.image}
+          src={resolveEventImage(event)}
           alt={event.title}
           aspectRatio="aspect-[4/5]"
           grayscale={true}

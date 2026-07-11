@@ -12,6 +12,7 @@ import { checkUserRegistration, registerForEvent } from '../../services/registra
 import { useAuth } from '../../hooks/useAuth';
 import { EventHero } from './components/EventHero';
 import { EventDescription } from './components/EventDescription';
+import { resolveEventImage } from '../../utils/eventImage';
 import { RegistrationPanel } from './components/RegistrationPanel';
 import { LoadingSkeleton } from './components/LoadingSkeleton';
 
@@ -160,7 +161,7 @@ export const EventDetails = () => {
 
           <AxisMarker index="02" label="Event Details" />
           
-          <EventHero src={event.image} alt={event.title} category={event.category} />
+          <EventHero src={resolveEventImage(event)} alt={event.title} category={event.category} />
 
           <div className="flex flex-col md:flex-row justify-between w-full items-start gap-16 mt-16">
             <EventDescription 

@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { resolveEventImage } from '../../utils/eventImage';
 
 const easeOutExpo = [0.16, 1, 0.3, 1];
 
@@ -44,27 +45,42 @@ export const FeaturedEventCard = ({ event, loading }) => {
   const containerRef = useRef(null);
   const imgRef = useRef(null);
   const [isHovered, setIsHovered] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
+
 
   // Use dynamic event data or clean fallbacks if none published yet
   const title = event?.title || "Stanford Design Symposium '26";
-  const image = event?.image || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=800&auto=format&fit=crop&fm=webp";
+  const resolvedImage = resolveEventImage(event);
+
+  const [imgState, setImgState] = useState(() => ({
+    currentImage: resolvedImage,
+    isLoaded: false,
+    fallbackAttempted: false,
+  }));
+
+  // Sync state on event prop changes
+  useEffect(() => {
+    const resImg = resolveEventImage(event);
+    setImgState({ currentImage: resImg, isLoaded: false, fallbackAttempted: false });
+  }, [event]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // StrictMode rescue: no-dep effect runs after every render.
+  // Corrects isLoaded=false if StrictMode re-ran useEffect([event]) after onLoad fired.
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img && img.complete && img.naturalWidth > 0 && !imgState.isLoaded) {
+      setImgState((prev) => ({ ...prev, isLoaded: true }));
+    }
+  }); // intentionally no deps
+
+  const { currentImage, isLoaded } = imgState;
 
   const category = event?.category || "Featured";
   const venue = event?.venue || "Auditorium";
   const dateText = event?.date ? formatDate(event.date) : "Oct 14, 2026";
   const isOpen = event ? (event.status?.toLowerCase() === "open") : true;
 
-  // Handle cached images where onLoad might not fire
-  useEffect(() => {
-    if (imgRef.current && imgRef.current.complete) {
-      console.log(`[FeaturedEventCard] Image cached/complete: ${image}`);
-      setIsLoaded(true);
-    } else {
-      setIsLoaded(false);
-    }
-  }, [image]);
   const [progress, setProgress] = useState(0);
+
 
   // Cursor tracking (normalized 0-1)
   const mouseX = useMotionValue(0.5);
@@ -175,14 +191,22 @@ export const FeaturedEventCard = ({ event, loading }) => {
         {/* ── LAYER 1: Background image (scale on hover, GPU only) ── */}
         <motion.img
           ref={imgRef}
-          src={image}
+          src={currentImage}
           alt={title}
           onLoad={() => {
-            console.log(`[FeaturedEventCard] Image loaded via onLoad: ${image}`);
-            setIsLoaded(true);
+            setImgState((prev) => ({ ...prev, isLoaded: true }));
           }}
-          onError={(e) => {
-            console.error(`[FeaturedEventCard] Image failed to load: ${image}`, e);
+          onError={() => {
+            setImgState((prev) => {
+              if (!prev.fallbackAttempted) {
+                return {
+                  currentImage: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=800&auto=format&fit=crop&fm=webp',
+                  isLoaded: false,
+                  fallbackAttempted: true,
+                };
+              }
+              return { ...prev, isLoaded: true }; // terminal: remove black veil
+            });
           }}
           animate={{
             scale: isHovered ? 1.035 : 1,

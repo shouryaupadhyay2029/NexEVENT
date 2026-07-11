@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils/cn';
 import { Calendar, Clock, MapPin, Search, Share2, Eye, X, Users } from 'lucide-react';
 import { Image } from '../../components/ui/Image';
+import { resolveEventImage } from '../../utils/eventImage';
 
 const CATEGORIES = [
   "Hackathons",
@@ -32,7 +33,7 @@ const EventThumbnail = ({ event, onPreview }) => {
   return (
     <div onClick={onPreview} className="w-full h-full cursor-pointer">
       <Image
-        src={event.image}
+        src={resolveEventImage(event)}
         alt={event.title || 'Event cover'}
         aspectRatio="aspect-square"
         className="w-full h-full object-cover transition-transform duration-700 hover:scale-103"
@@ -648,7 +649,7 @@ export const Events = () => {
                   {/* Left Column: Image */}
                   <div className="w-full md:w-1/2 aspect-[16/10] md:aspect-auto md:min-h-[400px] relative bg-[#111]">
                     <Image
-                      src={previewEvent.image}
+                      src={resolveEventImage(previewEvent)}
                       alt={previewEvent.title}
                       aspectRatio="aspect-auto"
                       className="w-full h-full object-cover"
