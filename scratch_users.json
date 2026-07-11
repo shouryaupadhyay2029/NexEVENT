@@ -1,0 +1,123 @@
+{"users": [
+{
+  "localId": "6k67Cbgv53O2sqNqRadzLLW0Ua02",
+  "email": "test_student_1783589549969@example.com",
+  "emailVerified": false,
+  "passwordHash": "ggNksg8gr+QIn0mKX0hxNz76pxTW/1HX88SWlztob+CGT0pGPzzcW3xIuJmZ5ITaqw/x1iA6m539XowR5SQJQQ==",
+  "salt": "GqF2PBqa5kUD+w==",
+  "lastSignedInAt": "1783589717132",
+  "createdAt": "1783589717132",
+  "providerUserInfo": []
+},
+{
+  "localId": "UGRKtaXQW1ZzJGH6C4IUgFsBetl2",
+  "email": "claudeai0718@gmail.com",
+  "emailVerified": true,
+  "displayName": "CLAUDE",
+  "photoUrl": "https://lh3.googleusercontent.com/a/ACg8ocKL0NwhZsKz3HqbJqTtnP2IxI7mNCrnoNquQwlrlSMsJApwwQ=s96-c",
+  "lastSignedInAt": "1783743869965",
+  "createdAt": "1783743869965",
+  "providerUserInfo": [
+    {
+      "providerId": "google.com",
+      "rawId": "102227796371406333191",
+      "email": "claudeai0718@gmail.com",
+      "displayName": "CLAUDE",
+      "photoUrl": "https://lh3.googleusercontent.com/a/ACg8ocKL0NwhZsKz3HqbJqTtnP2IxI7mNCrnoNquQwlrlSMsJApwwQ=s96-c"
+    }
+  ]
+},
+{
+  "localId": "YsSzEO8nS3UXcr7bv7X2XJ4BaDH3",
+  "email": "upadhyayshourya352@gmail.com",
+  "emailVerified": true,
+  "displayName": "Shourya Upadhyay",
+  "photoUrl": "https://lh3.googleusercontent.com/a/ACg8ocK9xaaC7feaPMEwlEs7pDAj7kgWBrtafDRDHUukbMhm7MkXjZhb=s96-c",
+  "lastSignedInAt": "1783744017518",
+  "createdAt": "1783072886857",
+  "providerUserInfo": [
+    {
+      "providerId": "google.com",
+      "rawId": "103763076414502647340",
+      "email": "upadhyayshourya352@gmail.com",
+      "displayName": "Shourya Upadhyay",
+      "photoUrl": "https://lh3.googleusercontent.com/a/ACg8ocK9xaaC7feaPMEwlEs7pDAj7kgWBrtafDRDHUukbMhm7MkXjZhb=s96-c"
+    }
+  ]
+},
+{
+  "localId": "e4B8VSgCFxZKUpDzWkrwFMtP72x2",
+  "email": "upadhyayshourya889@gmail.com",
+  "emailVerified": true,
+  "displayName": "Shourya Upadhyay",
+  "photoUrl": "https://lh3.googleusercontent.com/a/ACg8ocKpor355WcatbgxOI2MmVPdubg09RIyiLlahxv8dqIX-QV0c0s=s96-c",
+  "lastSignedInAt": "1783655585008",
+  "createdAt": "1783338360574",
+  "providerUserInfo": [
+    {
+      "providerId": "google.com",
+      "rawId": "106603187769285454792",
+      "email": "upadhyayshourya889@gmail.com",
+      "displayName": "Shourya Upadhyay",
+      "photoUrl": "https://lh3.googleusercontent.com/a/ACg8ocKpor355WcatbgxOI2MmVPdubg09RIyiLlahxv8dqIX-QV0c0s=s96-c"
+    }
+  ]
+},
+{
+  "localId": "ePTWfVwDccYM0BqWXhQYmNGBp9G2",
+  "email": "testuser_238648@example.com",
+  "emailVerified": false,
+  "passwordHash": "xVVU7gT/1RyA9UVhhar1swyYQcIYuaTsuYFFfDUf1QmdkeJXTyxZeWwoh36RIZWZZWoykRiJwH0vMTK4909DeA==",
+  "salt": "GIIoSG5/rVKPTQ==",
+  "lastSignedInAt": "1783165975924",
+  "createdAt": "1783165975924",
+  "providerUserInfo": []
+},
+{
+  "localId": "hxyF8a0XIcafFTeqIVuLLHHMqal1",
+  "email": "upadhyayshourya8@gmail.com",
+  "emailVerified": true,
+  "displayName": "Shourya Upadhyay",
+  "photoUrl": "https://lh3.googleusercontent.com/a/ACg8ocIdILfum-snU7Q8vspwr21J4v2TJCu1v6bjd7mvvablQDV64g=s96-c",
+  "lastSignedInAt": "1783655834766",
+  "createdAt": "1783099430036",
+  "providerUserInfo": [
+    {
+      "providerId": "google.com",
+      "rawId": "117585839849866752752",
+      "email": "upadhyayshourya8@gmail.com",
+      "displayName": "Shourya Upadhyay",
+      "photoUrl": "https://lh3.googleusercontent.com/a/ACg8ocIdILfum-snU7Q8vspwr21J4v2TJCu1v6bjd7mvvablQDV64g=s96-c"
+    }
+  ]
+},
+{
+  "localId": "jsD8Rb5Vo1U5khf6qe7KlgOlxz33",
+  "email": "testuser_696405@example.com",
+  "emailVerified": false,
+  "passwordHash": "fafn0hl9pmi6dXYZr9geAV39fkrBAEXUQvgN5S9N7tnzqVSwu9YPw3U06hjbw9KptWvuLaSPQIVyOCtZbqa8Ag==",
+  "salt": "YYDhtSF9qqqnYA==",
+  "lastSignedInAt": "1783167271586",
+  "createdAt": "1783167271586",
+  "providerUserInfo": []
+},
+{
+  "localId": "tPWBaw9jygN7w00ihl9D3JzzfR43",
+  "email": "test_student_1783589925372@example.com",
+  "emailVerified": false,
+  "passwordHash": "/WOAc7bdV8dlOkCx4xejPKTezC/voruc+ynI4zgvGVl89JSGctj2VsL2T+d6MuMrg+bcPfvK6hz/gTNPe6J+Bw==",
+  "salt": "+ZRuVRw0WJFGlQ==",
+  "lastSignedInAt": "1783590092682",
+  "createdAt": "1783590092682",
+  "providerUserInfo": []
+},
+{
+  "localId": "v04BAPVaxgTKRT2HtiWQm3m4jfJ3",
+  "email": "test_student_1783588158967@example.com",
+  "emailVerified": false,
+  "passwordHash": "OqWcWaaIsFFyVMF4myAlANBXVASyYn5xYU+G/6XeK28qzB6SSUh2E+rNIeuBp90Q+r6uzFlTfZhoqoNGm+s6GQ==",
+  "salt": "bB6rWWcrjw60yw==",
+  "lastSignedInAt": "1783588326126",
+  "createdAt": "1783588326126",
+  "providerUserInfo": []
+}]}
