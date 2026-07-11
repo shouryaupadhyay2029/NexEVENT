@@ -35,3 +35,6 @@ scratch_*.json
 production-cleanup-*.json
 debug-*.json
 *.log
+
+.vercel
+.env*
