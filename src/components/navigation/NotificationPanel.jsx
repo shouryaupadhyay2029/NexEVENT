@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { markNotificationAsRead, markAllNotificationsAsRead } from '../../services/notificationService';
-import { X, CheckCircle, AlertTriangle, RefreshCw, XCircle, Clock, Info, Check } from 'lucide-react';
+import { X, CheckCircle, AlertTriangle, RefreshCw, XCircle, Clock, Info } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
 // Easing

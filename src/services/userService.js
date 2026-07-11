@@ -49,7 +49,7 @@ export const updateUser = async (uid, userData) => {
     ...userData,
   };
   try {
-    await updateDoc(userRef, updateData);
+    await setDoc(userRef, updateData, { merge: true });
     const updatedSnap = await getDoc(userRef);
     
     // Log activity

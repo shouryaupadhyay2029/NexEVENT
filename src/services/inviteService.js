@@ -109,7 +109,6 @@ export const redeemInviteToken = async (tokenString, userId) => {
   const q = query(invitesCol, where("token", "==", tokenString));
 
   console.log("[redeemInviteToken] Initiating token verification query.", {
-    path: `collection(${COLLECTION_NAME}) where token == ${tokenString}`,
     authenticatedUid: userId,
     operation: "getDocs"
   });

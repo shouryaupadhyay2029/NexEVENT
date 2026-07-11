@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, useInView } from 'framer-motion';
 import { useRef } from 'react';
-import { revealVariants, revealVariantsImage, staggerContainer, EASE_OUT_EXPO } from '../../animations/scrollReveal';
+import { revealVariants, revealVariantsImage, staggerContainer } from '../../animations/scrollReveal';
 import { cn } from '../../utils/cn';
 
 /**
@@ -29,8 +29,6 @@ export const RevealSection = ({
   const partialRef = useRef(null);
   const isPartiallyVisible = useInView(partialRef, { once: false, margin: '0px', amount: 0.01 });
   const isFullyVisible = useInView(partialRef, { once: false, margin: '0px', amount: 0.5 });
-
-  const baseVariants = image ? revealVariantsImage : revealVariants;
   const containerVars = staggerContainer(staggerDelay, delay);
 
   const MotionTag = motion[as] || motion.div;

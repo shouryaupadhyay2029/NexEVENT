@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { getUserRegistrations, cancelRegistration } from '../../services/registrationService';
@@ -29,7 +29,7 @@ export const MyEvents = () => {
     setTimeout(() => setToast(null), 4000);
   };
 
-  const fetchUserEvents = async () => {
+  const fetchUserEvents = useCallback(async () => {
     if (!user?.uid) return;
     setLoading(true);
     setError('');
@@ -59,11 +59,11 @@ export const MyEvents = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     fetchUserEvents();
-  }, [user]);
+  }, [fetchUserEvents]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {

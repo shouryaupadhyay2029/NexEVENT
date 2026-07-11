@@ -129,7 +129,7 @@ export const EventCard = ({ event, index, className }) => {
                 const d = new Date(event.date);
                 if (isNaN(d.getTime())) return event.date;
                 return d.toLocaleDateString("en-US", { month: "short", day: "2-digit" });
-              } catch (err) {
+              } catch {
                 return event.date;
               }
             })()}

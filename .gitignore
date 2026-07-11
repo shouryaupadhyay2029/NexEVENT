@@ -26,3 +26,12 @@ dist-ssr
 # Environment files
 .env
 .env.local
+.env.*.local
+
+# Scratch files, credentials, and data dumps
+scratch_*
+scratch_*.json
+*-dump.json
+production-cleanup-*.json
+debug-*.json
+*.log
