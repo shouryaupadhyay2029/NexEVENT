@@ -39,13 +39,21 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    // onAuthStateChanged returns an unsubscribe function
+    // onAuthStateChanged is Firebase's official mechanism for detecting
+    // persisted auth sessions. It fires once on initialization — either with
+    // a restored user (local persistence) or null (truly logged out).
+    //
+    // CRITICAL: Do NOT set loading=false here for authenticated users.
+    // The profile must be fetched before routes can make access decisions.
+    // loading is resolved inside syncProfile (second useEffect below).
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       if (!user) {
+        // User is definitively not authenticated — clear profile and unblock routes.
         setProfile(null);
         setLoading(false);
       }
+      // When user IS authenticated: loading remains true until syncProfile completes.
     });
 
     // Cleanup subscription on unmount
@@ -78,6 +86,9 @@ export const AuthProvider = ({ children }) => {
           }
         }, (error) => {
           console.error("Profile snapshot listener error: ", error);
+          // A Firestore listener error is NOT an auth error.
+          // Preserve the current profile rather than wiping it.
+          // Simply stop loading so routes can proceed.
           if (active) {
             setLoading(false);
           }
@@ -85,7 +96,10 @@ export const AuthProvider = ({ children }) => {
       } catch (error) {
         console.error("Failed to sync user profile with Firestore: ", error);
         if (active) {
-          setProfile(null);
+          // A profile sync failure (e.g. network offline) must NOT be treated
+          // as a logout. The Firebase user is still authenticated.
+          // We stop loading without wiping the profile — routes will see
+          // isAuthenticated=true with profile=null and can handle that gracefully.
           setLoading(false);
         }
       }

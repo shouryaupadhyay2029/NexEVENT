@@ -1,5 +1,10 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  setPersistence,
+  browserLocalPersistence,
+} from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -14,10 +19,20 @@ const firebaseConfig = {
 // Initialize Firebase only once
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
+// Get the canonical Auth instance
 const auth = getAuth(app);
+
+// Explicitly enforce localStorage-backed persistence so sessions survive
+// browser restarts, tab closures, and direct URL navigation.
+// This is synchronous and runs before any auth operations.
+setPersistence(auth, browserLocalPersistence).catch((err) => {
+  // Non-fatal: Firebase will fall back gracefully.
+  console.warn("[firebase/config] Failed to set auth persistence:", err);
+});
+
 const googleProvider = new GoogleAuthProvider();
 
-// Optional: Configure Google Provider if needed
+// Require account selection on every Google sign-in popup
 googleProvider.setCustomParameters({
   prompt: "select_account"
 });

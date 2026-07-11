@@ -6,6 +6,9 @@ export const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
   const location = useLocation();
 
+  // Wait for Firebase to finish restoring the persisted auth session.
+  // Without this guard, the route would redirect to /auth/login on every
+  // page load before onAuthStateChanged fires with the restored user.
   if (loading) {
     return (
       <div className="fixed inset-0 z-50 bg-[#0a0a0a] flex items-center justify-center">
@@ -15,7 +18,8 @@ export const ProtectedRoute = ({ children }) => {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/" state={{ from: location }} replace />;
+    // Preserve the intended destination so the user is redirected back after login.
+    return <Navigate to="/auth/login" state={{ from: location }} replace />;
   }
 
   return children;
