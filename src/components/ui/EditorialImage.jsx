@@ -8,7 +8,9 @@ export const EditorialImage = ({
   className, 
   wrapperClassName,
   aspectRatio = 'aspect-video',
-  grayscale = false
+  grayscale = false,
+  width,
+  height
 }) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const imgRef = useRef(null);
@@ -45,6 +47,8 @@ export const EditorialImage = ({
         ref={imgRef}
         src={src}
         alt={alt}
+        width={width}
+        height={height}
         onLoad={() => {
           console.log(`[EditorialImage] Image loaded via onLoad: ${src}`);
           setIsLoaded(true);

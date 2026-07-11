@@ -55,6 +55,7 @@ export const FAQ = () => {
             >
               <button
                 onClick={() => setOpenIndex(openIndex === index ? -1 : index)}
+                aria-expanded={openIndex === index}
                 className="w-full py-8 flex justify-between items-center text-left focus:outline-none focus-visible:ring-1 focus-visible:ring-accent focus-visible:ring-offset-8 focus-visible:ring-offset-background rounded-none group"
               >
                 <div className="flex items-center gap-6">

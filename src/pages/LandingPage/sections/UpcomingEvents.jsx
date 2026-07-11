@@ -70,7 +70,7 @@ export const UpcomingEvents = ({ events, loading }) => {
             </div>
           ) : (
             <div className="w-full text-center py-12 border border-dashed border-white/5 select-none">
-              <span className="text-[0.6rem] font-technical text-white/20 uppercase tracking-[0.2em]">
+              <span className="text-[0.6rem] font-technical text-white/50 uppercase tracking-[0.2em]">
                 No other upcoming events scheduled
               </span>
             </div>

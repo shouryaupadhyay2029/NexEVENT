@@ -211,6 +211,7 @@ export const Navbar = () => {
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="p-1.5 rounded-full bg-white/5 border border-white/10 text-white/50 hover:text-white"
+                  aria-label="Close menu"
                 >
                   <X className="w-4 h-4" />
                 </button>

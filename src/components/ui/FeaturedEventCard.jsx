@@ -23,11 +23,11 @@ const SweepLight = () => {
       initial={false}
     >
       <motion.div
-        className="absolute top-0 bottom-0 w-[40%] opacity-[0.04]"
+        className="absolute top-0 bottom-0 w-[40%] left-0 opacity-[0.04]"
         style={{
           background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.8) 50%, transparent 100%)',
         }}
-        animate={{ left: ['-40%', '140%'] }}
+        animate={{ x: ['-100%', '350%'] }}
         transition={{
           duration: 3.5,
           repeat: Infinity,
@@ -48,7 +48,7 @@ export const FeaturedEventCard = ({ event, loading }) => {
 
   // Use dynamic event data or clean fallbacks if none published yet
   const title = event?.title || "Stanford Design Symposium '26";
-  const image = event?.image || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=2070&auto=format&fit=crop";
+  const image = event?.image || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=800&auto=format&fit=crop&fm=webp";
 
   const category = event?.category || "Featured";
   const venue = event?.venue || "Auditorium";
@@ -298,7 +298,7 @@ export const FeaturedEventCard = ({ event, loading }) => {
               <div className="flex flex-col gap-1.5">
                 <span
                   className="text-micro"
-                  style={{ color: 'rgba(255,255,255,0.35)' }}
+                  style={{ color: 'rgba(255,255,255,0.47)' }}
                 >
                   Date
                 </span>
@@ -315,7 +315,7 @@ export const FeaturedEventCard = ({ event, loading }) => {
               <div className="flex flex-col gap-1.5 text-right">
                 <span
                   className="text-micro"
-                  style={{ color: 'rgba(255,255,255,0.35)' }}
+                  style={{ color: 'rgba(255,255,255,0.47)' }}
                 >
                   Venue
                 </span>
@@ -342,8 +342,9 @@ export const FeaturedEventCard = ({ event, loading }) => {
         {/* Premium progress bar */}
         <div className="relative w-full h-[1px] bg-white/10 overflow-hidden">
           <motion.div
-            className="absolute left-0 top-0 h-full bg-white/50"
-            animate={{ width: isHovered ? '100%' : '12%' }}
+            className="absolute left-0 top-0 h-full w-full bg-white/50 origin-left"
+            initial={{ scaleX: 0.12 }}
+            animate={{ scaleX: isHovered ? 1 : 0.12 }}
             transition={{ duration: isHovered ? 0.8 : 0.5, ease: easeOutExpo }}
           />
         </div>
@@ -352,7 +353,7 @@ export const FeaturedEventCard = ({ event, loading }) => {
         <div
           className="flex justify-between items-center text-micro"
           style={{
-            color: isHovered ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.35)',
+            color: isHovered ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.47)',
             transition: 'color 0.5s ease',
           }}
         >

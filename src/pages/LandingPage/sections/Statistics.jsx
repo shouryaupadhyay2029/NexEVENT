@@ -89,9 +89,9 @@ export const Statistics = () => {
                 <span className="text-micro border-b border-border pb-4 mb-8">
                   {stat.ref}
                 </span>
-                <h3 className="text-display-l text-primary mb-6 font-light">
+                <div className="text-display-l text-primary mb-6 font-light">
                   {stat.value}
-                </h3>
+                </div>
                 <span className="text-micro">
                   {stat.label}
                 </span>

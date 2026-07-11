@@ -177,6 +177,7 @@ export const NotificationPanel = ({ isOpen, onClose, notifications, userId }) =>
               type="button"
               onClick={onClose}
               className="p-1 text-white/40 hover:text-white transition-colors focus:outline-none"
+              aria-label="Close notification panel"
             >
               <X className="w-5 h-5" />
             </button>

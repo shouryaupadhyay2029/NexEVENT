@@ -20,6 +20,8 @@ export const Wordmark = ({ className }) => {
       <motion.img
         src={logoImg}
         alt="NexEvent Mark"
+        width={31}
+        height={31}
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 0.96, scale: 1 }}
         whileHover={{

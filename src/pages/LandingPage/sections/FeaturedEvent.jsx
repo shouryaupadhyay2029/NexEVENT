@@ -52,7 +52,7 @@ export const FeaturedEvent = ({ event, loading }) => {
         <RevealSection margin="-5%">
           <RevealItem>
             <div className="w-full border border-dashed border-white/10 py-24 flex flex-col items-center justify-center text-center relative select-none">
-              <span className="text-[0.65rem] font-technical text-white/30 uppercase tracking-[0.25em] mb-4">ARCHIVE // VACANT</span>
+              <span className="text-[0.65rem] font-technical text-white/50 uppercase tracking-[0.25em] mb-4">ARCHIVE // VACANT</span>
               <h3 className="text-display-md text-primary/80 mb-4 font-light">No events have been published yet.</h3>
               <p className="text-body-s text-secondary max-w-sm mb-8">
                 The campus archive is currently empty. Initialize a new creative or academic event.
@@ -96,12 +96,26 @@ export const FeaturedEvent = ({ event, loading }) => {
 
         {/* Image — slower reveal */}
         <RevealItem image>
-          <div className="w-full relative mb-24 group cursor-pointer select-none">
+          <div 
+            onClick={() => navigate(`/events/${event.id}`)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate(`/events/${event.id}`);
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label={`View details for ${event.title}`}
+            className="w-full relative mb-24 group cursor-pointer select-none focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+          >
             <EditorialImage
               src={event.image}
               alt={event.title}
               aspectRatio="aspect-[21/9]"
               grayscale={true}
+              width={1200}
+              height={514}
             />
             {/* Live Now overlay badge */}
             {isLive && (
@@ -152,7 +166,7 @@ export const FeaturedEvent = ({ event, loading }) => {
                   isLive ? "text-red-500 animate-pulse font-semibold" :
                   isOpen ? "text-green-400" :
                   isClosed ? "text-orange-400" :
-                  isCompleted ? "text-white/40" : "text-white/30"
+                  isCompleted ? "text-white/60" : "text-white/50"
                 )}>
                   {isLive && <span className="w-1.5 h-1.5 rounded-none bg-red-500 animate-pulse" />}
                   {isLive ? "LIVE NOW" :

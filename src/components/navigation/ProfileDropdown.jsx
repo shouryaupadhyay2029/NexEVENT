@@ -118,6 +118,7 @@ export const ProfileDropdown = () => {
         onMouseEnter={() => setRingActive(true)}
         onMouseLeave={() => setRingActive(false)}
         className="w-9 h-9 rounded-full bg-[#111] border border-white/[0.09] text-white flex items-center justify-center font-display text-base uppercase focus:outline-none relative z-50 will-change-transform"
+        aria-label="Open profile menu"
       >
         {/* Rotating arc */}
         <motion.span
@@ -147,6 +148,8 @@ export const ProfileDropdown = () => {
           <img
             src={profile?.avatar || user?.photoURL}
             alt={profile?.displayName || user?.displayName || "User"}
+            width={36}
+            height={36}
             className="w-full h-full object-cover rounded-full relative z-10"
           />
         ) : (
@@ -203,6 +206,8 @@ export const ProfileDropdown = () => {
                       <img 
                         src={profile?.avatar || user?.photoURL} 
                         alt={profile?.displayName || user?.displayName || "User"} 
+                        width={64}
+                        height={64}
                         className="w-full h-full object-cover grayscale" 
                       />
                     ) : (

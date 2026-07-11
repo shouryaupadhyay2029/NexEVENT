@@ -25,6 +25,7 @@ const pillars = [
 export const WhyNexEvent = () => {
   return (
     <section className="w-full flex flex-col mb-32 pt-24">
+      <h2 className="sr-only">Core Philosophy</h2>
       <AxisMarker index="02" label="Core Philosophy" />
       
       {/* Balancing the 3 columns across the full width */}

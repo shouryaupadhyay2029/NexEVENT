@@ -62,6 +62,8 @@ export const EventCard = ({ event, index, className }) => {
           alt={event.title}
           aspectRatio="aspect-[4/5]"
           grayscale={true}
+          width={400}
+          height={500}
         />
 
         {/* Ambient light overlay on the image using GPU translation (No layout repaints) */}
