@@ -1,15 +1,27 @@
-import { collection, doc, query, where, getDocs, getDoc, runTransaction, updateDoc, onSnapshot } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  query,
+  where,
+  getDocs,
+  getDoc,
+  runTransaction,
+  onSnapshot,
+  writeBatch
+} from "firebase/firestore";
 import { db } from "../firebase/firestore";
 import { logFirebaseError } from "../firebase/errorLogging";
 import { createNotification, logActivity } from "./notificationService";
 import { getEvent } from "./eventService";
-
 import { resolveEventStatus } from "../utils/eventLifecycle";
+import { generatePassToken } from "../utils/passToken";
 
 const COLLECTION_NAME = "registrations";
 
 /**
- * Generates a unique, deterministic ticket ID based on the userId and eventId.
+ * Generates a unique, deterministic ticket ID (display-only, NOT the QR token).
+ * This is retained for backward compatibility with existing UI that shows ticketId.
+ * DO NOT use this as the QR pass identity — use passToken instead.
  */
 export const generateDeterministicTicketId = (userId, eventId) => {
   const seed = `${userId}_${eventId}`;
@@ -50,6 +62,17 @@ export const checkUserRegistration = async (userId, eventId) => {
 /**
  * Registers a user for an event using a Firestore Transaction.
  * Validates authentication, event status, capacity, and duplicate registrations.
+ *
+ * PASS TOKEN INVARIANT:
+ * - passToken is generated ONCE using crypto.randomUUID() inside this transaction.
+ * - passToken is persisted in Firestore and NEVER regenerated or overwritten.
+ * - The QR pass ALWAYS reads the persisted passToken from Firestore.
+ * - No two registration documents can share the same passToken (UUID v4 collision is negligible).
+ *
+ * IDEMPOTENCY:
+ * - Registration document ID = "${userId}_${eventId}" (deterministic).
+ * - If the document already exists and is not cancelled, the transaction throws.
+ * - Double-click, rapid retry, or repeated calls cannot create duplicate registrations.
  */
 export const registerForEvent = async (userId, eventId) => {
   if (!userId) throw new Error("You must be logged in to register.");
@@ -120,8 +143,22 @@ export const registerForEvent = async (userId, eventId) => {
       }
 
       // 6. Build registration document
+      // ticketId: deterministic display ID (kept for UI backward compat)
       const ticketId = generateDeterministicTicketId(userId, eventId);
+      // ticketQR: legacy QR payload (kept for backward compat with existing scanners)
       const ticketQR = JSON.stringify({ ticketId, eventId, userId });
+
+      // passToken: cryptographically random, unique QR identity — generated ONCE here
+      // NEVER regenerated after creation. NEVER exposed as userId/eventId.
+      // Format: nxp_<UUID-v4>
+      const passToken = generatePassToken();
+
+      // passQR: new secure QR payload using persisted passToken only
+      const passQR = JSON.stringify({
+        v: 1,
+        type: "nexevent_pass",
+        token: passToken
+      });
 
       const registrationData = {
         registrationId,
@@ -134,9 +171,14 @@ export const registerForEvent = async (userId, eventId) => {
         organizerId: eventData.creatorId || "",
         registeredAt: new Date().toISOString(),
         status: "confirmed",
+        // Legacy fields (backward compat)
         ticketId,
         ticketQR,
-        attendanceStatus: "absent",
+        // New pass token fields (production identity)
+        passToken,
+        passQR,
+        // Attendance fields
+        attendanceStatus: "pending",
         checkedIn: false,
         checkedInAt: null,
         checkedInBy: null
@@ -158,9 +200,9 @@ export const registerForEvent = async (userId, eventId) => {
 
       transaction.update(eventRef, updateData);
 
-      return { 
-        registration: registrationData, 
-        newRegisteredCount, 
+      return {
+        registration: registrationData,
+        newRegisteredCount,
         newStatus: updateData.status || eventData.status,
         eventTitle: eventData.title || "Event",
         eventCategory: eventData.category || "General"
@@ -192,6 +234,7 @@ export const registerForEvent = async (userId, eventId) => {
 
 /**
  * Cancels a user registration. Soft cancels by setting status = 'cancelled'.
+ * IMPORTANT: NEVER overwrites passToken during cancellation.
  */
 export const cancelRegistration = async (registrationId, actorRole = "student") => {
   const docRef = doc(db, COLLECTION_NAME, registrationId);
@@ -224,24 +267,25 @@ export const cancelRegistration = async (registrationId, actorRole = "student") 
         const eventData = eventSnap.data();
         const currentCount = parseInt(eventData.registeredCount) || 0;
         const newCount = Math.max(currentCount - 1, 0);
-        
+
         const updateData = {
           registeredCount: newCount,
           updatedAt: new Date().toISOString()
         };
-        
+
         // Reopen registrations if we fall below capacity limit
         if ((eventData.status === 'closed' || eventData.status === 'open' || eventData.status === 'published') && newCount < (parseInt(eventData.capacity) || 0)) {
           updateData.status = 'published';
         }
-        
+
         transaction.update(eventRef, updateData);
       }
 
-      // Soft cancel
+      // Soft cancel — passToken is intentionally NOT touched
       transaction.update(docRef, {
         status: "cancelled",
         updatedAt: new Date().toISOString()
+        // passToken: NEVER OVERWRITTEN HERE
       });
       return true;
     });
@@ -264,18 +308,28 @@ export const cancelRegistration = async (registrationId, actorRole = "student") 
 
 /**
  * Checks in an attendee for a registration event by document lookup.
+ * Used by organizer for manual check-in (not QR scan).
  */
 export const checkInAttendee = async (userId, eventId, actorId) => {
   const registrationId = `${userId}_${eventId}`;
   const regRef = doc(db, COLLECTION_NAME, registrationId);
   try {
-    const fields = {
-      checkedIn: true,
-      checkedInAt: new Date().toISOString(),
-      checkedInBy: actorId,
-      attendanceStatus: "present"
-    };
-    await updateDoc(regRef, fields);
+    await runTransaction(db, async (transaction) => {
+      const regSnap = await transaction.get(regRef);
+      if (!regSnap.exists()) {
+        throw new Error("Registration Not Found.");
+      }
+      const regData = regSnap.data();
+      if (regData.checkedIn || regData.attendanceStatus === "present") {
+        throw new Error("Already Checked In: Attendee has already checked in.");
+      }
+      transaction.update(regRef, {
+        checkedIn: true,
+        checkedInAt: new Date().toISOString(),
+        checkedInBy: actorId,
+        attendanceStatus: "present"
+      });
+    });
     return true;
   } catch (error) {
     logFirebaseError("[checkInAttendee] Failed to check in attendee.", error);
@@ -285,6 +339,7 @@ export const checkInAttendee = async (userId, eventId, actorId) => {
 
 /**
  * Validates ticket and marks attendee present. Prevents double check-in.
+ * Legacy QR scan path (uses userId + eventId + ticketId from old QR format).
  */
 export const checkInByTicket = async (userId, eventId, ticketId, actorId) => {
   if (!userId || !eventId || !ticketId) {
@@ -297,24 +352,24 @@ export const checkInByTicket = async (userId, eventId, ticketId, actorId) => {
     const result = await runTransaction(db, async (transaction) => {
       const regSnap = await transaction.get(regRef);
       if (!regSnap.exists()) {
-        throw new Error("Registration Not Found: Ticket does not exist in registry.");
+        throw new Error("UNKNOWN_TOKEN: Registration not found in registry.");
       }
 
       const regData = regSnap.data();
       if (regData.ticketId !== ticketId) {
-        throw new Error("Invalid Ticket: Ticket ID mismatch.");
+        throw new Error("INVALID_REGISTRATION: Ticket ID mismatch.");
       }
 
       if (regData.eventId !== eventId) {
-        throw new Error("Wrong Event: Ticket does not belong to this event.");
+        throw new Error("WRONG_EVENT: Ticket does not belong to this event.");
       }
 
       if (regData.status === "cancelled") {
-        throw new Error("Invalid Ticket: Registration has been cancelled.");
+        throw new Error("CANCELLED_PASS: Registration has been cancelled.");
       }
 
       if (regData.checkedIn || regData.attendanceStatus === "present") {
-        throw new Error("Already Checked In: Attendee has already checked in.");
+        throw new Error("ALREADY_CHECKED_IN: Attendee has already checked in.");
       }
 
       const checkInFields = {
@@ -332,6 +387,108 @@ export const checkInByTicket = async (userId, eventId, ticketId, actorId) => {
   } catch (error) {
     logFirebaseError("[checkInByTicket] Check-in transaction failed.", error);
     throw error;
+  }
+};
+
+/**
+ * PRIMARY QR SCAN PATH — Check in by passToken.
+ *
+ * Resolves a scanned passToken to a single registration document using a
+ * Firestore collection query. Then validates:
+ * 1. Token exists (UNKNOWN_TOKEN)
+ * 2. Registration belongs to the scanned event (WRONG_EVENT)
+ * 3. Registration status is not cancelled (CANCELLED_PASS)
+ * 4. Attendee has not already checked in (ALREADY_CHECKED_IN)
+ * 5. Atomically marks attendee as present (concurrent check-in safe)
+ *
+ * @param {string} passToken - The "nxp_<UUID>" token from the scanned QR
+ * @param {string} scannerEventId - The eventId the organizer is scanning for
+ * @param {string} actorId - The organizer's userId performing the scan
+ */
+export const checkInByPassToken = async (passToken, scannerEventId, actorId) => {
+  if (!passToken || !scannerEventId || !actorId) {
+    throw new Error("MALFORMED_QR: Missing required scan parameters.");
+  }
+
+  // Validate token format prefix
+  if (!passToken.startsWith("nxp_")) {
+    throw new Error("MALFORMED_QR: Invalid token format.");
+  }
+
+  try {
+    // Step 1: Find registration by passToken
+    const registrationsCol = collection(db, COLLECTION_NAME);
+    const q = query(registrationsCol, where("passToken", "==", passToken));
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      throw new Error("UNKNOWN_TOKEN: No registration found for this pass token.");
+    }
+
+    // There should be exactly one match (UUID uniqueness guarantees this)
+    const regDocSnap = querySnapshot.docs[0];
+    const regRef = regDocSnap.ref;
+
+    // Step 2: Atomic check-in transaction
+    const result = await runTransaction(db, async (transaction) => {
+      const freshSnap = await transaction.get(regRef);
+      if (!freshSnap.exists()) {
+        throw new Error("UNKNOWN_TOKEN: Registration document no longer exists.");
+      }
+
+      const regData = freshSnap.data();
+
+      // Validate event match (prevents Event A pass from checking into Event B)
+      if (regData.eventId !== scannerEventId) {
+        throw new Error("WRONG_EVENT: This pass belongs to a different event.");
+      }
+
+      // Validate registration is not cancelled
+      if (regData.status === "cancelled") {
+        throw new Error("CANCELLED_PASS: This registration has been cancelled.");
+      }
+
+      // Validate not already checked in (concurrent duplicate scan protection)
+      if (regData.checkedIn || regData.attendanceStatus === "present") {
+        throw new Error("ALREADY_CHECKED_IN: Attendee has already been checked in.");
+      }
+
+      const checkInFields = {
+        checkedIn: true,
+        checkedInAt: new Date().toISOString(),
+        checkedInBy: actorId,
+        attendanceStatus: "present"
+      };
+
+      transaction.update(regRef, checkInFields);
+      return { ...regData, ...checkInFields };
+    });
+
+    return result;
+  } catch (error) {
+    logFirebaseError("[checkInByPassToken] Pass token check-in failed.", error);
+    throw error;
+  }
+};
+
+/**
+ * Fetches a single registration document by its passToken.
+ * Used for pass verification without triggering check-in.
+ *
+ * @param {string} passToken - The "nxp_<UUID>" token
+ * @returns {object|null} The registration document data or null if not found
+ */
+export const getRegistrationByPassToken = async (passToken) => {
+  if (!passToken) return null;
+  try {
+    const registrationsCol = collection(db, COLLECTION_NAME);
+    const q = query(registrationsCol, where("passToken", "==", passToken));
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) return null;
+    return querySnapshot.docs[0].data();
+  } catch (error) {
+    logFirebaseError("[getRegistrationByPassToken] Lookup failed.", error);
+    return null;
   }
 };
 
@@ -406,6 +563,72 @@ export const getEventRegistrations = async (eventId) => {
     return registrations;
   } catch (error) {
     logFirebaseError("[getEventRegistrations] Failed to fetch event registrations.", error);
+    throw error;
+  }
+};
+
+/**
+ * MIGRATION: Add passToken to existing registrations that do not have one.
+ *
+ * Safety guarantees:
+ * - Reads each registration doc before writing.
+ * - Only writes passToken if it does NOT already exist (idempotent).
+ * - NEVER overwrites an existing passToken value.
+ * - Uses Firestore batch writes (up to 500 per batch).
+ * - Safe to run multiple times — subsequent runs are no-ops.
+ * - NOT called automatically on page load — must be triggered explicitly by admin.
+ *
+ * @returns {{ total: number, migrated: number, skipped: number }}
+ */
+export const migratePassTokens = async () => {
+  const registrationsCol = collection(db, COLLECTION_NAME);
+  try {
+    const allDocs = await getDocs(registrationsCol);
+    let total = 0;
+    let migrated = 0;
+    let skipped = 0;
+
+    const docsNeedingToken = [];
+    allDocs.forEach((docSnap) => {
+      total++;
+      const data = docSnap.data();
+      // Only migrate docs that are missing passToken
+      if (!data.passToken || typeof data.passToken !== "string" || !data.passToken.startsWith("nxp_")) {
+        docsNeedingToken.push(docSnap.ref);
+      } else {
+        skipped++;
+      }
+    });
+
+    // Process in batches of 499 (Firestore limit is 500 per batch)
+    const BATCH_SIZE = 499;
+    for (let i = 0; i < docsNeedingToken.length; i += BATCH_SIZE) {
+      const batch = writeBatch(db);
+      const slice = docsNeedingToken.slice(i, i + BATCH_SIZE);
+      for (const ref of slice) {
+        const freshSnap = await getDoc(ref);
+        if (!freshSnap.exists()) continue;
+        const freshData = freshSnap.data();
+        // Double-check: still missing passToken (another migration may have run concurrently)
+        if (!freshData.passToken || !freshData.passToken.startsWith("nxp_")) {
+          const newToken = generatePassToken();
+          const newPassQR = JSON.stringify({ v: 1, type: "nexevent_pass", token: newToken });
+          batch.update(ref, {
+            passToken: newToken,
+            passQR: newPassQR,
+            migratedAt: new Date().toISOString()
+          });
+          migrated++;
+        } else {
+          skipped++;
+        }
+      }
+      await batch.commit();
+    }
+
+    return { total, migrated, skipped };
+  } catch (error) {
+    logFirebaseError("[migratePassTokens] Migration failed.", error);
     throw error;
   }
 };

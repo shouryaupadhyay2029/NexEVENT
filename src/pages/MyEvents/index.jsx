@@ -239,7 +239,11 @@ export const MyEvents = () => {
                 {displayEvents.map((event) => {
                   const reg = regs[event.id] || {};
                   const isCancelled = reg.status === 'cancelled';
-                  const qrPayload = reg.ticketQR || JSON.stringify({ ticketId: reg.ticketId, eventId: event.id, userId: user.uid });
+                  // QR identity: use persisted passToken if available, fallback to legacy ticketQR
+                  // NEVER generate a new token here — always read from Firestore
+                  const qrPayload = reg.passToken
+                    ? JSON.stringify({ v: 1, type: 'nexevent_pass', token: reg.passToken })
+                    : (reg.ticketQR || JSON.stringify({ ticketId: reg.ticketId, eventId: event.id, userId: user.uid }));
                   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(qrPayload)}&color=ffffff&bgcolor=141414`;
 
                   return (
@@ -345,7 +349,11 @@ export const MyEvents = () => {
               const regDoc = regs[eventItem.id] || {};
               const regNo = regDoc.ticketId || "PENDING";
               const isCheckedIn = regDoc.checkedIn || false;
-              const qrPayload = regDoc.ticketQR || JSON.stringify({ ticketId: regDoc.ticketId, eventId: eventItem.id, userId: user.uid });
+              // QR identity: always read persisted passToken from Firestore.
+              // NEVER generate a replacement token here — the QR component is a renderer only.
+              const qrPayload = regDoc.passToken
+                ? JSON.stringify({ v: 1, type: 'nexevent_pass', token: regDoc.passToken })
+                : (regDoc.ticketQR || JSON.stringify({ ticketId: regDoc.ticketId, eventId: eventItem.id, userId: user.uid }));
               const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrPayload)}&color=ffffff&bgcolor=141414`;
               const EASE = [0.16, 1, 0.3, 1];
 

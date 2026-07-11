@@ -6,7 +6,8 @@ import {
   subscribeToEventRegistrations, 
   checkInAttendee, 
   cancelRegistration,
-  checkInByTicket
+  checkInByTicket,
+  checkInByPassToken
 } from '../../services/registrationService';
 import { trackEvent } from '../../services/analyticsService';
 import { PageTransition } from '../../components/layout/PageTransition';
@@ -148,15 +149,51 @@ export const Attendees = () => {
     let ticketId = "";
     let scannedUserId = "";
     let scannedEventId = "";
+    let passToken = "";
 
+    // ── PRIMARY PATH: new secure passToken QR format ─────────────────────────
+    // QR payload: { v: 1, type: "nexevent_pass", token: "nxp_<UUID>" }
     try {
-      // Attempt parsing JSON ticket QR format
       const payload = JSON.parse(data);
+
+      if (payload.type === "nexevent_pass" && payload.token) {
+        passToken = payload.token;
+
+        if (!passToken.startsWith("nxp_")) {
+          setScanError("MALFORMED_QR");
+          return;
+        }
+
+        try {
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
+          }
+
+          const result = await checkInByPassToken(passToken, eventId, user.uid);
+          const matchedAttendee = attendees.find(a => a.passToken === passToken) ||
+            attendees.find(a => a.userId === result.userId) ||
+            { ...result, studentName: result.userName || result.userId };
+          setScannedAttendee(matchedAttendee);
+          triggerToast('success', `${matchedAttendee.studentName || 'Attendee'} checked in present.`);
+        } catch (e) {
+          const msg = e.message || "";
+          if (msg.startsWith("WRONG_EVENT")) setScanError("Wrong Event");
+          else if (msg.startsWith("CANCELLED_PASS")) setScanError("Cancelled Pass");
+          else if (msg.startsWith("ALREADY_CHECKED_IN")) setScanError("Already Checked In");
+          else if (msg.startsWith("UNKNOWN_TOKEN")) setScanError("Registration Not Found");
+          else if (msg.startsWith("MALFORMED_QR")) setScanError("Invalid Ticket");
+          else setScanError(e.message || "Check-in failed.");
+        }
+        return;
+      }
+
+      // ── LEGACY PATH: old QR format { ticketId, eventId, userId } ─────────
       ticketId = payload.ticketId;
       scannedEventId = payload.eventId;
       scannedUserId = payload.userId;
-    } catch (e) {
-      // Fallback to legacy string format: userId_eventId
+    } catch {
+      // ── LEGACY STRING FALLBACK: "userId_eventId" format ──────────────────
       const parts = data.split('_');
       if (parts.length === 2) {
         scannedUserId = parts[0];
@@ -167,13 +204,14 @@ export const Attendees = () => {
       }
     }
 
+    // ── LEGACY VALIDATION ────────────────────────────────────────────────────
     if (scannedEventId !== eventId) {
       setScanError("Wrong Event");
       return;
     }
 
-    const attendee = attendees.find(a => 
-      (ticketId && a.ticketId === ticketId) || 
+    const attendee = attendees.find(a =>
+      (ticketId && a.ticketId === ticketId) ||
       (!ticketId && a.userId === scannedUserId)
     );
 
@@ -192,7 +230,7 @@ export const Attendees = () => {
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
       }
-      
+
       if (ticketId) {
         await checkInByTicket(scannedUserId, eventId, ticketId, user.uid);
       } else {
