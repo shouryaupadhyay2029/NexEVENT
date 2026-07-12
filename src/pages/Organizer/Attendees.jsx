@@ -53,6 +53,7 @@ export const Attendees = () => {
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const isProcessingRef = useRef(false);
 
   const triggerToast = (type, message) => {
     setToast({ type, message });
@@ -82,15 +83,22 @@ export const Attendees = () => {
   };
 
   const startScanner = async () => {
+    // Prevent double initialization (e.g. from React StrictMode)
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+
     setScanning(true);
     setScanError('');
     setScannedAttendee(null);
     setCameraLoading(true);
+    isProcessingRef.current = false;
 
     try {
       const jsQR = await loadJsQR();
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "environment" } 
+        video: { facingMode: { ideal: "environment" } } 
       });
       streamRef.current = stream;
 
@@ -108,20 +116,34 @@ export const Attendees = () => {
         if (!streamRef.current || !videoRef.current) return;
 
         if (videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
-          canvas.height = videoRef.current.videoHeight;
-          canvas.width = videoRef.current.videoWidth;
-          context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+          if (!isProcessingRef.current) {
+            const videoWidth = videoRef.current.videoWidth;
+            const videoHeight = videoRef.current.videoHeight;
 
-          const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-          const code = jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: "dontInvert",
-          });
+            // Center crop: extract the middle square of the video frame
+            const scanSize = Math.floor(Math.min(videoWidth, videoHeight) * 0.7);
+            const sx = Math.floor((videoWidth - scanSize) / 2);
+            const sy = Math.floor((videoHeight - scanSize) / 2);
 
-          if (code) {
-            handleScanResult(code.data);
-            return;
+            // Constrain canvas size to 400x400 for high efficiency & noise filtering
+            canvas.width = 400;
+            canvas.height = 400;
+            context.drawImage(videoRef.current, sx, sy, scanSize, scanSize, 0, 0, 400, 400);
+
+            const imageData = context.getImageData(0, 0, 400, 400);
+            
+            // "attemptBoth" inversion is critical for robust scanning on phone screens (glare, dark mode QR)
+            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+              inversionAttempts: "attemptBoth",
+            });
+
+            if (code && !isProcessingRef.current) {
+              isProcessingRef.current = true; // Lock immediately to prevent duplicate scans
+              handleScanResult(code.data);
+            }
           }
         }
+        
         if (streamRef.current && streamRef.current.active) {
           requestAnimationFrame(scanLoop);
         }
@@ -130,7 +152,13 @@ export const Attendees = () => {
       requestAnimationFrame(scanLoop);
     } catch (err) {
       console.error("Camera startup failed:", err);
-      setScanError("Camera access denied or device unsupported.");
+      if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+        setScanError("CAMERA ACCESS REQUIRED");
+      } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
+        setScanError("CAMERA UNAVAILABLE");
+      } else {
+        setScanError("SCANNER ERROR");
+      }
       setCameraLoading(false);
     }
   };
@@ -143,6 +171,13 @@ export const Attendees = () => {
     setScanning(false);
     setScanError('');
     setScannedAttendee(null);
+    isProcessingRef.current = false;
+  };
+
+  const handleRescan = () => {
+    setScanError('');
+    setScannedAttendee(null);
+    isProcessingRef.current = false;
   };
 
   const handleScanResult = async (data) => {
@@ -159,17 +194,12 @@ export const Attendees = () => {
       if (payload.type === "nexevent_pass" && payload.token) {
         passToken = payload.token;
 
-        if (!passToken.startsWith("nxp_")) {
-          setScanError("MALFORMED_QR");
+        if (!passToken.startsWith("nxp_") || payload.v !== 1) {
+          setScanError("INVALID PASS");
           return;
         }
 
         try {
-          if (streamRef.current) {
-            streamRef.current.getTracks().forEach(track => track.stop());
-            streamRef.current = null;
-          }
-
           const result = await checkInByPassToken(passToken, eventId, user.uid);
           const matchedAttendee = attendees.find(a => a.passToken === passToken) ||
             attendees.find(a => a.userId === result.userId) ||
@@ -177,13 +207,14 @@ export const Attendees = () => {
           setScannedAttendee(matchedAttendee);
           triggerToast('success', `${matchedAttendee.studentName || 'Attendee'} checked in present.`);
         } catch (e) {
+          console.error("Check-in by passToken failed:", e);
           const msg = e.message || "";
-          if (msg.startsWith("WRONG_EVENT")) setScanError("Wrong Event");
-          else if (msg.startsWith("CANCELLED_PASS")) setScanError("Cancelled Pass");
-          else if (msg.startsWith("ALREADY_CHECKED_IN")) setScanError("Already Checked In");
-          else if (msg.startsWith("UNKNOWN_TOKEN")) setScanError("Registration Not Found");
-          else if (msg.startsWith("MALFORMED_QR")) setScanError("Invalid Ticket");
-          else setScanError(e.message || "Check-in failed.");
+          if (msg.startsWith("WRONG_EVENT")) setScanError("WRONG EVENT");
+          else if (msg.startsWith("CANCELLED_PASS")) setScanError("CANCELLED PASS");
+          else if (msg.startsWith("ALREADY_CHECKED_IN")) setScanError("ALREADY VERIFIED");
+          else if (msg.startsWith("UNKNOWN_TOKEN")) setScanError("PASS NOT FOUND");
+          else if (msg.startsWith("MALFORMED_QR")) setScanError("INVALID PASS");
+          else setScanError(e.message || "SCANNER ERROR");
         }
         return;
       }
@@ -199,14 +230,14 @@ export const Attendees = () => {
         scannedUserId = parts[0];
         scannedEventId = parts[1];
       } else {
-        setScanError("Invalid Ticket");
+        setScanError("INVALID PASS");
         return;
       }
     }
 
     // ── LEGACY VALIDATION ────────────────────────────────────────────────────
     if (scannedEventId !== eventId) {
-      setScanError("Wrong Event");
+      setScanError("WRONG EVENT");
       return;
     }
 
@@ -216,21 +247,16 @@ export const Attendees = () => {
     );
 
     if (!attendee) {
-      setScanError("Registration Not Found");
+      setScanError("PASS NOT FOUND");
       return;
     }
 
     if (attendee.checkedIn) {
-      setScanError("Already Checked In");
+      setScanError("ALREADY VERIFIED");
       return;
     }
 
     try {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-      }
-
       if (ticketId) {
         await checkInByTicket(scannedUserId, eventId, ticketId, user.uid);
       } else {
@@ -240,7 +266,12 @@ export const Attendees = () => {
       triggerToast('success', `${attendee.studentName} checked in present.`);
     } catch (e) {
       console.error("Checkin fail:", e);
-      setScanError(e.message || "Failed to update check-in status.");
+      const msg = e.message || "";
+      if (msg.includes("Wrong Event") || msg.includes("WRONG_EVENT")) setScanError("WRONG EVENT");
+      else if (msg.includes("cancelled") || msg.includes("CANCELLED_PASS")) setScanError("CANCELLED PASS");
+      else if (msg.includes("Already Checked In") || msg.includes("ALREADY_CHECKED_IN")) setScanError("ALREADY VERIFIED");
+      else if (msg.includes("Registration Not Found") || msg.includes("UNKNOWN_TOKEN")) setScanError("PASS NOT FOUND");
+      else setScanError(e.message || "SCANNER ERROR");
     }
   };
 
@@ -874,18 +905,26 @@ export const Attendees = () => {
 
                       {/* Error screen check */}
                       {scanError && (
-                        <div className="absolute inset-0 bg-red-950/20 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center select-none">
-                          <XCircle className="w-12 h-12 text-red-500 mb-4 animate-bounce" strokeWidth={1.5} />
-                          <h4 className="text-body-m font-medium text-red-400 font-technical uppercase tracking-wider">{scanError}</h4>
-                          <p className="text-xs text-white/40 max-w-xs mt-2 font-light">
-                            {scanError === "Wrong Event" && "Scanned ticket registry belongs to a different schedule configuration."}
-                            {scanError === "Invalid Ticket" && "QR payload does not hold a verifiable NEX-PASS format sequence."}
-                            {scanError === "Registration Not Found" && "No registration matches found for this student user ID."}
-                            {scanError === "Already Checked In" && "Verification canceled. Ticket was already scanned for present gate admission."}
+                        <div className="absolute inset-0 bg-[#0c0c0c]/98 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center select-none z-30 font-ui border border-red-500/10">
+                          <XCircle className="w-10 h-10 text-red-500 mb-4 animate-bounce" strokeWidth={1.2} />
+                          
+                          <span className="text-[8px] font-technical uppercase tracking-[0.25em] text-red-500/80 border border-red-500/20 bg-red-950/10 px-3 py-1 mb-4 leading-none">
+                            ENTRY DENIED
+                          </span>
+
+                          <h3 className="text-sm font-technical uppercase tracking-wider text-red-400">{scanError}</h3>
+                          
+                          <p className="text-[11px] text-white/40 max-w-xs mt-2.5 mb-6 font-light leading-relaxed">
+                            {scanError === "WRONG EVENT" && "This pass belongs to a different event configuration."}
+                            {scanError === "INVALID PASS" && "This QR is not a valid NexEvent pass."}
+                            {scanError === "PASS NOT FOUND" && "No registration matches this NexEvent pass."}
+                            {scanError === "ALREADY VERIFIED" && "This attendee has already been marked present."}
+                            {scanError === "CANCELLED PASS" && "This registration has been cancelled."}
                           </p>
+
                           <button
-                            onClick={startScanner}
-                            className="mt-6 px-4 py-2 border border-red-500/20 bg-red-500/10 hover:bg-red-500/20 text-red-400 font-technical uppercase text-micro tracking-widest transition-colors focus:outline-none"
+                            onClick={handleRescan}
+                            className="px-4 py-2 border border-red-500/25 bg-red-950/20 hover:bg-red-950/40 text-red-400 font-technical uppercase text-micro tracking-widest transition-all focus:outline-none"
                           >
                             Rescan QR
                           </button>
@@ -894,24 +933,32 @@ export const Attendees = () => {
 
                       {/* Success screen check */}
                       {scannedAttendee && (
-                        <div className="absolute inset-0 bg-green-950/20 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center select-none">
-                          <CheckCircle2 className="w-12 h-12 text-green-400 mb-4" strokeWidth={1.5} />
-                          <span className="text-micro text-green-400 font-technical uppercase tracking-widest border border-green-500/20 bg-green-950/30 px-2 py-0.5 mb-3 leading-none">
-                            Entry Verified
+                        <div className="absolute inset-0 bg-[#0c0c0c]/98 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center select-none z-30 font-ui">
+                          <CheckCircle2 className="w-10 h-10 text-accent mb-4" strokeWidth={1.2} />
+                          
+                          <span className="text-[8px] font-technical uppercase tracking-[0.25em] text-accent border border-accent/20 bg-accent/5 px-3 py-1 mb-4 leading-none">
+                            NEX-PASS // ACCESS GRANTED
                           </span>
-                          <h4 className="text-body-l font-light text-primary">{scannedAttendee.studentName}</h4>
-                          <span className="text-[10px] text-white/40 font-mono mt-1">
-                            {scannedAttendee.email}
-                          </span>
-                          <div className="flex flex-col gap-0.5 mt-4 text-[10px] text-white/40">
-                            <span>Campus: {scannedAttendee.college}</span>
-                            <span>Dept: {scannedAttendee.branch}</span>
+                          
+                          <h4 className="text-[8px] font-technical text-white/25 uppercase tracking-widest">Student Name</h4>
+                          <div className="text-sm font-light text-primary mt-0.5 mb-3">{scannedAttendee.studentName}</div>
+                          
+                          <h4 className="text-[8px] font-technical text-white/25 uppercase tracking-widest">Ticket ID</h4>
+                          <div className="text-[10px] font-mono text-white/60 mt-0.5 mb-3">{scannedAttendee.ticketId || "N/A"}</div>
+                          
+                          <h4 className="text-[8px] font-technical text-white/25 uppercase tracking-widest">Event Name</h4>
+                          <div className="text-[10px] font-light text-white/60 mt-0.5 mb-4 truncate max-w-[200px]">{event?.title}</div>
+                          
+                          <div className="text-[9px] font-technical uppercase tracking-widest text-green-400 bg-green-950/20 border border-green-500/20 px-3.5 py-1 flex items-center gap-1.5 leading-none mb-5">
+                            <UserCheck className="w-3.5 h-3.5" />
+                            <span>PRESENT</span>
                           </div>
+
                           <button
-                            onClick={startScanner}
-                            className="mt-6 px-4 py-2 border border-green-500/20 bg-green-500/10 hover:bg-green-500/20 text-green-400 font-technical uppercase text-micro tracking-widest transition-colors focus:outline-none"
+                            onClick={handleRescan}
+                            className="px-4 py-2 border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-white/80 font-technical uppercase text-micro tracking-widest transition-all focus:outline-none"
                           >
-                            Scan Next
+                            Scan Next Pass
                           </button>
                         </div>
                       )}
