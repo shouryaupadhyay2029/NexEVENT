@@ -35,6 +35,8 @@ const getNotificationIcon = (type) => {
       return <AlertTriangle className="w-4 h-4 text-orange-400" />;
     case 'event_updated': 
       return <RefreshCw className="w-4 h-4 text-accent" />;
+    case 'event_published': 
+      return <CheckCircle className="w-4 h-4 text-accent" />;
     case 'event_cancelled': 
       return <XCircle className="w-4 h-4 text-red-500" />;
     case 'event_reminder': 
@@ -84,7 +86,7 @@ export const NotificationPanel = ({ isOpen, onClose, notifications, userId }) =>
 
   const handleNotificationClick = async (notif) => {
     if (!notif.isRead) {
-      await markNotificationAsRead(notif.id);
+      await markNotificationAsRead(notif.id, userId);
     }
     if (notif.eventId) {
       onClose();

@@ -267,16 +267,31 @@ service cloud.firestore {
     // 7. NOTIFICATIONS COLLECTION
     // ==========================================
     match /notifications/{notifId} {
-      // Users can only access their own inbox notifications
-      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
+      // Users can only access their own inbox notifications or global ones
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.userId || 
+        resource.data.target == 'all_users' || 
+        isAdmin()
+      );
       
       // Users can create notifications (for triggers)
       allow create: if isAuthenticated();
 
       // Users can mark their own notifications as read
-      allow update: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      allow update: if isAuthenticated() && (
+        request.auth.uid == resource.data.userId ||
+        resource.data.target == 'all_users'
+      );
       
       allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    // ==========================================
+    // 7.b NOTIFICATION READS COLLECTION
+    // ==========================================
+    match /notificationReads/{readId} {
+      // Users can only read and write their own read-state documents
+      allow read, write: if isAuthenticated() && readId.startsWith(request.auth.uid + '_');
     }
 
     // ==========================================

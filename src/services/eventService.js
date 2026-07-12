@@ -1,8 +1,8 @@
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, getDocsFromCache, query, where, onSnapshot } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, getDocsFromCache, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase/firestore";
 import { auth } from "../firebase/config";
 import { logFirebaseError } from "../firebase/errorLogging";
-import { createNotification } from "./notificationService";
+import { createNotification, createEventPublishedNotification } from "./notificationService";
 import { resolveEventStatus, isValidStatusTransition } from "../utils/eventLifecycle";
 import { verifyUserPermission } from "./permissionService";
 import { trackEvent } from "./analyticsService";
@@ -22,7 +22,7 @@ export const createEvent = async (eventData) => {
     path: newDocRef.path,
   });
 
-  const { uid, profile: userProfile } = await verifyUserPermission(["organizer", "admin"]);
+  const { profile: userProfile } = await verifyUserPermission(["organizer", "admin"]);
   const role = userProfile.role;
   const currentUser = auth.currentUser;
 
@@ -82,6 +82,10 @@ export const createEvent = async (eventData) => {
         event_id: defaultEvent.id,
         event_category: defaultEvent.category || "General"
       });
+      // Fire-and-forget global broadcast notification creation
+      createEventPublishedNotification(defaultEvent).catch(err => 
+        console.error("[createEvent] Failed to send publication notification:", err)
+      );
     }
     console.log("[createEvent] Firestore success.", {
       id: newDocRef.id,
@@ -179,12 +183,12 @@ export const updateEvent = async (eventId, eventData) => {
 
   // Strip read-only fields to prevent editing
   const {
-    id,
-    creatorId,
-    creatorName,
-    clubId,
-    clubName,
-    createdAt,
+    id: _id,
+    creatorId: _creatorId,
+    creatorName: _creatorName,
+    clubId: _clubId,
+    clubName: _clubName,
+    createdAt: _createdAt,
     ...updatableData
   } = eventData;
 
@@ -211,6 +215,10 @@ export const updateEvent = async (eventId, eventData) => {
         event_id: eventId,
         event_category: updatedEvent.category || "General"
       });
+      // Fire-and-forget global broadcast notification creation
+      createEventPublishedNotification(updatedEvent).catch(err => 
+        console.error("[updateEvent] Failed to send publication notification:", err)
+      );
     }
 
     // Notify registered attendees in the background
@@ -285,7 +293,7 @@ export const subscribeToOrganizerEvents = (userId, role, onUpdate) => {
 export const duplicateEvent = async (event) => {
   const eventsCol = collection(db, COLLECTION_NAME);
   const newDocRef = doc(eventsCol);
-  const { uid, profile: userProfile } = await verifyUserPermission(["organizer", "admin"]);
+  const { profile: userProfile } = await verifyUserPermission(["organizer", "admin"]);
   const role = userProfile.role;
   const currentUser = auth.currentUser;
 
