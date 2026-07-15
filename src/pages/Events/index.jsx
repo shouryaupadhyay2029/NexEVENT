@@ -546,6 +546,7 @@ export const Events = () => {
 
   // Preview Modal State
   const [previewEvent, setPreviewEvent] = useState(null);
+  const [activeSection, setActiveSection] = useState(null);
 
   // Dropdown filter configurations
   const categoryOptions = useMemo(() => [
@@ -694,6 +695,32 @@ export const Events = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  useEffect(() => {
+    if (loading || processedEvents.length === 0) return;
+
+    // Use IntersectionObserver to track active timeline chapter section on viewport scroll
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id);
+          }
+        });
+      },
+      {
+        rootMargin: '-15% 0px -65% 0px',
+        threshold: 0
+      }
+    );
+
+    const sections = document.querySelectorAll('[data-timeline-section]');
+    sections.forEach((section) => observer.observe(section));
+
+    return () => {
+      sections.forEach((section) => observer.unobserve(section));
+    };
+  }, [groupedEvents, loading, processedEvents.length]);
 
 
 
@@ -1315,64 +1342,132 @@ export const Events = () => {
                 />
               )
             ) : (
-              // Render timeline grouped by Year -> Month
-              <div className="flex flex-col gap-14 font-ui">
-                {sortedYears.map(year => (
-                  <div key={year} className="flex flex-col gap-6">
-                    {/* Year heading */}
-                    <div className="flex items-baseline justify-between select-none">
-                      <h2 className="text-display-md font-light text-primary tracking-tight">
-                        {year}
-                      </h2>
-                      <span className="text-[0.42rem] font-technical uppercase tracking-[0.2em] text-white/20">
-                        Preserved Chapter
-                      </span>
-                    </div>
-
-                    {/* Year divider */}
-                    <div className="h-px w-full bg-white/[0.06] select-none" />
-
-                    {/* Months grouped within this year */}
-                    <div className="flex flex-col gap-10 pl-0 sm:pl-4">
-                      {getSortedMonthsForYear(year).map(month => {
-                        const monthEvents = groupedEvents[year][month] || [];
-                        return (
-                          <div key={month} className="flex flex-col gap-3">
-                            {/* Month sub-heading */}
-                            <div className="text-[0.52rem] font-technical uppercase tracking-[0.25em] text-accent/80 select-none pb-2">
-                              {month}
-                            </div>
-
-                            {/* List of entries inside this month */}
-                            <div className="flex flex-col divide-y divide-white/[0.02]">
-                              {monthEvents.map(event => {
-                                const registered = userRegIds.has(event.id);
-                                const capacity = parseInt(event.capacity) || 0;
-                                const currentReg = parseInt(event.registeredCount) || 0;
-                                const seatsRemaining = Math.max(capacity - currentReg, 0);
-                                const isClosed = event.status?.toLowerCase() === 'closed' || seatsRemaining <= 0;
-
-                                return (
-                                  <ArchiveTimelineEntry
-                                    key={event.id}
-                                    event={event}
-                                    registered={registered}
-                                    isClosed={isClosed}
-                                    seatsRemaining={seatsRemaining}
-                                    currentReg={currentReg}
-                                    formatDate={formatDate}
-                                    getParticipationHours={getParticipationHours}
-                                    navigate={navigate}
-                                  />
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+              <div className="grid grid-cols-1 lg:grid-cols-[160px_1fr] gap-16 items-start">
+                {/* Left Editorial Sidebar — Desktop Only */}
+                <div className="hidden lg:flex flex-col gap-8 w-[160px] sticky top-28 self-start select-none font-technical">
+                  <div className="flex items-center gap-2">
+                    <span className="w-1 h-1 bg-accent rounded-none" />
+                    <span className="text-[0.45rem] uppercase tracking-[0.2em] text-white/30">Archive index</span>
                   </div>
-                ))}
+                  
+                  <div className="flex flex-col gap-6 pl-2.5 border-l border-white/[0.04] relative">
+                    {sortedYears.map(year => {
+                      const months = getSortedMonthsForYear(year);
+                      return (
+                        <div key={year} className="flex flex-col gap-3">
+                          {/* Year label */}
+                          <span className="text-[0.45rem] uppercase tracking-[0.15em] text-white/20">
+                            {year}
+                          </span>
+                          
+                          {/* Months */}
+                          <div className="flex flex-col gap-2 pl-2">
+                            {months.map(month => {
+                              const sectionId = `chapter-${year}-${month.replace(/\s+/g, '')}`;
+                              const isActive = activeSection === sectionId;
+                              
+                              return (
+                                <button
+                                  key={month}
+                                  type="button"
+                                  onClick={() => {
+                                    const el = document.getElementById(sectionId);
+                                    if (el) {
+                                      const yOffset = -96; // Offset for sticky header
+                                      const y = el.getBoundingClientRect().top + window.pageYOffset + yOffset;
+                                      window.scrollTo({ top: y, behavior: 'smooth' });
+                                    }
+                                  }}
+                                  className={cn(
+                                    "text-left text-[0.52rem] uppercase tracking-[0.15em] transition-colors duration-200 focus:outline-none relative py-0.5",
+                                    isActive ? "text-accent font-semibold" : "text-white/35 hover:text-white/70"
+                                  )}
+                                >
+                                  {month}
+                                  
+                                  {/* Sliding active indicator */}
+                                  {isActive && (
+                                    <motion.div
+                                      layoutId="sidebar-active-indicator"
+                                      className="absolute -left-[15px] top-1/2 -translate-y-1/2 w-1 h-1.5 bg-accent rounded-none"
+                                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                                    />
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Render timeline grouped by Year -> Month */}
+                <div className="flex flex-col gap-14 font-ui flex-1 min-w-0">
+                  {sortedYears.map(year => (
+                    <div key={year} className="flex flex-col gap-6">
+                      {/* Year heading */}
+                      <div className="flex items-baseline justify-between select-none">
+                        <h2 className="text-display-md font-light text-primary tracking-tight">
+                          {year}
+                        </h2>
+                        <span className="text-[0.42rem] font-technical uppercase tracking-[0.2em] text-white/20">
+                          Preserved Chapter
+                        </span>
+                      </div>
+
+                      {/* Year divider */}
+                      <div className="h-px w-full bg-white/[0.06] select-none" />
+
+                      {/* Months grouped within this year */}
+                      <div className="flex flex-col gap-10 pl-0 sm:pl-4">
+                        {getSortedMonthsForYear(year).map(month => {
+                          const monthEvents = groupedEvents[year][month] || [];
+                          const sectionId = `chapter-${year}-${month.replace(/\s+/g, '')}`;
+                          return (
+                            <div 
+                              key={month} 
+                              id={sectionId}
+                              data-timeline-section
+                              className="flex flex-col gap-3 scroll-mt-24"
+                            >
+                              {/* Month sub-heading */}
+                              <div className="text-[0.52rem] font-technical uppercase tracking-[0.25em] text-accent/80 select-none pb-2">
+                                {month}
+                              </div>
+
+                              {/* List of entries inside this month */}
+                              <div className="flex flex-col divide-y divide-white/[0.02]">
+                                {monthEvents.map(event => {
+                                  const registered = userRegIds.has(event.id);
+                                  const capacity = parseInt(event.capacity) || 0;
+                                  const currentReg = parseInt(event.registeredCount) || 0;
+                                  const seatsRemaining = Math.max(capacity - currentReg, 0);
+                                  const isClosed = event.status?.toLowerCase() === 'closed' || seatsRemaining <= 0;
+
+                                  return (
+                                    <ArchiveTimelineEntry
+                                      key={event.id}
+                                      event={event}
+                                      registered={registered}
+                                      isClosed={isClosed}
+                                      seatsRemaining={seatsRemaining}
+                                      currentReg={currentReg}
+                                      formatDate={formatDate}
+                                      getParticipationHours={getParticipationHours}
+                                      navigate={navigate}
+                                    />
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>

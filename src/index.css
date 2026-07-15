@@ -210,3 +210,23 @@ img.loaded {
     stroke-dashoffset: -200;
   }
 }
+
+/* Custom activity feed scrollbar */
+.scrollbar-custom::-webkit-scrollbar {
+  width: 2px;
+}
+.scrollbar-custom::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-custom::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 0px;
+  border: none;
+}
+.scrollbar-custom::-webkit-scrollbar-thumb:hover {
+  background: #e96b24;
+}
+.scrollbar-custom {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.06) transparent;
+}

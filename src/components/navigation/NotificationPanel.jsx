@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { markNotificationAsRead, markAllNotificationsAsRead } from '../../services/notificationService';
-import { X, CheckCircle, AlertTriangle, RefreshCw, XCircle, Clock, Info } from 'lucide-react';
+import { 
+  X, Compass, Ticket, Shield, Clock, Megaphone, UserCheck, 
+  Settings, CheckSquare, XCircle 
+} from 'lucide-react';
 import { cn } from '../../utils/cn';
 
-// Easing
+// Easing curve
 const EASE = [0.16, 1, 0.3, 1];
 
 const getRelativeTime = (isoStr) => {
@@ -28,43 +31,71 @@ const getRelativeTime = (isoStr) => {
 };
 
 const getNotificationIcon = (type) => {
+  const iconProps = { 
+    className: "w-4 h-4 transition-transform duration-200 group-hover:rotate-6 group-hover:-translate-y-0.5", 
+    strokeWidth: 1.5 
+  };
   switch (type) {
     case 'registration_success': 
-      return <CheckCircle className="w-4 h-4 text-green-500" />;
+      return <Ticket {...iconProps} />;
     case 'registration_closed': 
-      return <AlertTriangle className="w-4 h-4 text-orange-400" />;
+      return <Clock {...iconProps} />;
     case 'event_updated': 
-      return <RefreshCw className="w-4 h-4 text-accent" />;
+      return <Clock {...iconProps} />;
     case 'event_published': 
-      return <CheckCircle className="w-4 h-4 text-accent" />;
+      return <Compass {...iconProps} />;
     case 'event_cancelled': 
-      return <XCircle className="w-4 h-4 text-red-500" />;
+      return <XCircle {...iconProps} />;
     case 'event_reminder': 
-      return <Clock className="w-4 h-4 text-amber-500" />;
+      return <Clock {...iconProps} />;
+    case 'approval_success': 
+    case 'approval_pending':
+      return <Shield {...iconProps} />;
+    case 'club_hours_verified':
+      return <CheckSquare {...iconProps} />;
+    case 'announcement':
+      return <Megaphone {...iconProps} />;
+    case 'verification':
+      return <UserCheck {...iconProps} />;
     default: 
-      return <Info className="w-4 h-4 text-white/30" />;
+      return <Compass {...iconProps} />;
   }
 };
 
 export const NotificationPanel = ({ isOpen, onClose, notifications, userId }) => {
   const navigate = useNavigate();
+  const [syncTime, setSyncTime] = useState("Just now");
+
+  // Keep last synchronized time updated
+  useEffect(() => {
+    if (!isOpen) return;
+    setSyncTime("Just now");
+    const interval = setInterval(() => {
+      setSyncTime("2m ago"); // Mocking relative synchronization
+    }, 120000);
+    return () => clearInterval(interval);
+  }, [isOpen, notifications]);
 
   // Group notifications
   const groupNotifications = (list) => {
     const today = [];
     const yesterday = [];
-    const earlier = [];
+    const thisWeek = [];
+    const older = [];
 
-    const todayDate = new Date();
+    const now = new Date();
+    const todayStr = now.toDateString();
+    
     const yesterdayDate = new Date();
     yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-
-    const todayStr = todayDate.toDateString();
     const yesterdayStr = yesterdayDate.toDateString();
+
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
     list.forEach(notif => {
       if (!notif.createdAt) {
-        earlier.push(notif);
+        older.push(notif);
         return;
       }
       const d = new Date(notif.createdAt);
@@ -74,15 +105,17 @@ export const NotificationPanel = ({ isOpen, onClose, notifications, userId }) =>
         today.push(notif);
       } else if (dStr === yesterdayStr) {
         yesterday.push(notif);
+      } else if (d > oneWeekAgo) {
+        thisWeek.push(notif);
       } else {
-        earlier.push(notif);
+        older.push(notif);
       }
     });
 
-    return { today, yesterday, earlier };
+    return { today, yesterday, thisWeek, older };
   };
 
-  const { today, yesterday, earlier } = groupNotifications(notifications);
+  const { today, yesterday, thisWeek, older } = groupNotifications(notifications);
 
   const handleNotificationClick = async (notif) => {
     if (!notif.isRead) {
@@ -98,141 +131,327 @@ export const NotificationPanel = ({ isOpen, onClose, notifications, userId }) =>
     await markAllNotificationsAsRead(userId);
   };
 
-  const renderNotificationItem = (notif) => {
+  const renderNotificationRow = (notif) => {
+    // Resolve metadata representation
+    let statusText = "SYSTEM LOG";
+    let categoryText = "General Event";
+    let initiator = notif.organizer || notif.metadata?.organizer || notif.metadata?.club || "NexEvent Engine";
+
+    switch (notif.type) {
+      case 'registration_success':
+        statusText = "REGISTRATION COMPLETED";
+        categoryText = "Club Event";
+        break;
+      case 'registration_closed':
+        statusText = "REGISTRATION CLOSED";
+        categoryText = "Closed Event";
+        break;
+      case 'event_updated':
+        statusText = "EVENT CONFIG UPDATED";
+        categoryText = "Update Log";
+        break;
+      case 'event_published':
+        statusText = "NEW EVENT PUBLISHED";
+        categoryText = "Technical Event";
+        break;
+      case 'event_cancelled':
+        statusText = "EVENT CANCELLED";
+        categoryText = "Cancellation Log";
+        break;
+      case 'event_reminder':
+        statusText = "EVENT TIMELINE REMINDER";
+        categoryText = "Reminder Log";
+        break;
+      case 'approval_success':
+      case 'approval_pending':
+        statusText = "FACULTY APPROVAL";
+        categoryText = "Verification Log";
+        break;
+      case 'club_hours_verified':
+        statusText = "CLUB HOURS VERIFIED";
+        categoryText = "Credit Ledger";
+        break;
+      case 'announcement':
+        statusText = "CAMPUS ANNOUNCEMENT";
+        categoryText = "Broadcast";
+        break;
+      default:
+        break;
+    }
+
     return (
-      <div
+      <motion.div
         key={notif.id}
+        variants={{
+          closed: { opacity: 0, y: 12 },
+          open: { opacity: 1, y: 0, transition: { duration: 0.3, ease: EASE } }
+        }}
         onClick={() => handleNotificationClick(notif)}
         className={cn(
-          "flex gap-4 p-4 border-b border-white/5 cursor-pointer transition-all duration-300 hover:bg-white/[0.02] text-left select-none relative font-ui",
-          notif.isRead ? "opacity-40" : "opacity-100 bg-white/[0.01]"
+          "group relative flex gap-5 p-6 border-b border-white/[0.03] cursor-pointer transition-colors duration-200 text-left select-none overflow-hidden",
+          notif.isRead 
+            ? "bg-transparent text-white/50 hover:bg-[#131313]" 
+            : "bg-white/[0.015] text-white hover:bg-[#161616]"
         )}
       >
-        {/* Left: Icon status indicator */}
-        <div className="shrink-0 pt-0.5">
+        {/* Grow-from-left unread indicator bar */}
+        <div 
+          className={cn(
+            "absolute left-0 top-0 bottom-0 w-[2.5px] bg-accent origin-left transition-transform duration-200",
+            !notif.isRead ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
+          )}
+        />
+
+        {/* Left Status Icon */}
+        <div className={cn(
+          "shrink-0 p-2.5 border transition-all duration-200 flex items-center justify-center",
+          !notif.isRead 
+            ? "border-accent/25 text-accent bg-accent/[0.03]" 
+            : "border-white/10 text-white/40 bg-white/[0.02] group-hover:text-white/80 group-hover:border-white/20 group-hover:bg-white/[0.04]"
+        )}>
           {getNotificationIcon(notif.type)}
         </div>
 
         {/* Center content */}
-        <div className="flex-grow flex flex-col gap-1">
-          <div className="flex items-start justify-between gap-2">
-            <h4 className="text-body-s font-medium text-primary leading-tight">
-              {notif.title}
-            </h4>
-            <span className="text-[0.6rem] font-technical uppercase tracking-wider text-white/20 shrink-0">
+        <div className="flex-grow flex flex-col gap-2 min-w-0">
+          <div className="flex items-center justify-between gap-3 text-[0.46rem] font-technical uppercase tracking-widest leading-none">
+            <span className={cn(
+              "transition-colors duration-200",
+              !notif.isRead ? "text-accent/90" : "text-white/30 group-hover:text-accent/80"
+            )}>
+              {statusText}
+            </span>
+            <span className={cn(
+              "tabular-nums transition-colors duration-200",
+              !notif.isRead ? "text-accent/90" : "text-white/20 group-hover:text-white/60"
+            )}>
               {getRelativeTime(notif.createdAt)}
             </span>
           </div>
-          <p className="text-xs text-secondary leading-relaxed font-light">
+
+          <h4 className={cn(
+            "text-body-s font-light leading-snug transition-colors duration-200",
+            !notif.isRead ? "text-white font-normal" : "text-white/70 group-hover:text-white/90"
+          )}>
+            {notif.title}
+          </h4>
+
+          <p className={cn(
+            "text-[0.68rem] font-light leading-relaxed transition-colors duration-200",
+            !notif.isRead ? "text-white/50" : "text-white/35 group-hover:text-white/50"
+          )}>
             {notif.message}
           </p>
-        </div>
 
-        {/* Dot for unread */}
-        {!notif.isRead && (
-          <div className="absolute right-4 bottom-4 w-1.5 h-1.5 rounded-full bg-accent shadow-[0_0_8px_rgba(255,87,34,0.6)]" />
-        )}
-      </div>
+          <div className="flex flex-wrap items-center gap-2 text-[0.52rem] font-technical uppercase tracking-wider text-white/20 group-hover:text-white/35 transition-colors duration-200 pt-0.5">
+            <span>By {initiator}</span>
+            <span>·</span>
+            <span>{categoryText}</span>
+          </div>
+        </div>
+      </motion.div>
     );
   };
 
+  const renderGroupHeader = (label) => (
+    <motion.div 
+      variants={{
+        closed: { opacity: 0, y: 8 },
+        open: { opacity: 1, y: 0, transition: { duration: 0.3, ease: EASE } }
+      }}
+      className="flex items-center gap-3 px-6 py-4 select-none"
+    >
+      <span className="text-[0.45rem] font-technical uppercase tracking-[0.25em] text-white/22">
+        {label}
+      </span>
+      <div className="h-px flex-1 bg-white/[0.04]" />
+    </motion.div>
+  );
+
   return (
-    <>
-      {/* Backdrop */}
+    <AnimatePresence>
       {isOpen && (
-        <div 
-          onClick={onClose} 
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm cursor-pointer"
-        />
-      )}
+        <>
+          {/* Backdrop - overlay fades */}
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.35, ease: EASE }}
+            onClick={onClose} 
+            className="fixed inset-0 z-40 bg-black/65 cursor-pointer"
+          />
 
-      {/* Drawer */}
-      <motion.div
-        initial={{ x: '100%' }}
-        animate={{ x: isOpen ? 0 : '100%' }}
-        transition={{ duration: 0.45, ease: EASE }}
-        className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md bg-[#0e0e0e]/95 border-l border-white/10 backdrop-blur-2xl flex flex-col shadow-[0_0_80px_rgba(0,0,0,0.8)]"
-      >
-        {/* Editorial Grain Overlay */}
-        <div
-          className="absolute inset-0 opacity-[0.02] mix-blend-overlay pointer-events-none"
-          style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")` }}
-        />
+          {/* Drawer - slides from right 24px */}
+          <motion.div
+            variants={{
+              closed: { x: 'calc(100% + 24px)', opacity: 0 },
+              open: { 
+                x: 0, 
+                opacity: 1,
+                transition: {
+                  type: 'spring',
+                  stiffness: 280,
+                  damping: 30,
+                  mass: 0.8,
+                  staggerChildren: 0.04,
+                  delayChildren: 0.08
+                }
+              }
+            }}
+            initial="closed"
+            animate="open"
+            exit="closed"
+            className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md bg-[#0e0e0e] border-l border-white/10 flex flex-col relative overflow-hidden"
+          >
+            {/* Architectural blueprint grid background */}
+            <div 
+              className="absolute inset-0 pointer-events-none opacity-[0.025] mix-blend-overlay z-0" 
+              style={{
+                backgroundImage: `radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px), 
+                                  linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px), 
+                                  linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px)`,
+                backgroundSize: '24px 24px',
+                backgroundPosition: 'center'
+              }}
+            />
 
-        {/* Header */}
-        <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between relative z-10 font-ui">
-          <div className="flex flex-col text-left">
-            <span className="text-[0.6rem] font-technical uppercase tracking-[0.25em] text-white/30">Panel // Notifications</span>
-            <h2 className="text-body-l font-light text-primary mt-1">Inbox</h2>
-          </div>
-          <div className="flex items-center gap-3">
-            {notifications.some(n => !n.isRead) && (
-              <button
-                type="button"
-                onClick={handleMarkAllRead}
-                className="text-[0.6rem] font-technical uppercase tracking-wider text-accent hover:text-accent/80 transition-colors mr-2 focus:outline-none"
-              >
-                Mark All Read
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-1 text-white/40 hover:text-white transition-colors focus:outline-none"
-              aria-label="Close notification panel"
+            {/* Header - Sticky */}
+            <motion.div 
+              variants={{
+                closed: { opacity: 0, y: -8 },
+                open: { opacity: 1, y: 0, transition: { duration: 0.35, ease: EASE } }
+              }}
+              className="px-6 py-6 border-b border-white/[0.05] bg-[#0e0e0e]/98 flex items-start justify-between relative z-10 font-ui"
             >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
+              <div className="flex flex-col text-left gap-1">
+                <span className="text-[0.45rem] font-technical uppercase tracking-[0.25em] text-accent/80">SYSTEM LOG</span>
+                <h2 className="text-body-l font-light text-primary leading-none">ACTIVITY FEED</h2>
+                <p className="text-[0.64rem] font-light text-white/30 leading-relaxed max-w-xs mt-1">
+                  Live updates across registrations, approvals, club hours and campus events.
+                </p>
+              </div>
+              <div className="flex items-center gap-4 pt-1">
+                {notifications.some(n => !n.isRead) && (
+                  <button
+                    type="button"
+                    onClick={handleMarkAllRead}
+                    className="text-[0.52rem] font-technical uppercase tracking-widest text-accent hover:text-accent/80 transition-colors focus:outline-none relative group/btn"
+                  >
+                    MARK ALL READ
+                    <span className="absolute bottom-0 left-0 right-0 h-[1px] bg-accent scale-x-0 group-hover/btn:scale-x-100 transition-transform origin-left duration-200" />
+                  </button>
+                )}
+                
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    navigate('/settings');
+                  }}
+                  className="text-white/40 hover:text-white transition-colors focus:outline-none"
+                  title="Notification Settings"
+                >
+                  <Settings className="w-3.5 h-3.5 transition-transform duration-300 hover:rotate-45" />
+                </button>
 
-        {/* List Content */}
-        <div className="flex-grow overflow-y-auto relative z-10">
-          {notifications.length === 0 ? (
-            // Minimal Typographic Empty State
-            <div className="flex flex-col py-24 items-center justify-center text-center select-none font-ui px-6">
-              <span className="text-[0.6rem] font-technical text-white/20 uppercase tracking-[0.25em] mb-3">
-                Notification center // Empty
-              </span>
-              <p className="text-body-s text-secondary">
-                You have no notifications yet. Announcements will appear here in real-time.
-              </p>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="text-white/40 hover:text-white transition-colors focus:outline-none"
+                  aria-label="Close activity feed"
+                >
+                  <X className="w-4 h-4 transition-transform duration-300 hover:rotate-90" />
+                </button>
+              </div>
+            </motion.div>
+
+            {/* List Content - Custom Scrollbar */}
+            <div className="flex-grow overflow-y-auto relative z-10 scrollbar-custom">
+              {notifications.length === 0 ? (
+                // Minimal premium console empty state
+                <motion.div 
+                  variants={{
+                    closed: { opacity: 0 },
+                    open: { opacity: 1, transition: { delay: 0.15 } }
+                  }}
+                  className="flex flex-col py-36 items-center justify-center text-center select-none font-ui px-6"
+                >
+                  <div className="p-3 border border-white/5 bg-white/[0.01] text-white/20 mb-4 flex items-center justify-center">
+                    <Compass className="w-5 h-5 animate-pulse" style={{ animationDuration: '6s' }} />
+                  </div>
+                  <span className="text-[0.52rem] font-technical text-white/35 uppercase tracking-[0.25em] mb-2 leading-none">
+                    SYSTEM SILENT
+                  </span>
+                  <p className="text-[0.7rem] text-white/25 max-w-[200px] leading-relaxed">
+                    No recent activity has been recorded. Awaiting future campus events.
+                  </p>
+                  <span className="text-[0.38rem] font-technical text-white/10 uppercase tracking-widest mt-8">
+                    LOG-000
+                  </span>
+                </motion.div>
+              ) : (
+                <div className="flex flex-col pb-6">
+                  {/* Today Group */}
+                  {today.length > 0 && (
+                    <div className="flex flex-col">
+                      {renderGroupHeader("TODAY")}
+                      <div className="flex flex-col">
+                        {today.map(renderNotificationRow)}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Yesterday Group */}
+                  {yesterday.length > 0 && (
+                    <div className="flex flex-col">
+                      {renderGroupHeader("YESTERDAY")}
+                      <div className="flex flex-col">
+                        {yesterday.map(renderNotificationRow)}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* This Week Group */}
+                  {thisWeek.length > 0 && (
+                    <div className="flex flex-col">
+                      {renderGroupHeader("THIS WEEK")}
+                      <div className="flex flex-col">
+                        {thisWeek.map(renderNotificationRow)}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Older Group */}
+                  {older.length > 0 && (
+                    <div className="flex flex-col">
+                      {renderGroupHeader("OLDER")}
+                      <div className="flex flex-col">
+                        {older.map(renderNotificationRow)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="flex flex-col">
-              {/* Today Group */}
-              {today.length > 0 && (
-                <div>
-                  <div className="px-6 py-2 bg-white/[0.02] border-y border-white/5 text-[0.55rem] font-technical text-white/30 uppercase tracking-[0.2em] text-left">
-                    Today
-                  </div>
-                  {today.map(renderNotificationItem)}
-                </div>
-              )}
 
-              {/* Yesterday Group */}
-              {yesterday.length > 0 && (
-                <div>
-                  <div className="px-6 py-2 bg-white/[0.02] border-y border-white/5 text-[0.55rem] font-technical text-white/30 uppercase tracking-[0.2em] text-left">
-                    Yesterday
-                  </div>
-                  {yesterday.map(renderNotificationItem)}
-                </div>
-              )}
-
-              {/* Earlier Group */}
-              {earlier.length > 0 && (
-                <div>
-                  <div className="px-6 py-2 bg-white/[0.02] border-y border-white/5 text-[0.55rem] font-technical text-white/30 uppercase tracking-[0.2em] text-left">
-                    Earlier
-                  </div>
-                  {earlier.map(renderNotificationItem)}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </motion.div>
-    </>
+            {/* Bottom Footer Section */}
+            <motion.div 
+              variants={{
+                closed: { opacity: 0, y: 8 },
+                open: { opacity: 1, y: 0, transition: { duration: 0.35, ease: EASE } }
+              }}
+              className="px-6 py-4 border-t border-white/[0.05] bg-[#0e0e0e]/98 flex items-center justify-between relative z-10 select-none font-technical text-[0.45rem] uppercase tracking-widest text-white/20"
+            >
+              <div className="flex items-center gap-1.5">
+                <span className="w-1 h-1 bg-green-500 rounded-full animate-ping" style={{ animationDuration: '3s' }} />
+                <span>Last synchronized: {syncTime}</span>
+              </div>
+              <span className="text-white/10">Refreshes automatically</span>
+            </motion.div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 };
