@@ -9,9 +9,9 @@ import { PageContainer } from '../../components/layout/PageContainer';
 import { SectionWrapper } from '../../components/layout/SectionWrapper';
 import { AxisMarker } from '../../components/layout/AxisMarker';
 import { Button } from '../../components/ui/Button';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion, useTransform } from 'framer-motion';
 import { cn } from '../../utils/cn';
-import { Calendar, Clock, MapPin, Search, Share2, Eye, X } from 'lucide-react';
+import { Calendar, Clock, MapPin, Search, Share2, Eye, X, SlidersHorizontal } from 'lucide-react';
 import { EditorialImage } from '../../components/ui/EditorialImage';
 import { resolveEventImage } from '../../utils/eventImage';
 import { getParticipationHours } from '../../utils/clubHours';
@@ -581,64 +581,289 @@ export const Events = () => {
       <PageContainer>
         <SectionWrapper className="max-w-7xl py-12 md:py-20 flex flex-col gap-12 relative">
 
-          {/* HEADER */}
-          <div className="relative">
+          {/* ── SYSTEM HEADER ──────────────────────────────────────────────── */}
+          <div className="relative flex flex-col gap-3">
             <AxisMarker index="03" label="Discovery Engine" />
-            <h1 className="text-display-lg font-light tracking-tight mt-6 text-primary">Events</h1>
-            <p className="text-body-lg text-secondary max-w-xl mt-4 font-light leading-relaxed">
+
+            <div className="flex items-end justify-between mt-6 gap-4 flex-wrap">
+              <h1 className="text-display-lg font-light tracking-tight text-primary leading-none">
+                Events
+              </h1>
+
+              {/* Live status bar */}
+              <div className="flex items-center gap-3 pb-1">
+                <span className="text-[0.52rem] font-technical uppercase tracking-widest text-white/20">Directory</span>
+                <span className="w-px h-3 bg-white/10" />
+                <motion.span
+                  key={processedEvents.length}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                  className="text-[0.52rem] font-technical uppercase tracking-widest text-accent/70"
+                >
+                  {loading ? '—' : `${processedEvents.length} Results`}
+                </motion.span>
+                <span className="w-px h-3 bg-white/10" />
+                <span className="text-[0.52rem] font-technical uppercase tracking-widest text-white/20">
+                  {loading ? '…' : `${events.filter(e => e.status !== 'draft' && e.status !== 'archived').length} Total`}
+                </span>
+              </div>
+            </div>
+
+            <p className="text-body-lg text-secondary max-w-xl font-light leading-relaxed">
               Curated directory of campus hackathons, workshops, conferences, and technical exhibitions.
             </p>
           </div>
 
-          {/* DYNAMIC FILTER DASHBOARD BAR */}
-          <div className="flex flex-col xl:flex-row gap-6 items-stretch xl:items-center justify-between pb-8 border-b border-white/5 font-ui">
-            {/* Input: Search */}
-            <div className="relative flex-grow max-w-md">
-              <span className={cn(
-                "absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20 transition-transform duration-250 ease-out-expo pointer-events-none origin-center",
-                searchFocused ? "rotate-[8deg] text-accent opacity-100" : ""
-              )}>
-                <Search className="w-4 h-4" />
-              </span>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onFocus={() => setSearchFocused(true)}
-                onBlur={() => setSearchFocused(false)}
-                placeholder="Search by title, organizer, or venue..."
-                className="search-input-premium w-full bg-[#111]/80 border pl-10 pr-4 py-2.5 text-sm text-white/80 focus:outline-none focus:border-accent rounded-none transition-colors duration-250 caret-accent"
-                style={{ caretColor: '#C96A2B' }}
-              />
+          {/* ── DISCOVERY CONSOLE ──────────────────────────────────────────── */}
+          <div className="flex flex-col border border-white/[0.06] bg-[#0c0c0c] font-ui">
+
+            {/* ── Console system bar ──── */}
+            <div className="flex items-start justify-between px-5 py-3 border-b border-white/[0.05] select-none">
+              {/* Left: label + metadata */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-2">
+                  <SlidersHorizontal className="w-2.5 h-2.5 text-white/20" strokeWidth={1.5} />
+                  <span className="text-[0.5rem] font-technical uppercase tracking-[0.15em] text-white/30">
+                    Discovery Console
+                  </span>
+                </div>
+                {/* System metadata */}
+                <div className="flex items-center gap-3 pl-[18px]">
+                  <span className="text-[0.42rem] font-technical uppercase tracking-widest text-white/15">
+                    Indexed &nbsp;
+                    <span className="text-white/30">{loading ? '—' : events.filter(e => e.status !== 'draft' && e.status !== 'archived').length}</span>
+                  </span>
+                  <span className="w-px h-2.5 bg-white/[0.06]" />
+                  <span className="text-[0.42rem] font-technical uppercase tracking-widest text-white/15">
+                    Active Filters &nbsp;
+                    <span className="text-white/30">
+                      {[selectedCategory !== 'All', selectedStatus !== 'All', selectedDate !== 'All', selectedSort !== 'Newest', !!searchQuery.trim()].filter(Boolean).length}
+                    </span>
+                  </span>
+                  <span className="w-px h-2.5 bg-white/[0.06]" />
+                  <span className="text-[0.42rem] font-technical uppercase tracking-widest text-white/15">
+                    Updated &nbsp;<span className="text-white/30">{new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Right: Clear all */}
+              <AnimatePresence>
+                {(selectedCategory !== 'All' || selectedStatus !== 'All' || selectedDate !== 'All' || selectedSort !== 'Newest' || searchQuery.trim()) && (
+                  <motion.button
+                    initial={{ opacity: 0, x: 4 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 4 }}
+                    transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setSelectedCategory('All');
+                      setSelectedStatus('All');
+                      setSelectedDate('All');
+                      setSelectedSort('Newest');
+                    }}
+                    className="flex items-center gap-1.5 text-[0.48rem] font-technical uppercase tracking-widest text-white/20 hover:text-white/50 transition-colors duration-200 mt-0.5 self-start"
+                  >
+                    <X className="w-2.5 h-2.5" />
+                    Reset
+                  </motion.button>
+                )}
+              </AnimatePresence>
             </div>
 
-            {/* Selector Filters Grid */}
-            <div className="flex flex-wrap items-center gap-4 md:gap-6 text-xs select-none">
-              <PremiumDropdown 
-                label="Category" 
-                value={selectedCategory} 
-                onChange={setSelectedCategory} 
-                options={categoryOptions} 
-              />
-              <PremiumDropdown 
-                label="Status" 
-                value={selectedStatus} 
-                onChange={setSelectedStatus} 
-                options={statusOptions} 
-              />
-              <PremiumDropdown 
-                label="Timeline" 
-                value={selectedDate} 
-                onChange={setSelectedDate} 
-                options={dateOptions} 
-              />
-              <PremiumDropdown 
-                label="Sort" 
-                value={selectedSort} 
-                onChange={setSelectedSort} 
-                options={sortOptions} 
-              />
+            {/* ── Main input row ──── */}
+            <div className="flex flex-col xl:flex-row divide-y xl:divide-y-0 xl:divide-x divide-white/[0.05]">
+
+              {/* Search — ~45% width on xl */}
+              <div className="relative xl:flex-[0_0_45%]">
+                <div className="absolute left-5 top-0 bottom-0 flex items-center gap-3 pointer-events-none">
+                  <motion.span
+                    animate={{
+                      rotate: searchFocused ? 8 : 0,
+                      opacity: searchFocused ? 0.7 : 0.22,
+                    }}
+                    transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                    style={{ color: searchFocused ? '#C96A2B' : 'rgba(255,255,255,0.22)' }}
+                  >
+                    <Search className="w-3.5 h-3.5" strokeWidth={1.5} />
+                  </motion.span>
+                  <span className="w-px h-4 bg-white/[0.06]" />
+                </div>
+
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => setSearchFocused(true)}
+                  onBlur={() => setSearchFocused(false)}
+                  placeholder="Search title, organizer, venue…"
+                  className="w-full bg-transparent pl-[3.25rem] pr-10 py-4 text-[0.78rem] text-white/72 placeholder:text-white/18 focus:outline-none caret-accent font-ui tracking-wide"
+                  style={{ caretColor: '#C96A2B' }}
+                />
+
+                {/* Inline clear */}
+                <AnimatePresence>
+                  {searchQuery && (
+                    <motion.button
+                      initial={{ opacity: 0, scale: 0.6 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.6 }}
+                      transition={{ duration: 0.15 }}
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/55 transition-colors duration-150"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </motion.button>
+                  )}
+                </AnimatePresence>
+
+                {/* Orange focus underline */}
+                <motion.div
+                  animate={{ scaleX: searchFocused ? 1 : 0, opacity: searchFocused ? 1 : 0 }}
+                  initial={{ scaleX: 0, opacity: 0 }}
+                  transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                  className="absolute bottom-0 left-5 right-5 h-px bg-accent/70 origin-left"
+                />
+              </div>
+
+              {/* Filter strip — four identical pills */}
+              <div className="flex flex-1 items-stretch divide-x divide-white/[0.05] overflow-x-auto scrollbar-none">
+
+                <div className="flex-1">
+                  <PremiumDropdown
+                    label="Category"
+                    value={selectedCategory}
+                    onChange={setSelectedCategory}
+                    options={categoryOptions}
+                    compact
+                  />
+                </div>
+
+                <div className="flex-1">
+                  <PremiumDropdown
+                    label="Status"
+                    value={selectedStatus}
+                    onChange={setSelectedStatus}
+                    options={statusOptions}
+                    compact
+                  />
+                </div>
+
+                <div className="flex-1">
+                  <PremiumDropdown
+                    label="Timeline"
+                    value={selectedDate}
+                    onChange={setSelectedDate}
+                    options={dateOptions}
+                    compact
+                  />
+                </div>
+
+                <div className="flex-1">
+                  <PremiumDropdown
+                    label="Sort By"
+                    value={selectedSort}
+                    onChange={setSelectedSort}
+                    options={sortOptions}
+                    compact
+                  />
+                </div>
+              </div>
             </div>
+
+            {/* ── Active filter pill strip ──── */}
+            <AnimatePresence>
+              {(selectedCategory !== 'All' || selectedStatus !== 'All' || selectedDate !== 'All') && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  className="overflow-hidden border-t border-white/[0.05]"
+                >
+                  <div className="flex items-center gap-2 px-5 py-2.5 flex-wrap">
+                    <span className="text-[0.42rem] font-technical uppercase tracking-widest text-white/18 mr-1">Filtered by</span>
+
+                    {selectedCategory !== 'All' && (
+                      <motion.button
+                        layout
+                        initial={{ opacity: 0, y: 3 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 3 }}
+                        transition={{ duration: 0.15 }}
+                        type="button"
+                        onClick={() => setSelectedCategory('All')}
+                        className="flex items-center gap-1 px-2 py-0.5 border border-accent/25 bg-accent/[0.04] text-accent text-[0.48rem] font-technical uppercase tracking-wider hover:bg-accent/[0.08] transition-colors duration-150"
+                      >
+                        <span>{selectedCategory}</span>
+                        <X className="w-1.5 h-1.5" />
+                      </motion.button>
+                    )}
+
+                    {selectedStatus !== 'All' && (
+                      <motion.button
+                        layout
+                        initial={{ opacity: 0, y: 3 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 3 }}
+                        transition={{ duration: 0.15 }}
+                        type="button"
+                        onClick={() => setSelectedStatus('All')}
+                        className="flex items-center gap-1 px-2 py-0.5 border border-white/12 bg-white/[0.025] text-white/45 text-[0.48rem] font-technical uppercase tracking-wider hover:bg-white/[0.05] transition-colors duration-150"
+                      >
+                        <span>{selectedStatus}</span>
+                        <X className="w-1.5 h-1.5" />
+                      </motion.button>
+                    )}
+
+                    {selectedDate !== 'All' && (
+                      <motion.button
+                        layout
+                        initial={{ opacity: 0, y: 3 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 3 }}
+                        transition={{ duration: 0.15 }}
+                        type="button"
+                        onClick={() => setSelectedDate('All')}
+                        className="flex items-center gap-1 px-2 py-0.5 border border-white/12 bg-white/[0.025] text-white/45 text-[0.48rem] font-technical uppercase tracking-wider hover:bg-white/[0.05] transition-colors duration-150"
+                      >
+                        <span>{selectedDate}</span>
+                        <X className="w-1.5 h-1.5" />
+                      </motion.button>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* ── Live result footer ──── */}
+          <div className="flex items-center justify-between -mt-8">
+            <motion.span
+              key={`${processedEvents.length}-${selectedCategory}-${selectedStatus}-${selectedDate}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.25 }}
+              className="text-[0.5rem] font-technical uppercase tracking-widest text-white/22"
+            >
+              {loading ? 'Loading directory…' : (
+                <>
+                  <span className="text-white/40">{processedEvents.length}</span>
+                  &nbsp;Events Found
+                  {[selectedCategory !== 'All', selectedStatus !== 'All', selectedDate !== 'All', !!searchQuery.trim()].filter(Boolean).length > 0 && (
+                    <>
+                      &nbsp;•&nbsp;
+                      <span className="text-accent/60">
+                        {[selectedCategory !== 'All', selectedStatus !== 'All', selectedDate !== 'All', !!searchQuery.trim()].filter(Boolean).length} Filters Active
+                      </span>
+                    </>
+                  )}
+                </>
+              )}
+            </motion.span>
           </div>
 
           {/* EVENTS ARCHIVE GRID CONTAINER */}
