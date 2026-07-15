@@ -750,11 +750,11 @@ export const Attendees = () => {
         <SectionWrapper className="max-w-7xl py-12 md:py-20 flex flex-col gap-12 text-left relative font-ui">
           
           {/* HEADER BAR */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
             <div className="flex flex-col gap-4">
               <button 
                 onClick={() => navigate('/organizer')}
-                className="text-micro text-accent uppercase tracking-widest font-technical flex items-center gap-1.5 focus:outline-none"
+                className="text-micro text-accent uppercase tracking-widest font-technical flex items-center gap-1.5 focus:outline-none min-h-[44px]"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Back to Studio</span>
@@ -766,20 +766,20 @@ export const Attendees = () => {
               </p>
             </div>
 
-            <div className="flex gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:flex md:flex-row gap-3 w-full md:w-auto">
               <Button 
                 variant="secondary" 
                 onClick={startScanner} 
-                className="flex items-center gap-2 border-accent/20 bg-accent/5 hover:bg-accent/10 text-accent"
+                className="flex items-center justify-center gap-2 border-accent/20 bg-accent/5 hover:bg-accent/10 text-accent h-12 md:h-10 text-xs tracking-wider sm:col-span-2 md:col-span-1"
               >
                 <Camera className="w-4 h-4" />
                 <span>Scan QR</span>
               </Button>
-              <Button variant="secondary" onClick={handlePrint} className="flex items-center gap-2">
+              <Button variant="secondary" onClick={handlePrint} className="flex items-center justify-center gap-2 h-12 md:h-10 text-xs tracking-wider">
                 <Printer className="w-4 h-4" />
                 <span>Print Registry</span>
               </Button>
-              <Button onClick={handleExportCSV} className="flex items-center gap-2">
+              <Button onClick={handleExportCSV} className="flex items-center justify-center gap-2 h-12 md:h-10 text-xs tracking-wider">
                 <Download className="w-4 h-4" />
                 <span>Export CSV</span>
               </Button>
@@ -787,25 +787,25 @@ export const Attendees = () => {
           </div>
 
           {/* LIVE COUNTERS PANEL */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 py-6 border-y border-white/5 font-ui">
-            <div className="flex flex-col gap-1">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 py-6 border-y border-white/5 font-ui">
+            <div className="flex flex-col gap-1.5 bg-white/[0.02] border border-white/[0.04] p-4 sm:p-5 rounded-[8px] h-full justify-between min-h-[90px] sm:min-h-0">
               <span className="text-micro text-white/30 uppercase tracking-widest">Registered</span>
-              <span className="text-display-md font-light text-primary">{stats.registered}</span>
+              <span className="text-display-md font-light text-primary leading-none my-1">{stats.registered}</span>
               <span className="text-[10px] text-white/20 font-technical uppercase">Capacity Cap: {stats.capacity}</span>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1.5 bg-white/[0.02] border border-white/[0.04] p-4 sm:p-5 rounded-[8px] h-full justify-between min-h-[90px] sm:min-h-0">
               <span className="text-micro text-white/30 uppercase tracking-widest">Checked In</span>
-              <span className="text-display-md font-light text-green-400">{stats.checkedIn}</span>
+              <span className="text-display-md font-light text-green-400 leading-none my-1">{stats.checkedIn}</span>
               <span className="text-[10px] text-white/20 font-technical uppercase">Attendees Present</span>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1.5 bg-white/[0.02] border border-white/[0.04] p-4 sm:p-5 rounded-[8px] h-full justify-between min-h-[90px] sm:min-h-0">
               <span className="text-micro text-white/30 uppercase tracking-widest">Remaining Seats</span>
-              <span className="text-display-md font-light text-accent">{stats.remaining}</span>
+              <span className="text-display-md font-light text-accent leading-none my-1">{stats.remaining}</span>
               <span className="text-[10px] text-white/20 font-technical uppercase">Open Entry slots</span>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1.5 bg-white/[0.02] border border-white/[0.04] p-4 sm:p-5 rounded-[8px] h-full justify-between min-h-[90px] sm:min-h-0">
               <span className="text-micro text-white/30 uppercase tracking-widest">Attendance %</span>
-              <span className="text-display-md font-light text-primary">{stats.attendanceRate}%</span>
+              <span className="text-display-md font-light text-primary leading-none my-1">{stats.attendanceRate}%</span>
               <span className="text-[10px] text-white/20 font-technical uppercase">Conversion Rate</span>
             </div>
           </div>
@@ -875,14 +875,14 @@ export const Attendees = () => {
               </div>
 
               {/* Actions row */}
-              <div className="flex flex-wrap justify-between items-center gap-4 relative z-10">
+              <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 relative z-10">
                 {/* Selection controls */}
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                   <button
                     type="button"
                     disabled={submission?.status === "pending_faculty"}
                     onClick={handleSelectAllEligible}
-                    className="px-3 py-1.5 bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/20 text-white/70 hover:text-white font-technical uppercase text-[9px] tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="px-3 py-2 bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/20 text-white/70 hover:text-white font-technical uppercase text-[9px] tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed h-11 sm:h-8 flex items-center justify-center flex-grow sm:flex-grow-0"
                   >
                     Select All Eligible
                   </button>
@@ -890,20 +890,20 @@ export const Attendees = () => {
                     type="button"
                     disabled={submission?.status === "pending_faculty"}
                     onClick={() => setSelectedIds(new Set())}
-                    className="px-3 py-1.5 bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/20 text-white/70 hover:text-white font-technical uppercase text-[9px] tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="px-3 py-2 bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/20 text-white/70 hover:text-white font-technical uppercase text-[9px] tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed h-11 sm:h-8 flex items-center justify-center flex-grow sm:flex-grow-0"
                   >
                     Clear Selection
                   </button>
                 </div>
 
                 {/* Operations controls */}
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                   <Button
                     type="button"
                     variant="secondary"
                     disabled={savingDraft || submission?.status === "pending_faculty" || selectedIds.size === 0}
                     onClick={handleApplyStandardCredit}
-                    className="text-[10px] tracking-wider uppercase font-technical min-w-[150px]"
+                    className="text-[10px] tracking-wider uppercase font-technical w-full sm:w-auto sm:min-w-[150px] h-11 sm:h-9 flex items-center justify-center"
                   >
                     {savingDraft ? "Applying..." : "Apply Standard Credit"}
                   </Button>
@@ -911,7 +911,7 @@ export const Attendees = () => {
                     type="button"
                     disabled={submittingVerification || submission?.status === "pending_faculty" || allocations.length === 0}
                     onClick={handleSubmitVerification}
-                    className="text-[10px] tracking-wider uppercase font-technical border border-accent/20 bg-accent/10 hover:bg-accent/25 text-accent min-w-[180px]"
+                    className="text-[10px] tracking-wider uppercase font-technical border border-accent/20 bg-accent/10 hover:bg-accent/25 text-accent w-full sm:w-auto sm:min-w-[180px] h-11 sm:h-9 flex items-center justify-center"
                   >
                     {submittingVerification ? "Submitting..." : "Submit to Faculty"}
                   </Button>
@@ -921,10 +921,10 @@ export const Attendees = () => {
           )}
 
           {/* SEARCH & FILTERS CONTROLS */}
-          <div className="flex flex-col xl:flex-row gap-6 items-stretch xl:items-center justify-between pb-2">
+          <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between pb-2 w-full">
             
             {/* Search inputs */}
-            <div className="relative flex-grow max-w-md">
+            <div className="relative flex-grow w-full lg:max-w-md">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20">
                 <Search className="w-4 h-4" />
               </span>
@@ -933,18 +933,18 @@ export const Attendees = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by name, email, college, branch, reg ID..."
-                className="w-full bg-[#111]/80 border border-white/10 pl-10 pr-4 py-2.5 text-sm text-white/80 placeholder-white/20 focus:outline-none focus:border-accent rounded-none"
+                className="w-full bg-[#111]/80 border border-white/10 pl-10 pr-4 py-3 text-sm text-white/80 placeholder-white/20 focus:outline-none focus:border-accent rounded-[6px] lg:rounded-none min-h-[44px] lg:min-h-0"
               />
             </div>
 
             {/* Filter actions */}
-            <div className="flex flex-wrap items-center gap-4 text-xs select-none">
-              <div className="flex items-center gap-2">
-                <span className="text-[0.6rem] font-technical uppercase tracking-wider text-white/30">Check-in Status</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-row gap-4 text-xs select-none w-full lg:w-auto">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                <span className="text-[0.6rem] font-technical uppercase tracking-wider text-white/30 pl-1 sm:pl-0 text-left">Check-in Status</span>
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="bg-[#111] border border-white/10 text-white/80 px-3 py-1.5 rounded-none focus:outline-none cursor-pointer hover:bg-white/[0.02]"
+                  className="bg-[#111] border border-white/10 text-white/80 px-3.5 py-3 lg:py-1.5 rounded-[6px] lg:rounded-none focus:outline-none cursor-pointer hover:bg-white/[0.02] w-full lg:w-48 text-sm lg:text-xs min-h-[44px] lg:min-h-0"
                 >
                   <option value="All">All Registrants</option>
                   <option value="Checked In">Checked In Only</option>
@@ -952,12 +952,12 @@ export const Attendees = () => {
                 </select>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-[0.6rem] font-technical uppercase tracking-wider text-white/30">Registry Sort</span>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                <span className="text-[0.6rem] font-technical uppercase tracking-wider text-white/30 pl-1 sm:pl-0 text-left">Registry Sort</span>
                 <select
                   value={sortOrder}
                   onChange={(e) => setSortOrder(e.target.value)}
-                  className="bg-[#111] border border-white/10 text-white/80 px-3 py-1.5 rounded-none focus:outline-none cursor-pointer hover:bg-white/[0.02]"
+                  className="bg-[#111] border border-white/10 text-white/80 px-3.5 py-3 lg:py-1.5 rounded-[6px] lg:rounded-none focus:outline-none cursor-pointer hover:bg-white/[0.02] w-full lg:w-48 text-sm lg:text-xs min-h-[44px] lg:min-h-0"
                 >
                   <option value="Newest">Newest First</option>
                   <option value="Oldest">Oldest First</option>
@@ -974,27 +974,27 @@ export const Attendees = () => {
                 initial={{ opacity: 0, y: -12 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
-                className="flex flex-col sm:flex-row items-center justify-between p-4 bg-accent/5 border border-accent/20 text-xs gap-4"
+                className="flex flex-col sm:flex-row items-center justify-between p-4 bg-accent/5 border border-accent/20 text-xs gap-4 w-full"
               >
                 <span className="font-technical uppercase text-accent tracking-wider font-semibold">
                   [{selectedIds.size}] Attendees Selected
                 </span>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                   <button
                     onClick={handleBulkCheckIn}
-                    className="px-3 py-1.5 bg-green-950/20 border border-green-500/20 hover:bg-green-950/40 text-green-400 font-technical uppercase transition-colors"
+                    className="px-4 py-2.5 bg-green-950/20 border border-green-500/20 hover:bg-green-950/40 text-green-400 font-technical uppercase transition-all duration-150 min-h-[44px] flex items-center justify-center rounded-[6px]"
                   >
                     Mark Present
                   </button>
                   <button
                     onClick={handleBulkRemove}
-                    className="px-3 py-1.5 bg-red-950/20 border border-red-500/20 hover:bg-red-950/40 text-red-400 font-technical uppercase transition-colors"
+                    className="px-4 py-2.5 bg-red-950/20 border border-red-500/20 hover:bg-red-950/40 text-red-400 font-technical uppercase transition-all duration-150 min-h-[44px] flex items-center justify-center rounded-[6px]"
                   >
                     Remove Selected
                   </button>
                   <button
                     onClick={() => setSelectedIds(new Set())}
-                    className="px-3 py-1.5 bg-white/5 border border-white/5 hover:bg-white/10 text-white/70 font-technical uppercase transition-colors"
+                    className="px-4 py-2.5 bg-white/5 border border-white/5 hover:bg-white/10 text-white/70 font-technical uppercase transition-all duration-150 min-h-[44px] flex items-center justify-center rounded-[6px]"
                   >
                     Clear Selection
                   </button>
@@ -1004,154 +1004,271 @@ export const Attendees = () => {
           </AnimatePresence>
 
           {/* TABLE LOGS REGISTRY */}
-          <div className="flex flex-col border border-white/5 divide-y divide-white/5">
-            {/* Header row */}
-            <div className="hidden lg:flex items-center justify-between px-6 py-3 bg-white/[0.01] text-micro font-technical uppercase tracking-wider text-white/30 select-none">
-              <div className="w-[5%] flex items-center">
-                <input 
-                  type="checkbox"
-                  checked={paginatedAttendees.length > 0 && selectedIds.size === paginatedAttendees.length}
-                  onChange={handleSelectAll}
-                  className="rounded-none border-white/20 bg-[#111] focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                />
-              </div>
-              <span className="w-[18%]">Student Name</span>
-              <span className="w-[18%]">Email Address</span>
-              <span className="w-[12%]">College Campus</span>
-              <span className="w-[12%]">Branch / Dept</span>
-              <span className="w-[15%]">Ticket ID</span>
-              <span className="w-[10%]">Reg Date</span>
-              <span className="w-[10%] text-right">Verification Gate</span>
+          {filteredAttendees.length === 0 ? (
+            <div className="py-24 text-center text-secondary text-body-s font-light border border-white/5 bg-white/[0.01]">
+              No matching attendee logs found in this registry.
             </div>
+          ) : (
+            <>
+              {/* DESKTOP TABLE VIEW */}
+              <div className="hidden lg:flex flex-col border border-white/5 divide-y divide-white/5">
+                {/* Header row */}
+                <div className="flex items-center justify-between px-6 py-3 bg-white/[0.01] text-micro font-technical uppercase tracking-wider text-white/30 select-none">
+                  <div className="w-[5%] flex items-center">
+                    <input 
+                      type="checkbox"
+                      checked={paginatedAttendees.length > 0 && selectedIds.size === paginatedAttendees.length}
+                      onChange={handleSelectAll}
+                      className="rounded-none border-white/20 bg-[#111] focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                    />
+                  </div>
+                  <span className="w-[18%]">Student Name</span>
+                  <span className="w-[18%]">Email Address</span>
+                  <span className="w-[12%]">College Campus</span>
+                  <span className="w-[12%]">Branch / Dept</span>
+                  <span className="w-[15%]">Ticket ID</span>
+                  <span className="w-[10%]">Reg Date</span>
+                  <span className="w-[10%] text-right">Verification Gate</span>
+                </div>
 
-            {filteredAttendees.length === 0 ? (
-              <div className="py-24 text-center text-secondary text-body-s font-light border-white/5">
-                No matching attendee logs found in this registry.
-              </div>
-            ) : (
-              paginatedAttendees.map((att) => {
-                const isSelected = selectedIds.has(att.userId);
-                return (
-                  <div key={att.userId} className="flex flex-col lg:flex-row lg:items-center justify-between p-6 hover:bg-white/[0.01] gap-4 lg:gap-0 font-ui">
-                    
-                    {/* Selector Column */}
-                    <div className="w-full lg:w-[5%] flex items-center">
-                      <input 
-                        type="checkbox"
-                        checked={isSelected}
-                        disabled={isClubHoursEnabled && !att.checkedIn}
-                        onChange={() => handleSelectRow(att.userId)}
-                        className="rounded-none border-white/20 bg-[#111] focus:ring-0 focus:ring-offset-0 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                      />
-                    </div>
-
-                    {/* Name column */}
-                    <div className="w-full lg:w-[18%] flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-[#1c1c1c] border border-white/10 flex items-center justify-center font-display text-xs uppercase text-primary overflow-hidden shrink-0">
-                        {att.avatar ? <img src={att.avatar} alt={att.studentName} className="w-full h-full object-cover" /> : att.studentName[0]}
+                {paginatedAttendees.map((att) => {
+                  const isSelected = selectedIds.has(att.userId);
+                  return (
+                    <div key={att.userId} className="flex flex-row items-center justify-between px-6 py-4 hover:bg-white/[0.01] font-ui">
+                      {/* Selector Column */}
+                      <div className="w-[5%] flex items-center">
+                        <input 
+                          type="checkbox"
+                          checked={isSelected}
+                          disabled={isClubHoursEnabled && !att.checkedIn}
+                          onChange={() => handleSelectRow(att.userId)}
+                          className="rounded-none border-white/20 bg-[#111] focus:ring-0 focus:ring-offset-0 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                        />
                       </div>
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-body-s text-primary font-light truncate">{att.studentName}</span>
-                        {isClubHoursEnabled && (
-                          <div className="flex items-center gap-2 mt-0.5 select-none">
-                            {att.checkedIn ? (
-                              <>
-                                <span className="text-[9px] font-technical uppercase text-accent font-semibold tracking-wider">
-                                  {(() => {
-                                    const regId = `${att.userId}_${eventId}`;
-                                    const alloc = allocationsMap[regId];
-                                    if (alloc) {
-                                      return alloc.allocationType === "custom"
-                                        ? `Custom: ${alloc.proposedHours} Hrs`
-                                        : `Standard: ${alloc.proposedHours} Hrs`;
-                                    }
-                                    return `Eligible: ${event.clubHours.participationHours} Hrs pending`;
-                                  })()}
+
+                      {/* Name column */}
+                      <div className="w-[18%] flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-full bg-[#1c1c1c] border border-white/10 flex items-center justify-center font-display text-xs uppercase text-primary overflow-hidden shrink-0">
+                          {att.avatar ? <img src={att.avatar} alt={att.studentName} className="w-full h-full object-cover" /> : att.studentName[0]}
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-body-s text-primary font-light truncate">{att.studentName}</span>
+                          {isClubHoursEnabled && (
+                            <div className="flex items-center gap-2 mt-0.5 select-none">
+                              {att.checkedIn ? (
+                                <>
+                                  <span className="text-[9px] font-technical uppercase text-accent font-semibold tracking-wider">
+                                    {(() => {
+                                      const regId = `${att.userId}_${eventId}`;
+                                      const alloc = allocationsMap[regId];
+                                      if (alloc) {
+                                        return alloc.allocationType === "custom"
+                                          ? `Custom: ${alloc.proposedHours} Hrs`
+                                          : `Standard: ${alloc.proposedHours} Hrs`;
+                                      }
+                                      return `Eligible: ${event.clubHours.participationHours} Hrs pending`;
+                                    })()}
+                                  </span>
+                                  {(!submission || submission.status !== "pending_faculty") && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenOverrideModal(att);
+                                      }}
+                                      className="text-[8px] font-technical uppercase text-white/40 hover:text-white border border-white/10 hover:border-white/20 bg-white/[0.02] px-1.5 py-0.5 leading-none transition-colors"
+                                    >
+                                      Override
+                                    </button>
+                                  )}
+                                </>
+                              ) : (
+                                <span className="text-[9px] font-technical uppercase text-white/25">
+                                  Not Verified // Ineligible
                                 </span>
-                                {(!submission || submission.status !== "pending_faculty") && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleOpenOverrideModal(att);
-                                    }}
-                                    className="text-[8px] font-technical uppercase text-white/40 hover:text-white border border-white/10 hover:border-white/20 bg-white/[0.02] px-1.5 py-0.5 leading-none transition-colors"
-                                  >
-                                    Override
-                                  </button>
-                                )}
-                              </>
-                            ) : (
-                              <span className="text-[9px] font-technical uppercase text-white/25">
-                                Not Verified // Ineligible
-                              </span>
-                            )}
-                          </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Email */}
+                      <span className="w-[18%] text-xs text-white/50 font-light truncate select-all">{att.email}</span>
+
+                      {/* College */}
+                      <span className="w-[12%] text-xs text-white/50 font-light truncate">{att.college}</span>
+
+                      {/* Branch */}
+                      <span className="w-[12%] text-xs text-white/50 font-light truncate">{att.branch}</span>
+
+                      {/* Ticket ID */}
+                      <span className="w-[15%] text-xs font-mono text-white/40 truncate select-all">{att.ticketId || "N/A"}</span>
+
+                      {/* Reg Date */}
+                      <span className="w-[10%] text-xs text-white/30 font-technical uppercase">
+                        {new Date(att.registeredAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </span>
+
+                      {/* Check In Actions */}
+                      <div className="w-[10%] flex items-center justify-end gap-3.5">
+                        {att.checkedIn ? (
+                          <span className="text-[10px] font-technical uppercase tracking-wider text-green-400 bg-green-950/20 border border-green-500/20 px-2 py-1 flex items-center gap-1 leading-none select-none">
+                            <UserCheck className="w-3.5 h-3.5" />
+                            <span>Present</span>
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleCheckIn(att.userId)}
+                            className="text-[10px] font-technical uppercase tracking-widest text-accent hover:text-white bg-accent/5 border border-accent/15 hover:bg-accent hover:border-accent px-3 py-1.5 transition-all select-none focus:outline-none"
+                          >
+                            Verify Entry
+                          </button>
                         )}
-                        <span className="text-[8px] text-white/25 font-mono truncate lg:hidden">{att.userId}_{eventId}</span>
                       </div>
                     </div>
+                  );
+                })}
+              </div>
 
-                    {/* Email */}
-                    <span className="w-full lg:w-[18%] text-xs text-white/50 font-light truncate select-all">{att.email}</span>
+              {/* MOBILE / TABLET CARD VIEW */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:hidden">
+                {paginatedAttendees.map((att) => {
+                  const isSelected = selectedIds.has(att.userId);
+                  return (
+                    <div 
+                      key={att.userId} 
+                      className={cn(
+                        "bg-[#0d0d0d] border p-5 flex flex-col gap-4 relative rounded-[10px] text-left transition-all duration-200", 
+                        isSelected ? "border-accent/30 bg-accent/[0.01]" : "border-white/5"
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          {/* Selector checkbox */}
+                          <input 
+                            type="checkbox"
+                            checked={isSelected}
+                            disabled={isClubHoursEnabled && !att.checkedIn}
+                            onChange={() => handleSelectRow(att.userId)}
+                            className="rounded-none border-white/20 bg-[#111] focus:ring-0 focus:ring-offset-0 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+                          />
+                          
+                          {/* Avatar */}
+                          <div className="w-10 h-10 rounded-full bg-[#1c1c1c] border border-white/10 flex items-center justify-center font-display text-sm uppercase text-primary overflow-hidden shrink-0">
+                            {att.avatar ? <img src={att.avatar} alt={att.studentName} className="w-full h-full object-cover" /> : att.studentName[0]}
+                          </div>
+                          
+                          {/* Name and Email */}
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-sm font-medium text-white tracking-wide truncate">{att.studentName}</span>
+                            <span className="text-[10px] text-white/40 truncate select-all">{att.email}</span>
+                          </div>
+                        </div>
 
-                    {/* College */}
-                    <span className="w-full lg:w-[12%] text-xs text-white/50 font-light truncate">{att.college}</span>
+                        {/* Verification badge status */}
+                        <div className="shrink-0">
+                          {att.checkedIn ? (
+                            <span className="text-[9px] font-technical uppercase tracking-wider text-green-400 bg-green-950/20 border border-green-500/20 px-2.5 py-1 flex items-center gap-1 leading-none select-none rounded-[4px]">
+                              <UserCheck className="w-3 h-3" />
+                              <span>Present</span>
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-technical uppercase tracking-wider text-white/30 bg-white/5 border border-white/10 px-2.5 py-1 flex items-center gap-1 leading-none select-none rounded-[4px]">
+                              <span>Absent</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
 
-                    {/* Branch */}
-                    <span className="w-full lg:w-[12%] text-xs text-white/50 font-light truncate">{att.branch}</span>
+                      <div className="h-px bg-white/[0.04] w-full" />
 
-                    {/* Ticket ID */}
-                    <span className="w-full lg:w-[15%] text-xs font-mono text-white/40 truncate select-all">{att.ticketId || "N/A"}</span>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                          <span className="text-[9px] font-technical uppercase tracking-wider text-white/20">Branch</span>
+                          <span className="text-white/60 truncate font-light">{att.branch || '—'}</span>
+                        </div>
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                          <span className="text-[9px] font-technical uppercase tracking-wider text-white/20">College</span>
+                          <span className="text-white/60 truncate font-light">{att.college || '—'}</span>
+                        </div>
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                          <span className="text-[9px] font-technical uppercase tracking-wider text-white/20">Ticket ID</span>
+                          <span className="text-white/50 font-mono truncate select-all">{att.ticketId || '—'}</span>
+                        </div>
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                          <span className="text-[9px] font-technical uppercase tracking-wider text-white/20">Registered</span>
+                          <span className="text-white/50 font-technical uppercase truncate">
+                            {new Date(att.registeredAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </span>
+                        </div>
+                      </div>
 
-                    {/* Reg Date */}
-                    <span className="w-full lg:w-[10%] text-xs text-white/30 font-technical uppercase">
-                      {new Date(att.registeredAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </span>
+                      {isClubHoursEnabled && (
+                        <div className="flex items-center justify-between bg-white/[0.02] border border-white/5 p-2 rounded-[6px] mt-1 select-none">
+                          <div className="flex flex-col text-left min-w-0">
+                            <span className="text-[8px] font-technical uppercase text-white/35">Club Hours Credit</span>
+                            <span className="text-[10px] font-technical text-accent font-semibold tracking-wider truncate">
+                              {(() => {
+                                const regId = `${att.userId}_${eventId}`;
+                                const alloc = allocationsMap[regId];
+                                if (alloc) {
+                                  return alloc.allocationType === "custom"
+                                    ? `${alloc.proposedHours} Hrs (Override)`
+                                    : `${alloc.proposedHours} Hrs (Standard)`;
+                                }
+                                return `${event.clubHours.participationHours} Hrs Pending`;
+                              })()}
+                            </span>
+                          </div>
+                          {att.checkedIn && (!submission || submission.status !== "pending_faculty") && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenOverrideModal(att);
+                              }}
+                              className="text-[9px] font-technical uppercase text-accent hover:text-white border border-accent/20 hover:border-accent/40 bg-accent/5 px-2 py-1 leading-none transition-colors rounded-[4px] min-h-[32px] flex items-center shrink-0"
+                            >
+                              Override
+                            </button>
+                          )}
+                        </div>
+                      )}
 
-                    {/* Check In Actions */}
-                    <div className="w-full lg:w-[10%] flex items-center justify-start lg:justify-end gap-3.5">
-                      {att.checkedIn ? (
-                        <span className="text-[10px] font-technical uppercase tracking-wider text-green-400 bg-green-950/20 border border-green-500/20 px-2 py-1 flex items-center gap-1 leading-none select-none">
-                          <UserCheck className="w-3.5 h-3.5" />
-                          <span>Present</span>
-                        </span>
-                      ) : (
+                      {!att.checkedIn && (
                         <button
                           onClick={() => handleCheckIn(att.userId)}
-                          className="text-[10px] font-technical uppercase tracking-widest text-accent hover:text-white bg-accent/5 border border-accent/15 hover:bg-accent hover:border-accent px-3 py-1.5 transition-all select-none focus:outline-none"
+                          className="w-full mt-2 text-[11px] font-technical uppercase tracking-wider text-accent hover:text-white bg-accent/5 border border-accent/20 hover:bg-accent hover:border-accent py-3 transition-all select-none focus:outline-none rounded-[6px] min-h-[44px] flex items-center justify-center font-bold"
                         >
                           Verify Entry
                         </button>
                       )}
                     </div>
-
-                  </div>
-                );
-              })
-            )}
-          </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
 
           {/* PAGINATION PANEL */}
           {filteredAttendees.length > 0 && (
-            <div className="flex items-center justify-between text-xs font-technical uppercase tracking-wider select-none pt-4 border-t border-white/5">
-              <span className="text-white/30">
+            <div className="flex flex-col sm:flex-row items-center justify-between text-xs font-technical uppercase tracking-wider select-none pt-4 border-t border-white/5 gap-4">
+              <span className="text-white/30 text-center sm:text-left">
                 Showing {((currentPage - 1) * PAGE_SIZE) + 1} to {Math.min(currentPage * PAGE_SIZE, filteredAttendees.length)} of {filteredAttendees.length} entries
               </span>
-              <div className="flex gap-2">
+              <div className="flex gap-2 justify-center w-full sm:w-auto">
                 <button
                   onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
-                  className="p-2 border border-white/5 hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent transition-colors focus:outline-none"
+                  className="p-2.5 border border-white/5 hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent transition-colors focus:outline-none min-h-[44px] flex items-center justify-center"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                <span className="px-3 py-2 border border-white/5 bg-white/[0.02]">
+                <span className="px-3 py-2 border border-white/5 bg-white/[0.02] flex items-center justify-center min-h-[44px]">
                   Page {currentPage} of {totalPages}
                 </span>
                 <button
                   onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
-                  className="p-2 border border-white/5 hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent transition-colors focus:outline-none"
+                  className="p-2.5 border border-white/5 hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent transition-colors focus:outline-none min-h-[44px] flex items-center justify-center"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
