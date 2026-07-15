@@ -196,7 +196,7 @@ export const ConfirmDialog = ({
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="relative w-full max-w-[500px] bg-[#0c0c0c] border border-white/[0.06] flex flex-col overflow-hidden select-none font-ui"
+            className="relative w-[95vw] md:max-w-[620px] lg:max-w-[700px] max-h-[90vh] bg-[#0c0c0c] border border-white/[0.06] flex flex-col overflow-y-auto select-none font-ui scrollbar-custom"
             role="dialog"
             aria-modal="true"
           >
@@ -222,7 +222,7 @@ export const ConfirmDialog = ({
             <div className={cn("w-full h-[2px]", theme.indicatorColor)} />
 
             {/* Content Area */}
-            <div className="p-8 md:p-10 flex flex-col gap-6 relative z-10 text-left">
+            <div className="p-6 md:p-10 flex flex-col gap-6 relative z-10 text-left">
               {/* Header Protocol Row */}
               <motion.div 
                 variants={itemVariants} 
@@ -282,13 +282,13 @@ export const ConfirmDialog = ({
               </motion.div>
 
               {/* Action Buttons Directory */}
-              <motion.div variants={itemVariants} className="flex gap-4 items-center">
+              <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4 items-center w-full">
                 {/* Cancel Button */}
                 <button
                   type="button"
                   disabled={loading}
                   onClick={onCancel}
-                  className="flex-[0.4] h-[48px] bg-transparent border border-white/10 text-white/40 hover:text-white hover:border-white/20 text-[0.62rem] font-technical uppercase tracking-[0.2em] hover:bg-white/[0.015] active:scale-[0.99] transition-all duration-[180ms] ease-out select-none focus:outline-none flex items-center justify-center gap-1.5"
+                  className="w-full sm:flex-[0.4] h-[48px] bg-transparent border border-white/10 text-white/40 hover:text-white hover:border-white/20 text-[0.62rem] font-technical uppercase tracking-[0.2em] hover:bg-white/[0.015] active:scale-[0.99] transition-all duration-[180ms] ease-out select-none focus:outline-none flex items-center justify-center gap-1.5"
                 >
                   <span>{cancelText}</span>
                 </button>
@@ -300,7 +300,7 @@ export const ConfirmDialog = ({
                   disabled={loading}
                   onClick={onConfirm}
                   className={cn(
-                    "flex-[0.6] h-[48px] text-[0.62rem] font-technical uppercase tracking-[0.2em] flex items-center justify-center gap-2.5 transition-all duration-[180ms] ease-out select-none disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none group/btn active:scale-[0.99]",
+                    "w-full sm:flex-[0.6] h-[48px] text-[0.62rem] font-technical uppercase tracking-[0.2em] flex items-center justify-center gap-2.5 transition-all duration-[180ms] ease-out select-none disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none group/btn active:scale-[0.99]",
                     variant === 'danger'
                       ? 'bg-red-950/40 border border-red-500/25 text-red-200 hover:bg-red-900/40 hover:border-red-400/40'
                       : variant === 'success'

@@ -13,8 +13,8 @@ import { SectionWrapper } from '../../components/layout/SectionWrapper';
 import { Button } from '../../components/ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Edit3, MapPin, ChevronRight, X, Shield, Award, User, 
-  Activity, Star, CheckCircle, Database, Lock, Clock, Calendar 
+  Edit3, ChevronRight, X, Shield, Award, User, 
+  Star, CheckCircle, Database, Lock 
 } from 'lucide-react';
 import { FaGithub, FaLinkedin, FaGlobe } from 'react-icons/fa';
 import { cn } from '../../utils/cn';
@@ -200,7 +200,7 @@ export const Profile = () => {
     ];
     const filledCount = fields.filter(Boolean).length;
     return filledCount * 10; // 10 fields = 10% each
-  }, [profile, user]);
+  }, [profile]);
 
   // Calculate account age in days
   const accountAge = useMemo(() => {
