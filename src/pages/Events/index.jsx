@@ -51,10 +51,10 @@ const ArchiveTimelineEntry = ({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => navigate(`/events/${event.id}`)}
-      className="group relative flex flex-col sm:flex-row sm:items-center gap-6 py-6 cursor-pointer border-b border-white/[0.03] transition-colors select-none"
+      className="group relative flex flex-row items-center gap-4 sm:gap-6 py-6 cursor-pointer border-b border-white/[0.03] transition-colors select-none"
     >
-      {/* Poster thumbnail - scales 1.02 on hover */}
-      <div className="w-24 sm:w-32 aspect-[16/9] overflow-hidden bg-[#0c0c0c] border border-white/[0.04] flex-shrink-0 relative">
+      {/* Poster thumbnail - always on the left, responsive scaling */}
+      <div className="w-20 xs:w-24 sm:w-32 aspect-[16/9] overflow-hidden bg-[#0c0c0c] border border-white/[0.04] flex-shrink-0 relative">
         <motion.img
           src={resolveEventImage(event)}
           alt={event.title}
@@ -65,25 +65,25 @@ const ArchiveTimelineEntry = ({
       </div>
 
       {/* Title, Club, and Date */}
-      <div className="flex-1 min-w-0 flex flex-col gap-1">
+      <div className="flex-1 min-w-0 flex flex-col gap-0.5 sm:gap-1 text-left">
         <motion.h3
           animate={{ color: isHovered ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.85)' }}
           transition={{ duration: 0.22 }}
-          className="text-body-lg font-light truncate leading-snug"
+          className="text-xs xs:text-sm sm:text-body-lg font-light break-words line-clamp-2 leading-snug"
         >
           {event.title}
         </motion.h3>
         
-        <div className="flex flex-wrap items-center gap-2 text-[0.6rem] font-technical uppercase tracking-[0.1em] text-white/35">
-          <span className={cn("transition-colors duration-220", isHovered ? "text-white/60" : "text-white/40")}>
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[0.48rem] sm:text-[0.6rem] font-technical uppercase tracking-[0.05em] sm:tracking-[0.1em] text-white/35">
+          <span className={cn("transition-colors duration-220 truncate max-w-[65px] xs:max-w-[120px] sm:max-w-none", isHovered ? "text-white/60" : "text-white/40")}>
             {event.organizer || 'NexEvent Organizer'}
           </span>
-          <span className="text-white/15">·</span>
-          <span className={cn("transition-colors duration-220", isHovered ? "text-white/60" : "text-white/38")}>
+          <span className="text-white/15">|</span>
+          <span className={cn("transition-colors duration-220 truncate max-w-[55px] xs:max-w-[100px] sm:max-w-none", isHovered ? "text-white/60" : "text-white/38")}>
             {event.venue || 'Campus'}
           </span>
-          <span className="text-white/15">·</span>
-          <span>{formatDate(event.date)}</span>
+          <span className="text-white/15">|</span>
+          <span className="shrink-0">{formatDate(event.date)}</span>
         </div>
       </div>
 
@@ -91,34 +91,34 @@ const ArchiveTimelineEntry = ({
       <motion.div
         animate={{ opacity: isHovered ? 0.95 : 0.65 }}
         transition={{ duration: 0.22 }}
-        className="flex items-center gap-6 flex-wrap sm:flex-nowrap justify-between sm:justify-end text-[0.58rem] font-technical uppercase tracking-wider"
+        className="flex items-center gap-2.5 sm:gap-6 flex-shrink-0 ml-auto text-[0.48rem] sm:text-[0.58rem] font-technical uppercase tracking-wider"
       >
         {/* Participants stats */}
-        <div className="flex flex-col gap-0.5 items-end text-right min-w-[70px]">
-          <span className="text-white/20">Participants</span>
-          <span className="text-white/70 tabular-nums text-[0.65rem]">{currentReg} / {parseInt(event.capacity) || '∞'}</span>
+        <div className="hidden xs:flex flex-col gap-0.5 items-end text-right min-w-[55px] sm:min-w-[70px]">
+          <span className="text-white/20 text-[0.4rem] sm:text-[0.5rem]">Participants</span>
+          <span className="text-white/70 tabular-nums text-[0.52rem] sm:text-[0.65rem]">{currentReg} / {parseInt(event.capacity) || '80'}</span>
         </div>
 
         {/* Club hours */}
         {hours > 0 && (
-          <div className="flex flex-col gap-0.5 items-end text-right min-w-[70px]">
-            <span className="text-white/20">Club Hours</span>
-            <span className="text-accent/90 text-[0.65rem]">{hours}h Credit</span>
+          <div className="flex flex-col gap-0.5 items-end text-right min-w-[45px] sm:min-w-[70px]">
+            <span className="text-white/20 text-[0.4rem] sm:text-[0.5rem]">Club Hours</span>
+            <span className="text-accent/90 text-[0.52rem] sm:text-[0.65rem]">{hours}h Credit</span>
           </div>
         )}
 
         {/* Completion badge */}
         <div className="flex items-center">
           {registered ? (
-            <span className="px-2.5 py-0.5 border border-green-500/18 bg-green-950/12 text-green-400/80 text-[0.46rem] font-technical uppercase tracking-wider leading-none">
+            <span className="px-2 py-0.5 border border-green-500/18 bg-green-950/12 text-green-400/80 text-[0.42rem] sm:text-[0.46rem] font-technical uppercase tracking-wider leading-none">
               Registered
             </span>
           ) : isClosed ? (
-            <span className="px-2.5 py-0.5 border border-red-500/18 bg-red-950/12 text-red-400/75 text-[0.46rem] font-technical uppercase tracking-wider leading-none">
+            <span className="px-2 py-0.5 border border-red-500/18 bg-red-950/12 text-red-400/75 text-[0.42rem] sm:text-[0.46rem] font-technical uppercase tracking-wider leading-none">
               Closed
             </span>
           ) : (
-            <span className="px-2.5 py-0.5 border border-accent/22 bg-accent/4 text-accent text-[0.46rem] font-technical uppercase tracking-wider leading-none">
+            <span className="px-2 py-0.5 border border-accent/22 bg-accent/4 text-accent text-[0.42rem] sm:text-[0.46rem] font-technical uppercase tracking-wider leading-none">
               Open
             </span>
           )}
@@ -922,7 +922,7 @@ export const Events = () => {
       <PageContainer>
         <SectionWrapper className="max-w-7xl py-12 md:py-20 flex flex-col gap-12 relative">
 
-          {/* ── SYSTEM HEADER / ARCHIVE HERO ── */}
+          {/* --- SYSTEM HEADER / ARCHIVE HERO --- */}
           <div className="relative flex flex-col gap-8 md:gap-12 select-none">
             {/* Catalog Reference & Axis Marker */}
             <div className="flex items-start justify-between w-full">
@@ -1025,32 +1025,33 @@ export const Events = () => {
               { label: 'Verified Club Hours', value: loading ? '—' : `${verifiedClubHours}h` },
               { label: 'Participating Clubs', value: loading ? '—' : participatingClubsCount },
               { label: 'Completed Projects', value: loading ? '—' : completedCount },
-            ].map((stat, idx) => (
-              <div
-                key={idx}
-                className={cn(
-                  "flex flex-col gap-3 p-6 sm:p-8 group transition-colors duration-200 border-white/[0.05]",
-                  idx < 4 ? "border-b md:border-b-0" : "",
-                  idx % 2 === 0 ? "border-r" : "sm:border-r-0 md:border-r",
-                  idx === 4 ? "md:border-r-0" : ""
-                )}
-              >
-                <span className="text-[0.44rem] font-technical uppercase tracking-[0.16em] text-white/20 group-hover:text-accent transition-colors duration-200">
-                  {stat.label}
-                </span>
-                
-                <span className="text-display-md font-light text-white/55 group-hover:text-white/95 transition-colors duration-200 tabular-nums leading-none">
-                  {stat.value}
-                </span>
-              </div>
-            ))}
+            ].map((stat, idx) => {
+              const borderClasses = cn(
+                "flex flex-col gap-3 p-6 sm:p-8 group transition-colors duration-200 border-white/[0.05]",
+                "md:border-b-0 md:border-r",
+                idx === 4 ? "md:border-r-0 col-span-2 md:col-span-1" : "",
+                idx < 4 ? "border-b" : "",
+                idx % 2 === 0 && idx < 4 ? "border-r" : ""
+              );
+              return (
+                <div key={idx} className={borderClasses}>
+                  <span className="text-[0.44rem] font-technical uppercase tracking-[0.16em] text-white/20 group-hover:text-accent transition-colors duration-200">
+                    {stat.label}
+                  </span>
+                  
+                  <span className="text-display-md font-light text-white/55 group-hover:text-white/95 transition-colors duration-200 tabular-nums leading-none">
+                    {stat.value}
+                  </span>
+                </div>
+              );
+            })}
           </div>
 
           {/* ── DISCOVERY CONSOLE ──────────────────────────────────────────── */}
           <div className="flex flex-col border border-white/[0.06] bg-[#0c0c0c] font-ui">
 
             {/* ── Console system bar ── */}
-            <div className="flex items-start justify-between px-5 py-3 border-b border-white/[0.05] select-none">
+            <div className="flex items-start justify-between px-5 py-3.5 border-b border-white/[0.05] select-none">
               {/* Left: label + metadata */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center gap-2">
@@ -1063,7 +1064,7 @@ export const Events = () => {
                 <div className="flex items-center gap-3 pl-[18px]">
                   <span className="text-[0.42rem] font-technical uppercase tracking-widest text-white/15">
                     Indexed &nbsp;
-                    <span className="text-white/30">{loading ? 'â€”' : events.filter(e => e.status !== 'draft' && e.status !== 'archived').length}</span>
+                    <span className="text-white/30">{loading ? '-' : events.filter(e => e.status !== 'draft' && e.status !== 'archived').length}</span>
                   </span>
                   <span className="w-px h-2.5 bg-white/[0.06]" />
                   <span className="text-[0.42rem] font-technical uppercase tracking-widest text-white/15">
@@ -1095,7 +1096,7 @@ export const Events = () => {
                       setSelectedDate('All');
                       setSelectedSort('Newest');
                     }}
-                    className="flex items-center gap-1.5 text-[0.48rem] font-technical uppercase tracking-widest text-white/20 hover:text-white/50 transition-colors duration-200 mt-0.5 self-start"
+                    className="flex items-center gap-1.5 text-[0.48rem] font-technical uppercase tracking-widest text-white/20 hover:text-white/50 transition-colors duration-200 mt-0.5 self-start p-2 sm:p-0 -m-2 sm:m-0 min-h-[44px] sm:min-h-0"
                   >
                     <X className="w-2.5 h-2.5" />
                     Reset
@@ -1104,11 +1105,11 @@ export const Events = () => {
               </AnimatePresence>
             </div>
 
-            {/* â”€â”€ Main input row â”€â”€â”€â”€ */}
+            {/* ── Main input row ── */}
             <div className="flex flex-col xl:flex-row divide-y xl:divide-y-0 xl:divide-x divide-white/[0.05]">
 
-              {/* Search â€” ~45% width on xl */}
-              <div className="relative xl:flex-[0_0_45%]">
+              {/* Search — ~45% width on xl */}
+              <div className="relative xl:flex-[0_0_45%] w-full">
                 <div className="absolute left-5 top-0 bottom-0 flex items-center gap-3 pointer-events-none">
                   <motion.span
                     animate={{
@@ -1129,8 +1130,8 @@ export const Events = () => {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onFocus={() => setSearchFocused(true)}
                   onBlur={() => setSearchFocused(false)}
-                  placeholder="Search title, organizer, venueâ€¦"
-                  className="w-full bg-transparent pl-[3.25rem] pr-10 py-4 text-[0.78rem] text-white/72 placeholder:text-white/18 focus:outline-none caret-accent font-ui tracking-wide"
+                  placeholder="Search title, organizer, venue..."
+                  className="w-full bg-transparent pl-[3.25rem] pr-10 py-4.5 sm:py-4 text-[0.78rem] text-white/72 placeholder:text-white/18 focus:outline-none caret-accent font-ui tracking-wide"
                   style={{ caretColor: '#C96A2B' }}
                 />
 
@@ -1144,7 +1145,7 @@ export const Events = () => {
                       transition={{ duration: 0.15 }}
                       type="button"
                       onClick={() => setSearchQuery('')}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/55 transition-colors duration-150"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/55 transition-colors duration-150 p-2 -m-2 min-w-[44px] min-h-[44px]"
                     >
                       <X className="w-3.5 h-3.5" />
                     </motion.button>
@@ -1160,10 +1161,10 @@ export const Events = () => {
                 />
               </div>
 
-              {/* Filter strip â€” four identical pills */}
-              <div className="flex flex-1 items-stretch divide-x divide-white/[0.05] overflow-x-auto scrollbar-none">
+              {/* Filter strip - responsive grid layout with aligned borders */}
+              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 items-stretch">
 
-                <div className="flex-1">
+                <div className="flex-1 border-b sm:border-b xl:border-b-0 sm:border-r xl:border-r border-white/[0.05]">
                   <PremiumDropdown
                     label="Category"
                     value={selectedCategory}
@@ -1173,7 +1174,7 @@ export const Events = () => {
                   />
                 </div>
 
-                <div className="flex-1">
+                <div className="flex-1 border-b sm:border-b xl:border-b-0 xl:border-r border-white/[0.05]">
                   <PremiumDropdown
                     label="Status"
                     value={selectedStatus}
@@ -1183,7 +1184,7 @@ export const Events = () => {
                   />
                 </div>
 
-                <div className="flex-1">
+                <div className="flex-1 border-b sm:border-b-0 sm:border-r xl:border-r border-white/[0.05]">
                   <PremiumDropdown
                     label="Timeline"
                     value={selectedDate}
@@ -1193,7 +1194,7 @@ export const Events = () => {
                   />
                 </div>
 
-                <div className="flex-1">
+                <div className="flex-1 border-b sm:border-b-0 border-white/[0.05]">
                   <PremiumDropdown
                     label="Sort By"
                     value={selectedSort}
@@ -1205,7 +1206,7 @@ export const Events = () => {
               </div>
             </div>
 
-            {/* â”€â”€ Active filter pill strip â”€â”€â”€â”€ */}
+            {/* ── Active filter pill strip ── */}
             <AnimatePresence>
               {(selectedCategory !== 'All' || selectedStatus !== 'All' || selectedDate !== 'All') && (
                 <motion.div
@@ -1227,7 +1228,7 @@ export const Events = () => {
                         transition={{ duration: 0.15 }}
                         type="button"
                         onClick={() => setSelectedCategory('All')}
-                        className="flex items-center gap-1 px-2 py-0.5 border border-accent/25 bg-accent/[0.04] text-accent text-[0.48rem] font-technical uppercase tracking-wider hover:bg-accent/[0.08] transition-colors duration-150"
+                        className="flex items-center gap-1 px-2.5 py-1.5 border border-accent/25 bg-accent/[0.04] text-accent text-[0.48rem] font-technical uppercase tracking-wider hover:bg-accent/[0.08] transition-colors duration-150 min-h-[32px]"
                       >
                         <span>{selectedCategory}</span>
                         <X className="w-1.5 h-1.5" />
@@ -1243,7 +1244,7 @@ export const Events = () => {
                         transition={{ duration: 0.15 }}
                         type="button"
                         onClick={() => setSelectedStatus('All')}
-                        className="flex items-center gap-1 px-2 py-0.5 border border-white/12 bg-white/[0.025] text-white/45 text-[0.48rem] font-technical uppercase tracking-wider hover:bg-white/[0.05] transition-colors duration-150"
+                        className="flex items-center gap-1 px-2.5 py-1.5 border border-white/12 bg-white/[0.025] text-white/45 text-[0.48rem] font-technical uppercase tracking-wider hover:bg-white/[0.05] transition-colors duration-150 min-h-[32px]"
                       >
                         <span>{selectedStatus}</span>
                         <X className="w-1.5 h-1.5" />
@@ -1259,7 +1260,7 @@ export const Events = () => {
                         transition={{ duration: 0.15 }}
                         type="button"
                         onClick={() => setSelectedDate('All')}
-                        className="flex items-center gap-1 px-2 py-0.5 border border-white/12 bg-white/[0.025] text-white/45 text-[0.48rem] font-technical uppercase tracking-wider hover:bg-white/[0.05] transition-colors duration-150"
+                        className="flex items-center gap-1 px-2.5 py-1.5 border border-white/12 bg-white/[0.025] text-white/45 text-[0.48rem] font-technical uppercase tracking-wider hover:bg-white/[0.05] transition-colors duration-150 min-h-[32px]"
                       >
                         <span>{selectedDate}</span>
                         <X className="w-1.5 h-1.5" />
@@ -1271,7 +1272,7 @@ export const Events = () => {
             </AnimatePresence>
           </div>
 
-          {/* â”€â”€ Live result footer â”€â”€â”€â”€ */}
+          {/* --- Live result footer --- */}
           <div className="flex items-center justify-between -mt-8">
             <motion.span
               key={`${processedEvents.length}-${selectedCategory}-${selectedStatus}-${selectedDate}`}
@@ -1280,13 +1281,13 @@ export const Events = () => {
               transition={{ duration: 0.25 }}
               className="text-[0.5rem] font-technical uppercase tracking-widest text-white/22"
             >
-              {loading ? 'Loading directoryâ€¦' : (
+              {loading ? 'Loading directory...' : (
                 <>
                   <span className="text-white/40">{processedEvents.length}</span>
                   &nbsp;Events Found
                   {[selectedCategory !== 'All', selectedStatus !== 'All', selectedDate !== 'All', !!searchQuery.trim()].filter(Boolean).length > 0 && (
                     <>
-                      &nbsp;â€¢&nbsp;
+                      &nbsp;|&nbsp;
                       <span className="text-accent/60">
                         {[selectedCategory !== 'All', selectedStatus !== 'All', selectedDate !== 'All', !!searchQuery.trim()].filter(Boolean).length} Filters Active
                       </span>
@@ -1344,8 +1345,8 @@ export const Events = () => {
                 />
               )
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-[160px_1fr] gap-16 items-start">
-                {/* Left Editorial Sidebar — Desktop Only */}
+              <div className="grid grid-cols-1 lg:grid-cols-[160px_1fr] gap-8 lg:gap-16 items-start">
+                {/* Left Editorial Sidebar - Desktop Only */}
                 <div className="hidden lg:flex flex-col gap-8 w-[160px] sticky top-28 self-start select-none font-technical">
                   <div className="flex items-center gap-2">
                     <span className="w-1 h-1 bg-accent rounded-none" />
@@ -1406,7 +1407,7 @@ export const Events = () => {
                 </div>
 
                 {/* Render timeline grouped by Year -> Month */}
-                <div className="flex flex-col gap-14 font-ui flex-1 min-w-0">
+                <div className="flex flex-col gap-16 sm:gap-20 font-ui flex-1 min-w-0">
                   {sortedYears.map(year => (
                     <div key={year} className="flex flex-col gap-6">
                       {/* Year heading */}
@@ -1423,7 +1424,7 @@ export const Events = () => {
                       <div className="h-px w-full bg-white/[0.06] select-none" />
 
                       {/* Months grouped within this year */}
-                      <div className="flex flex-col gap-10 pl-0 sm:pl-4">
+                      <div className="flex flex-col gap-8 sm:gap-10 pl-0 xs:pl-2 sm:pl-4">
                         {getSortedMonthsForYear(year).map(month => {
                           const monthEvents = groupedEvents[year][month] || [];
                           const sectionId = `chapter-${year}-${month.replace(/\s+/g, '')}`;
@@ -1505,7 +1506,7 @@ export const Events = () => {
                   <button
                     type="button"
                     onClick={() => setPreviewEvent(null)}
-                    className="absolute top-4 right-4 z-30 p-1 bg-black/60 border border-white/10 hover:bg-black text-white/55 hover:text-white transition-colors"
+                    className="absolute top-4 right-4 z-30 p-2.5 bg-black/60 border border-white/10 hover:bg-black text-white/55 hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -1571,7 +1572,7 @@ export const Events = () => {
                             navigate(`/events/${previewEvent.id}`);
                           }}
                           size="sm"
-                          className="flex-grow"
+                          className="flex-grow h-11 md:h-8"
                         >
                           Open Details
                         </Button>
@@ -1583,9 +1584,9 @@ export const Events = () => {
                           }}
                           disabled={userRegIds.has(previewEvent.id) || (parseInt(previewEvent.capacity) || 0) <= (parseInt(previewEvent.registeredCount) || 0)}
                           size="sm"
-                          className="flex-grow"
+                          className="flex-grow h-11 md:h-8"
                         >
-                          {userRegIds.has(previewEvent.id) ? "Registered âœ“" : "Register"}
+                          {userRegIds.has(previewEvent.id) ? "Registered" : "Register"}
                         </Button>
                       </div>
                     </div>
