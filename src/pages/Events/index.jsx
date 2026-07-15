@@ -473,6 +473,20 @@ export const Events = () => {
     { value: 'Alphabetical', label: 'Alphabetical' }
   ], []);
 
+  const publishedCount = useMemo(() => {
+    return events.filter(e => e.status !== 'draft' && e.status !== 'archived').length;
+  }, [events]);
+
+  const completedCount = useMemo(() => {
+    return events.filter(e => e.status === 'completed' || e.status === 'closed').length;
+  }, [events]);
+
+  const verifiedClubHours = useMemo(() => {
+    return events
+      .filter(e => e.status === 'completed' || e.status === 'closed')
+      .reduce((acc, e) => acc + (getParticipationHours(e) * (parseInt(e.registeredCount) || 0)), 0);
+  }, [events]);
+
   // Load events and user metadata
   const fetchData = async () => {
     setLoading(true);
@@ -706,38 +720,99 @@ export const Events = () => {
       <PageContainer>
         <SectionWrapper className="max-w-7xl py-12 md:py-20 flex flex-col gap-12 relative">
 
-          {/* â”€â”€ SYSTEM HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-          <div className="relative flex flex-col gap-3">
-            <AxisMarker index="03" label="Discovery Engine" />
-
-            <div className="flex items-end justify-between mt-6 gap-4 flex-wrap">
-              <h1 className="text-display-lg font-light tracking-tight text-primary leading-none">
-                Events
-              </h1>
-
-              {/* Live status bar */}
-              <div className="flex items-center gap-3 pb-1">
-                <span className="text-[0.52rem] font-technical uppercase tracking-widest text-white/20">Directory</span>
-                <span className="w-px h-3 bg-white/10" />
-                <motion.span
-                  key={processedEvents.length}
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                  className="text-[0.52rem] font-technical uppercase tracking-widest text-accent/70"
-                >
-                  {loading ? 'â€”' : `${processedEvents.length} Results`}
-                </motion.span>
-                <span className="w-px h-3 bg-white/10" />
-                <span className="text-[0.52rem] font-technical uppercase tracking-widest text-white/20">
-                  {loading ? 'â€¦' : `${events.filter(e => e.status !== 'draft' && e.status !== 'archived').length} Total`}
-                </span>
+          {/* ── SYSTEM HEADER / ARCHIVE HERO ── */}
+          <div className="relative flex flex-col gap-8 md:gap-12 select-none">
+            {/* Catalog Reference & Axis Marker */}
+            <div className="flex items-start justify-between w-full">
+              <AxisMarker index="03" label="Discovery Engine" />
+              <div className="text-[0.42rem] font-technical uppercase tracking-[0.2em] text-white/20 text-right leading-relaxed select-none">
+                CATALOG REF.<br />
+                <span className="text-white/30">ARC-2026-001</span>
               </div>
             </div>
 
-            <p className="text-body-lg text-secondary max-w-xl font-light leading-relaxed">
-              Curated directory of campus hackathons, workshops, conferences, and technical exhibitions.
-            </p>
+            {/* Subtle warm orange atmospheric glow to increase depth slightly */}
+            <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-[400px] h-[250px] bg-accent/[0.045] rounded-full blur-[100px] pointer-events-none -z-10 animate-pulse" style={{ animationDuration: '8s' }} />
+
+            {/* Archive Identifier & Headline & Supporting Paragraph */}
+            <div className="flex flex-col gap-6 max-w-3xl">
+              {/* small archive identifier */}
+              <motion.div
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                className="text-[0.52rem] font-technical uppercase tracking-[0.25em] text-accent/80"
+              >
+                ARCHIVE // VOLUME 01
+              </motion.div>
+
+              {/* Large headline */}
+              <h1 className="overflow-hidden">
+                <motion.span
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+                  className="block text-display-lg font-light tracking-tight text-primary leading-[1.1]"
+                >
+                  Campus history,<br />preserved.
+                </motion.span>
+              </h1>
+
+              {/* Supporting paragraph */}
+              <motion.p
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.7, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                className="text-body-lg text-secondary/70 max-w-xl font-light leading-relaxed mt-2"
+              >
+                Every workshop, hackathon, conference and competition becomes part of the permanent university archive.
+              </motion.p>
+            </div>
+
+            {/* Three archival statistics */}
+            <motion.div
+              initial="hidden"
+              animate="visible"
+              variants={{
+                hidden: {},
+                visible: {
+                  transition: { staggerChildren: 0.08 }
+                }
+              }}
+              className="grid grid-cols-1 sm:grid-cols-3 gap-8 md:gap-12 max-w-3xl w-full mt-4"
+            >
+              {[
+                { label: 'Published Events', value: loading ? '—' : publishedCount },
+                { label: 'Completed Events', value: loading ? '—' : completedCount },
+                { label: 'Verified Club Hours', value: loading ? '—' : `${verifiedClubHours}h` }
+              ].map((stat, i) => (
+                <motion.div
+                  key={i}
+                  variants={{
+                    hidden: { opacity: 0, y: 12 },
+                    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] } }
+                  }}
+                  className="flex flex-col gap-2.5"
+                >
+                  <span className="text-[0.46rem] font-technical uppercase tracking-[0.18em] text-white/20">
+                    {stat.label}
+                  </span>
+                  <span className="text-display-md font-light tracking-tight text-white/70 leading-none tabular-nums">
+                    {stat.value}
+                  </span>
+                </motion.div>
+              ))}
+            </motion.div>
+
+            {/* Thin architectural divider */}
+            <div className="relative w-full pt-4 mt-2">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: '100%' }}
+                transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1], delay: 0.4 }}
+                className="h-px bg-white/[0.06] origin-left"
+              />
+            </div>
           </div>
 
           {/* â”€â”€ DISCOVERY CONSOLE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
