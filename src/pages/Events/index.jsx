@@ -577,6 +577,99 @@ export const Events = () => {
     { value: 'Alphabetical', label: 'Alphabetical' }
   ], []);
 
+  // Date operations helper
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const nextWeekStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().split('T')[0];
+  }, []);
+
+  // Filter & Sort Calculation (Memoized)
+  const processedEvents = useMemo(() => {
+    let list = [...events];
+
+    // 0. Filter out drafts and archived events from public view
+    list = list.filter(e => e.status !== 'draft' && e.status !== 'archived');
+
+    // 1. Text Search Filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(e =>
+        (e.title || '').toLowerCase().includes(q) ||
+        (e.organizer || '').toLowerCase().includes(q) ||
+        (e.venue || '').toLowerCase().includes(q) ||
+        (e.category || '').toLowerCase().includes(q)
+      );
+    }
+
+    // 2. Category Filter
+    if (selectedCategory !== 'All') {
+      list = list.filter(e => (e.category || '').toLowerCase() === selectedCategory.toLowerCase());
+    }
+
+    // 3. Status Filter
+    if (selectedStatus !== 'All') {
+      list = list.filter(e => (e.status || '').toLowerCase() === selectedStatus.toLowerCase());
+    }
+
+    // 4. Date Timeline Filter
+    if (selectedDate !== 'All') {
+      const today = new Date();
+      list = list.filter(e => {
+        if (!e.date) return false;
+        if (selectedDate === 'Today') {
+          return e.date === todayStr;
+        }
+        if (selectedDate === 'This Week') {
+          return e.date >= todayStr && e.date <= nextWeekStr;
+        }
+        if (selectedDate === 'This Month') {
+          const eDate = new Date(e.date);
+          return eDate.getFullYear() === today.getFullYear() && eDate.getMonth() === today.getMonth();
+        }
+        if (selectedDate === 'Upcoming') {
+          return e.date >= todayStr;
+        }
+        return true;
+      });
+    }
+
+    // 5. Sort selector logic
+    list.sort((a, b) => {
+      // Prioritize Live status above all other parameters
+      const isLiveA = a.status === 'live' ? 1 : 0;
+      const isLiveB = b.status === 'live' ? 1 : 0;
+      if (isLiveA !== isLiveB) {
+        return isLiveB - isLiveA;
+      }
+
+      if (selectedSort === 'Newest') {
+        return (b.createdAt || '').localeCompare(a.createdAt || '');
+      }
+      if (selectedSort === 'Oldest') {
+        return (a.createdAt || '').localeCompare(b.createdAt || '');
+      }
+      if (selectedSort === 'Deadline') {
+        return (a.registrationDeadline || '').localeCompare(b.registrationDeadline || '');
+      }
+      if (selectedSort === 'Soonest') {
+        return (a.date || '').localeCompare(b.date || '');
+      }
+      if (selectedSort === 'Seats') {
+        const seatsA = (parseInt(a.capacity) || 0) - (parseInt(a.registeredCount) || 0);
+        const seatsB = (parseInt(b.capacity) || 0) - (parseInt(b.registeredCount) || 0);
+        return seatsB - seatsA; // descending remaining seats
+      }
+      if (selectedSort === 'Alphabetical') {
+        return (a.title || '').localeCompare(b.title || '');
+      }
+      return 0;
+    });
+
+    return list;
+  }, [events, searchQuery, selectedCategory, selectedStatus, selectedDate, selectedSort, todayStr, nextWeekStr]);
+
   const publishedCount = useMemo(() => {
     return events.filter(e => e.status !== 'draft' && e.status !== 'archived').length;
   }, [events]);
@@ -779,98 +872,7 @@ export const Events = () => {
     });
   };
 
-  // Date operations helper
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
-  const nextWeekStr = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 7);
-    return d.toISOString().split('T')[0];
-  }, []);
 
-  // Filter & Sort Calculation (Memoized)
-  const processedEvents = useMemo(() => {
-    let list = [...events];
-
-    // 0. Filter out drafts and archived events from public view
-    list = list.filter(e => e.status !== 'draft' && e.status !== 'archived');
-
-    // 1. Text Search Filter
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      list = list.filter(e =>
-        (e.title || '').toLowerCase().includes(q) ||
-        (e.organizer || '').toLowerCase().includes(q) ||
-        (e.venue || '').toLowerCase().includes(q) ||
-        (e.category || '').toLowerCase().includes(q)
-      );
-    }
-
-    // 2. Category Filter
-    if (selectedCategory !== 'All') {
-      list = list.filter(e => (e.category || '').toLowerCase() === selectedCategory.toLowerCase());
-    }
-
-    // 3. Status Filter
-    if (selectedStatus !== 'All') {
-      list = list.filter(e => (e.status || '').toLowerCase() === selectedStatus.toLowerCase());
-    }
-
-    // 4. Date Timeline Filter
-    if (selectedDate !== 'All') {
-      const today = new Date();
-      list = list.filter(e => {
-        if (!e.date) return false;
-        if (selectedDate === 'Today') {
-          return e.date === todayStr;
-        }
-        if (selectedDate === 'This Week') {
-          return e.date >= todayStr && e.date <= nextWeekStr;
-        }
-        if (selectedDate === 'This Month') {
-          const eDate = new Date(e.date);
-          return eDate.getFullYear() === today.getFullYear() && eDate.getMonth() === today.getMonth();
-        }
-        if (selectedDate === 'Upcoming') {
-          return e.date >= todayStr;
-        }
-        return true;
-      });
-    }
-
-    // 5. Sort selector logic
-    list.sort((a, b) => {
-      // Prioritize Live status above all other parameters
-      const isLiveA = a.status === 'live' ? 1 : 0;
-      const isLiveB = b.status === 'live' ? 1 : 0;
-      if (isLiveA !== isLiveB) {
-        return isLiveB - isLiveA;
-      }
-
-      if (selectedSort === 'Newest') {
-        return (b.createdAt || '').localeCompare(a.createdAt || '');
-      }
-      if (selectedSort === 'Oldest') {
-        return (a.createdAt || '').localeCompare(b.createdAt || '');
-      }
-      if (selectedSort === 'Deadline') {
-        return (a.registrationDeadline || '').localeCompare(b.registrationDeadline || '');
-      }
-      if (selectedSort === 'Soonest') {
-        return (a.date || '').localeCompare(b.date || '');
-      }
-      if (selectedSort === 'Seats') {
-        const seatsA = (parseInt(a.capacity) || 0) - (parseInt(a.registeredCount) || 0);
-        const seatsB = (parseInt(b.capacity) || 0) - (parseInt(b.registeredCount) || 0);
-        return seatsB - seatsA; // descending remaining seats
-      }
-      if (selectedSort === 'Alphabetical') {
-        return (a.title || '').localeCompare(b.title || '');
-      }
-      return 0;
-    });
-
-    return list;
-  }, [events, searchQuery, selectedCategory, selectedStatus, selectedDate, selectedSort, todayStr, nextWeekStr]);
 
   // Track page view
   useEffect(() => {
