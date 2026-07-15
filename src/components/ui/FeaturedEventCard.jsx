@@ -1,8 +1,19 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import { motion, useMotionValue, useSpring, useTransform, useReducedMotion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { resolveEventImage } from '../../utils/eventImage';
 import { getParticipationHours } from '../../utils/clubHours';
+
+const Counter = () => {
+  const [count, setCount] = useState("00");
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setCount("01");
+    }, 450);
+    return () => clearTimeout(timer);
+  }, []);
+  return <span>{count} / 01</span>;
+};
 
 const easeOutExpo = [0.16, 1, 0.3, 1];
 
@@ -82,7 +93,7 @@ export const FeaturedEventCard = ({ event, loading }) => {
   const isOpen = event ? (event.status?.toLowerCase() === "open") : true;
 
   const [_progress, setProgress] = useState(0);
-
+  const shouldReduceMotion = useReducedMotion();
 
   // Cursor tracking (normalized 0-1)
   const mouseX = useMotionValue(0.5);
@@ -113,6 +124,21 @@ export const FeaturedEventCard = ({ event, loading }) => {
   const transformX = useTransform(glowX, (gx) => `calc(${gx * 100}% - 180px)`);
   const transformY = useTransform(glowY, (gy) => `calc(${gy * 100}% - 180px)`);
 
+  // Parallax Shifts (restrained: image 8px, title 3px, meta 2px)
+  const rawImgParallaxX = useTransform(smoothX, [0, 1], [-8, 8]);
+  const rawImgParallaxY = useTransform(smoothY, [0, 1], [-8, 8]);
+  const rawTitleParallaxX = useTransform(smoothX, [0, 1], [-3, 3]);
+  const rawTitleParallaxY = useTransform(smoothY, [0, 1], [-3, 3]);
+  const rawMetaParallaxX = useTransform(smoothX, [0, 1], [-2, 2]);
+  const rawMetaParallaxY = useTransform(smoothY, [0, 1], [-2, 2]);
+
+  const imgParallaxX = shouldReduceMotion ? 0 : rawImgParallaxX;
+  const imgParallaxY = shouldReduceMotion ? 0 : rawImgParallaxY;
+  const titleParallaxX = shouldReduceMotion ? 0 : rawTitleParallaxX;
+  const titleParallaxY = shouldReduceMotion ? 0 : rawTitleParallaxY;
+  const metaParallaxX = shouldReduceMotion ? 0 : rawMetaParallaxX;
+  const metaParallaxY = shouldReduceMotion ? 0 : rawMetaParallaxY;
+
   // Image lift on hover (using transform only for GPU accel)
   const cardY = useSpring(isHovered ? -5 : 0, { damping: 30, stiffness: 200 });
 
@@ -135,13 +161,18 @@ export const FeaturedEventCard = ({ event, loading }) => {
     }
   };
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 16 },
+  const infoItemVariants = (index) => ({
+    hidden: { opacity: 0, y: shouldReduceMotion ? 0 : 12 },
     visible: {
-      opacity: 1, y: 0,
-      transition: { duration: 0.9, ease: easeOutExpo }
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.7,
+        ease: easeOutExpo,
+        delay: 0.15 + index * 0.07 // 70ms spacing
+      }
     }
-  };
+  });
 
   if (loading) {
     return (
@@ -210,12 +241,23 @@ export const FeaturedEventCard = ({ event, loading }) => {
               return { ...prev, isLoaded: true }; // terminal: remove black veil
             });
           }}
+          initial={{ scale: 1.05, opacity: 0 }}
           animate={{
-            scale: isHovered ? 1.035 : 1,
+            scale: isHovered ? 1.04 : 1,
             opacity: isLoaded ? 1 : 0,
           }}
-          transition={{ duration: 0.9, ease: easeOutExpo }}
-          className="absolute inset-0 w-full h-full object-cover origin-center [image-rendering:-webkit-optimize-contrast] contrast-[1.06] brightness-[0.94]"
+          transition={{
+            scale: {
+              duration: isHovered ? 5 : 0.9, // 5s slow zoom, 900ms restore
+              ease: isHovered ? "linear" : easeOutExpo
+            },
+            opacity: { duration: 0.9, ease: "easeOut" }
+          }}
+          style={{
+            x: imgParallaxX,
+            y: imgParallaxY,
+          }}
+          className="absolute inset-[-12px] w-[calc(100%+24px)] h-[calc(100%+24px)] object-cover origin-center [image-rendering:-webkit-optimize-contrast] contrast-[1.06] brightness-[0.94]"
         />
 
         {/* ── LAYER 2: Dark cinematic gradient (vignette + lift) ── */}
@@ -258,7 +300,8 @@ export const FeaturedEventCard = ({ event, loading }) => {
 
           {/* Top badge */}
           <motion.div
-            variants={itemVariants}
+            variants={infoItemVariants(0)}
+            style={{ x: metaParallaxX, y: metaParallaxY }}
             className="flex items-center gap-4 mb-auto mt-7"
           >
             <span
@@ -289,7 +332,7 @@ export const FeaturedEventCard = ({ event, loading }) => {
 
             {/* Registration + Free Entry row */}
             <motion.div
-              variants={itemVariants}
+              variants={infoItemVariants(0)}
               className="flex items-center justify-between mb-5"
             >
               <span
@@ -314,22 +357,25 @@ export const FeaturedEventCard = ({ event, loading }) => {
 
             {/* Event title */}
             <motion.h3
-              variants={itemVariants}
-              className="text-display-m mb-7 font-light"
-              style={{
+              variants={infoItemVariants(1)}
+              style={{ 
+                x: titleParallaxX, 
+                y: titleParallaxY,
                 color: isHovered ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.95)',
                 transition: 'color 0.5s ease',
               }}
+              className="text-display-m mb-7 font-light"
             >
               {title}
             </motion.h3>
 
             {/* Date + Location metadata */}
-            <motion.div
-              variants={itemVariants}
-              className="flex items-end justify-between"
-            >
-              <div className="flex flex-col gap-1.5">
+            <div className="flex items-end justify-between w-full">
+              <motion.div
+                variants={infoItemVariants(2)}
+                style={{ x: metaParallaxX, y: metaParallaxY }}
+                className="flex flex-col gap-1.5"
+              >
                 <span
                   className="text-micro"
                   style={{ color: 'rgba(255,255,255,0.47)' }}
@@ -345,8 +391,12 @@ export const FeaturedEventCard = ({ event, loading }) => {
                 >
                   {dateText}
                 </span>
-              </div>
-              <div className="flex flex-col gap-1.5 text-right">
+              </motion.div>
+              <motion.div
+                variants={infoItemVariants(3)}
+                style={{ x: metaParallaxX, y: metaParallaxY }}
+                className="flex flex-col gap-1.5 text-right"
+              >
                 <span
                   className="text-micro"
                   style={{ color: 'rgba(255,255,255,0.47)' }}
@@ -362,15 +412,15 @@ export const FeaturedEventCard = ({ event, loading }) => {
                 >
                   {venue}
                 </span>
-              </div>
-            </motion.div>
+              </motion.div>
+            </div>
           </div>
         </div>
       </div>
 
       {/* ── EXTERNAL FOOTER: Progress indicator + caption ── */}
       <motion.div
-        variants={itemVariants}
+        variants={infoItemVariants(4)}
         className="absolute -bottom-10 left-0 w-full flex flex-col gap-2.5 pt-3"
       >
         {/* Premium progress bar */}
@@ -392,17 +442,31 @@ export const FeaturedEventCard = ({ event, loading }) => {
           }}
         >
           <span className="flex items-center gap-2.5">
-            <span style={{ color: isHovered ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.5)', transition: 'color 0.5s ease' }}>
+            <motion.span
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.7, ease: easeOutExpo, delay: 0.3 }}
+              style={{ color: isHovered ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.5)', transition: 'color 0.5s ease' }}
+            >
               FIG. 01
-            </span>
+            </motion.span>
             <span style={{ color: 'rgba(255,255,255,0.2)' }}>—</span>
-            <span>Architecture Showcase</span>
+            <motion.span
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, ease: easeOutExpo, delay: 0.45 }}
+            >
+              Architecture Showcase
+            </motion.span>
           </span>
-          <span
-            className="text-micro opacity-50"
+          <motion.span
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.5 }}
+            transition={{ duration: 0.7, ease: easeOutExpo, delay: 0.6 }}
+            className="text-micro"
           >
-            01 / 01
-          </span>
+            <Counter />
+          </motion.span>
         </div>
       </motion.div>
     </motion.div>

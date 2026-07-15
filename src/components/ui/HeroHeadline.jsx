@@ -1,45 +1,16 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import React, { useState } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 
 export const HeroHeadline = () => {
-  const containerRef = useRef(null);
-  
-  // Mouse position values for the proximity highlight
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-  
-  // Smooth the mouse position to avoid jitter
-  const smoothX = useSpring(mouseX, { damping: 50, stiffness: 400 });
-  const smoothY = useSpring(mouseY, { damping: 50, stiffness: 400 });
+  const [sweepActive, setSweepActive] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
 
-  const [isHovered, setIsHovered] = useState(false);
-
-  // Handle mouse movement within the proximity zone
-  const handleMouseMove = (e) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    
-    // Calculate relative mouse position inside the container
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    mouseX.set(x);
-    mouseY.set(y);
-    setIsHovered(true);
-  };
-
-  const handleMouseLeave = () => {
-    setIsHovered(false);
-  };
-
-
-
-  // Staggered reveal animation variants
+  // Staggered reveal animation variants (120ms stagger)
   const containerVariants = {
     hidden: {},
     visible: {
       transition: {
-        staggerChildren: 0.15,
+        staggerChildren: 0.12,
       }
     }
   };
@@ -47,17 +18,13 @@ export const HeroHeadline = () => {
   const itemVariants = {
     hidden: { 
       opacity: 0, 
-      y: 40, 
-      filter: "blur(12px)",
-      letterSpacing: "-0.01em"
+      y: shouldReduceMotion ? 0 : 35, 
     },
     visible: { 
       opacity: 1, 
       y: 0, 
-      filter: "blur(0px)",
-      letterSpacing: "-0.03em",
       transition: { 
-        duration: 1.0, 
+        duration: 0.7, // 700ms reveal
         ease: [0.16, 1, 0.3, 1] // easeOutExpo
       }
     }
@@ -65,32 +32,26 @@ export const HeroHeadline = () => {
 
   return (
     <div 
-      ref={containerRef}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      className="relative mb-10 w-fit"
+      onMouseEnter={() => setSweepActive(true)}
+      onMouseLeave={() => setSweepActive(false)}
+      className="relative mb-10 w-fit select-none overflow-hidden group cursor-default"
     >
-      {/* 
-        Idle "Breathing" Container 
-        Wraps the entire staggered text to add the extremely slow 10s interpolation.
-      */}
       <motion.div
         animate={{
           opacity: [0.98, 1, 0.98],
-          filter: ["brightness(1)", "brightness(1.02)", "brightness(1)"],
         }}
         transition={{
           duration: 10,
           repeat: Infinity,
           ease: "easeInOut"
         }}
-        className={`relative z-10 transition-all duration-700 ${isHovered ? 'contrast-125' : 'contrast-100'}`}
+        className="relative z-10"
       >
         <motion.h1 
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="text-display-xl flex flex-col"
+          className="text-display-xl flex flex-col relative z-10"
         >
           {/* Base Text Layer (Default view) */}
           <div className="flex flex-col relative z-0">
@@ -98,18 +59,23 @@ export const HeroHeadline = () => {
             <motion.span variants={itemVariants} className="text-primary font-light">Event.</motion.span>
             <motion.span variants={itemVariants} className="text-secondary font-normal">One Platform.</motion.span>
           </div>
-
-          {/* Highlight/Hover GPU Spotlight Layer (No expensive CSS masking) */}
-          <motion.div 
-            className="absolute pointer-events-none z-20 w-[300px] h-[300px] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.28)_0%,transparent_70%)] mix-blend-overlay"
-            style={{ 
-              x: useTransform(smoothX, (x) => x - 150),
-              y: useTransform(smoothY, (y) => y - 150),
-              opacity: isHovered ? 1 : 0
-            }}
-          />
         </motion.h1>
       </motion.div>
+
+      {/* Brushed aluminum light sweep (5% peak opacity, 700ms duration) */}
+      {!shouldReduceMotion && (
+        <motion.div
+          className="absolute inset-0 z-20 pointer-events-none mix-blend-overlay"
+          style={{
+            background: 'linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.05) 50%, transparent 70%)',
+            width: '200%',
+            height: '100%',
+            left: '-100%',
+          }}
+          animate={sweepActive ? { x: ['0%', '150%'] } : { x: '-100%' }}
+          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+        />
+      )}
     </div>
   );
 };

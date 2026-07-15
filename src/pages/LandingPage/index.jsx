@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useScroll, useSpring, motion } from "framer-motion";
 import { PageContainer } from "../../components/layout/PageContainer";
 import { Hero } from "./sections/Hero";
 import { FeaturedEvent } from "./sections/FeaturedEvent";
@@ -10,6 +11,18 @@ import { Testimonials } from "./sections/Testimonials";
 import { FAQ } from "./sections/FAQ";
 import { FinalCTA } from "./sections/FinalCTA";
 import { getAllEvents } from "../../services/eventService";
+
+const ScrollProgressBar = () => {
+  const { scrollYProgress } = useScroll();
+  const scaleY = useSpring(scrollYProgress, { damping: 50, stiffness: 400 });
+  
+  return (
+    <motion.div
+      style={{ scaleY }}
+      className="fixed left-4 md:left-8 top-0 bottom-0 w-[1px] bg-accent origin-top z-40 pointer-events-none hidden md:block"
+    />
+  );
+};
 
 export const LandingPage = () => {
   const [events, setEvents] = useState([]);
@@ -58,6 +71,7 @@ export const LandingPage = () => {
 
   return (
     <PageContainer width="1400px" className="px-0 md:px-0 pt-0">
+      <ScrollProgressBar />
       <Hero event={featuredEvent} loading={loading} />
       <FeaturedEvent event={featuredEvent} loading={loading} />
       <WhyNexEvent />

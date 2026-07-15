@@ -6,25 +6,25 @@ export const EASE_OUT_EXPO = [0.16, 1, 0.3, 1];
 
 /**
  * Reveal variants for standard text/content elements.
- * Y: 40px → 0, opacity: 0 → 1, duration: 0.9s
+ * Y: 30px → 0, opacity: 0 → 1, duration: 0.7s (700ms)
  */
 export const revealVariants = {
-  hidden: { opacity: 0, y: 40 },
+  hidden: { opacity: 0, y: 30 },
   visible: {
     opacity: 1, y: 0,
-    transition: { duration: 0.9, ease: EASE_OUT_EXPO }
+    transition: { duration: 0.7, ease: EASE_OUT_EXPO }
   }
 };
 
 /**
  * Slightly slower reveal for images and visual-heavy elements.
- * Y: 30px → 0, duration: 1.1s — feels weightier and more cinematic
+ * Y: 24px → 0, duration: 0.9s
  */
 export const revealVariantsImage = {
-  hidden: { opacity: 0, y: 30 },
+  hidden: { opacity: 0, y: 24 },
   visible: {
     opacity: 1, y: 0,
-    transition: { duration: 1.1, ease: EASE_OUT_EXPO }
+    transition: { duration: 0.9, ease: EASE_OUT_EXPO }
   }
 };
 

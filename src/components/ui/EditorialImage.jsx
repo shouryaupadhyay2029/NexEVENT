@@ -25,7 +25,8 @@ export const EditorialImage = ({
   aspectRatio = 'aspect-video',
   grayscale = false,
   width,
-  height
+  height,
+  isHovered
 }) => {
   const imgRef = useRef(null);
 
@@ -48,12 +49,13 @@ export const EditorialImage = ({
   // StrictMode rescue: runs after every render (no deps).
   // If StrictMode's second useEffect([src]) invocation reset isLoaded=false
   // after onLoad had already fired, this detects img.complete=true and fixes it.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const img = imgRef.current;
     if (img && img.complete && img.naturalWidth > 0 && !imgState.isLoaded) {
       setImgState((prev) => ({ ...prev, isLoaded: true }));
     }
-  }); // intentionally no deps — runs after every render, O(1) cost
+  });
 
   const handleLoad = () => {
     setImgState((prev) => ({ ...prev, isLoaded: true }));
@@ -72,6 +74,8 @@ export const EditorialImage = ({
       return { ...prev, isLoaded: true };
     });
   };
+
+  const activeHover = isHovered !== undefined ? isHovered : false;
 
   return (
     <div className={cn(
@@ -102,13 +106,17 @@ export const EditorialImage = ({
         initial={{ opacity: 0, scale: 1.05 }}
         animate={{
           opacity: imgState.isLoaded ? 1 : 0,
-          scale: imgState.isLoaded ? 1 : 1.05,
+          scale: imgState.isLoaded 
+            ? (activeHover ? 1.05 : 1) 
+            : 1.05,
         }}
-        whileHover={{
-          scale: 1.03,
-          transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] },
+        transition={{
+          scale: {
+            duration: activeHover ? 5 : 0.7,
+            ease: activeHover ? "linear" : [0.16, 1, 0.3, 1]
+          },
+          opacity: { duration: 0.7, ease: [0.16, 1, 0.3, 1] }
         }}
-        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
         className={cn(
           "w-full h-full object-cover origin-center [image-rendering:-webkit-optimize-contrast] filter contrast-[1.05] brightness-[0.98] transition-all duration-[700ms] ease-out-expo group-hover:contrast-[1.10] group-hover:brightness-[0.96]",
           grayscale ? "grayscale mix-blend-luminosity group-hover:grayscale-0 group-hover:mix-blend-normal" : "",

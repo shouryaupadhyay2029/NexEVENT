@@ -9,12 +9,15 @@ import { PageContainer } from '../../components/layout/PageContainer';
 import { SectionWrapper } from '../../components/layout/SectionWrapper';
 import { AxisMarker } from '../../components/layout/AxisMarker';
 import { Button } from '../../components/ui/Button';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { cn } from '../../utils/cn';
 import { Calendar, Clock, MapPin, Search, Share2, Eye, X } from 'lucide-react';
-import { Image } from '../../components/ui/Image';
+import { EditorialImage } from '../../components/ui/EditorialImage';
 import { resolveEventImage } from '../../utils/eventImage';
 import { getParticipationHours } from '../../utils/clubHours';
+import { PremiumDropdown } from '../../components/ui/PremiumDropdown';
+import { PremiumEmptyState } from '../../components/ui/PremiumEmptyState';
+import { useAmbientLight } from '../../hooks/useMagnet';
 
 const CATEGORIES = [
   "Hackathons",
@@ -30,16 +33,265 @@ const CATEGORIES = [
 // Easing curves
 const EASE = [0.16, 1, 0.3, 1];
 
-const EventThumbnail = ({ event, onPreview }) => {
+const EventThumbnail = ({ event, onPreview, isHovered }) => {
   return (
     <div onClick={onPreview} className="w-full h-full cursor-pointer">
-      <Image
+      <EditorialImage
         src={resolveEventImage(event)}
         alt={event.title || 'Event cover'}
         aspectRatio="aspect-square"
-        className="w-full h-full object-cover transition-transform duration-700 hover:scale-103"
+        grayscale={true}
+        isHovered={isHovered}
       />
     </div>
+  );
+};
+
+const DirectoryEventCard = ({ 
+  event, 
+  registered, 
+  isClosed, 
+  seatsRemaining, 
+  currentReg, 
+  formatDate, 
+  getParticipationHours, 
+  navigate, 
+  handleRegister, 
+  handleShare, 
+  setPreviewEvent 
+}) => {
+  const [isHovered, setIsHovered] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
+  const { ref, lightX, lightY, handlers } = useAmbientLight({ damping: 55, stiffness: 280 });
+
+  const transformX = useTransform(lightX, (lx) => `calc(${lx * 100}% - 130px)`);
+  const transformY = useTransform(lightY, (ly) => `calc(${ly * 100}% - 130px)`);
+
+  const rawCardParallaxX = useTransform(lightX, [0, 1], [-3, 3]);
+  const rawCardParallaxY = useTransform(lightY, [0, 1], [-3, 3]);
+
+  const rawImgParallaxX = useTransform(lightX, [0, 1], [-2.4, 2.4]);
+  const rawImgParallaxY = useTransform(lightY, [0, 1], [-2.4, 2.4]);
+
+  const rawTextParallaxX = useTransform(lightX, [0, 1], [-1.5, 1.5]);
+  const rawTextParallaxY = useTransform(lightY, [0, 1], [-1.5, 1.5]);
+
+  const rawTiltX = useTransform(lightY, [0, 1], [1.5, -1.5]);
+  const rawTiltY = useTransform(lightX, [0, 1], [-1.5, 1.5]);
+
+  const cardParallaxX = shouldReduceMotion ? 0 : rawCardParallaxX;
+  const cardParallaxY = shouldReduceMotion ? 0 : rawCardParallaxY;
+  const imgParallaxX = shouldReduceMotion ? 0 : rawImgParallaxX;
+  const imgParallaxY = shouldReduceMotion ? 0 : rawImgParallaxY;
+  const textParallaxX = shouldReduceMotion ? 0 : rawTextParallaxX;
+  const textParallaxY = shouldReduceMotion ? 0 : rawTextParallaxY;
+  const tiltX = shouldReduceMotion ? 0 : rawTiltX;
+  const tiltY = shouldReduceMotion ? 0 : rawTiltY;
+
+  return (
+    <motion.div
+      ref={ref}
+      {...handlers}
+      style={{
+        x: cardParallaxX,
+        y: cardParallaxY,
+        rotateX: tiltX,
+        rotateY: tiltY,
+        transformPerspective: 1000,
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="group flex flex-col gap-5 text-left select-none relative p-3 transition-shadow duration-[400ms]"
+    >
+      {/* 2% bg brightness shift */}
+      <motion.div
+        animate={{
+          backgroundColor: isHovered ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0)'
+        }}
+        transition={{ duration: 0.25 }}
+        className="absolute inset-0 pointer-events-none z-0"
+      />
+
+      {/* Faint border overlay */}
+      <motion.div
+        animate={{
+          borderColor: isHovered ? 'rgba(214, 123, 42, 0.15)' : 'rgba(255, 255, 255, 0.04)'
+        }}
+        transition={{ duration: 0.25 }}
+        className="absolute inset-0 border pointer-events-none z-30"
+      />
+
+      {/* 1. Large Image container with preview trigger */}
+      <motion.div 
+        style={{ x: imgParallaxX, y: imgParallaxY }}
+        className="relative aspect-[16/10] overflow-hidden border border-white/10 bg-[#111] cursor-pointer z-10"
+      >
+        <EventThumbnail event={event} onPreview={() => setPreviewEvent(event)} isHovered={isHovered} />
+
+        {/* Top quick badges overlay */}
+        <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-10 pointer-events-none">
+          <span className="text-[0.52rem] font-technical uppercase tracking-wider px-2 py-0.5 border border-white/10 bg-[#0a0a0a]/90 text-secondary">
+            {event.category || "General"}
+          </span>
+          <span className={cn(
+            "text-[0.52rem] font-technical uppercase tracking-wider px-2 py-0.5 border",
+            isClosed
+              ? "border-red-500/20 bg-red-950/90 text-red-400"
+              : "border-green-500/20 bg-green-950/90 text-green-400"
+          )}>
+            {isClosed ? "Closed" : "Open"}
+          </span>
+        </div>
+
+        {/* Ambient light overlay on the image using GPU translation */}
+        <div className="absolute inset-0 pointer-events-none z-20 overflow-hidden mix-blend-overlay">
+          <motion.div
+            className="absolute w-[260px] h-[260px] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.12)_0%,transparent_70%)]"
+            style={{
+              x: transformX,
+              y: transformY,
+              opacity: isHovered ? 1 : 0,
+            }}
+            transition={{ opacity: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } }}
+          />
+        </div>
+
+        {/* HOVER ACTIONS OVERLAY */}
+        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3 z-20">
+          <button
+            onClick={() => navigate(`/events/${event.id}`)}
+            className="p-3 bg-[#111] border border-white/10 hover:border-white/30 text-white transition-all transform hover:-translate-y-0.5"
+            title="View Details"
+          >
+            <Eye className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={(e) => !registered && !isClosed && handleRegister(event.id, e)}
+            disabled={registered || isClosed}
+            className={cn(
+              "px-4 py-2.5 text-[0.65rem] font-technical uppercase tracking-wider font-semibold transition-all transform hover:-translate-y-0.5",
+              registered
+                ? "bg-green-900/30 border border-green-500/30 text-green-400"
+                : isClosed
+                  ? "bg-red-950/20 border border-red-500/10 text-red-500 cursor-not-allowed"
+                  : "bg-white text-black hover:bg-white/90"
+            )}
+          >
+            {registered ? "Registered ✓" : isClosed ? "Closed" : "Register Now"}
+          </button>
+
+          <button
+            onClick={(e) => handleShare(event.id, event.title, e)}
+            className="p-3 bg-[#111] border border-white/10 hover:border-white/30 text-white transition-all transform hover:-translate-y-0.5"
+            title="Share link"
+          >
+            <Share2 className="w-4 h-4" />
+          </button>
+        </div>
+      </motion.div>
+
+      {/* 2. Text Content & Metadata */}
+      <motion.div style={{ x: textParallaxX, y: textParallaxY }} className="flex flex-col gap-2 relative z-10">
+        <div className="flex items-start justify-between">
+          {/* Title translates 2px upward */}
+          <motion.h3
+            onClick={() => navigate(`/events/${event.id}`)}
+            animate={{
+              y: isHovered ? -2 : 0,
+              color: isHovered ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.88)',
+            }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            className="text-body-l font-light cursor-pointer"
+          >
+            {event.title}
+          </motion.h3>
+        </div>
+
+        <div className="text-[0.68rem] text-white/30 uppercase tracking-widest font-technical flex flex-wrap gap-x-2 gap-y-1">
+          <span>{event.organizer || "NexEvent Organizer"}</span>
+          <span>•</span>
+          <span>{event.venue || "Campus Venue"}</span>
+        </div>
+
+        <p className="text-body-s text-secondary/80 line-clamp-2 font-light mt-1.5 leading-relaxed">
+          {event.description || "Explore and join this educational experience hosted in the campus archive halls."}
+        </p>
+
+        {/* Registration Stats & Badge */}
+        <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-white/5 text-micro font-technical uppercase">
+          <div className="flex justify-between text-white/40">
+            <span>Remaining: {seatsRemaining}</span>
+            <span>Registered: {currentReg}</span>
+          </div>
+          {event.registrationDeadline && (
+            <span className="text-[10px] text-white/35 font-technical lowercase first-letter:uppercase">
+              Deadline: {formatDate(event.registrationDeadline)}
+            </span>
+          )}
+          <div className="flex justify-between items-center mt-2 gap-3">
+            <div className="flex flex-wrap gap-1.5">
+              {registered && (
+                <span className="px-2 py-0.5 border border-green-500/20 bg-green-950/20 text-green-400 text-[9px] font-technical uppercase leading-tight select-none">
+                  Already Registered
+                </span>
+              )}
+              {isClosed && (
+                <span className="px-2 py-0.5 border border-red-500/20 bg-red-950/20 text-red-400 text-[9px] font-technical uppercase leading-tight select-none">
+                  Capacity Full
+                </span>
+              )}
+              {getParticipationHours(event) > 0 && (
+                <span className="px-2 py-0.5 border border-accent/20 bg-accent/5 text-accent text-[9px] font-technical uppercase leading-tight select-none">
+                  {getParticipationHours(event)} HRS // CLUB CREDIT
+                </span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (registered) {
+                  navigate(`/my-events`);
+                } else if (isClosed) {
+                  navigate(`/events/${event.id}`);
+                } else {
+                  handleRegister(event.id, e);
+                }
+              }}
+              className={cn(
+                "px-3 py-1.5 text-[0.6rem] font-technical uppercase tracking-wider font-semibold border transition-all select-none focus:outline-none",
+                registered
+                  ? "border-green-500/30 bg-green-950/10 text-green-400 hover:bg-green-950/25"
+                  : isClosed
+                    ? "border-red-500/20 bg-red-950/10 text-red-400 cursor-not-allowed"
+                    : "border-accent bg-accent/5 text-accent hover:bg-accent hover:text-black"
+              )}
+              disabled={isClosed && !registered}
+            >
+              {registered ? "View Ticket" : isClosed ? "Closed" : "Register"}
+            </button>
+          </div>
+        </div>
+
+        {/* Logistics info (Metadata opacity increases) */}
+        <motion.div 
+          animate={{
+            color: isHovered ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.3)',
+            borderTopColor: isHovered ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.05)'
+          }}
+          transition={{ duration: 0.25 }}
+          className="flex items-center justify-between text-micro pt-3 mt-1.5 border-t font-ui"
+        >
+          <span className="flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-white/20" strokeWidth={1.5} />
+            {formatDate(event.date)}
+          </span>
+          <span className="truncate max-w-[150px]">{event.venue}</span>
+        </motion.div>
+      </motion.div>
+    </motion.div>
   );
 };
 
@@ -58,6 +310,7 @@ export const Events = () => {
 
   // Search & Filter Controls State
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedDate, setSelectedDate] = useState('All');
@@ -65,6 +318,35 @@ export const Events = () => {
 
   // Preview Modal State
   const [previewEvent, setPreviewEvent] = useState(null);
+
+  // Dropdown filter configurations
+  const categoryOptions = useMemo(() => [
+    { value: 'All', label: 'All Categories' },
+    ...CATEGORIES.map(c => ({ value: c, label: c }))
+  ], []);
+
+  const statusOptions = useMemo(() => [
+    { value: 'All', label: 'All States' },
+    { value: 'Open', label: 'Open' },
+    { value: 'Closed', label: 'Closed' }
+  ], []);
+
+  const dateOptions = useMemo(() => [
+    { value: 'All', label: 'Any Time' },
+    { value: 'Today', label: 'Today' },
+    { value: 'This Week', label: 'This Week' },
+    { value: 'This Month', label: 'This Month' },
+    { value: 'Upcoming', label: 'Upcoming Only' }
+  ], []);
+
+  const sortOptions = useMemo(() => [
+    { value: 'Newest', label: 'Newest First' },
+    { value: 'Oldest', label: 'Oldest First' },
+    { value: 'Deadline', label: 'Registration Deadline' },
+    { value: 'Soonest', label: 'Soonest Event' },
+    { value: 'Seats', label: 'Seats Remaining' },
+    { value: 'Alphabetical', label: 'Alphabetical' }
+  ], []);
 
   // Load events and user metadata
   const fetchData = async () => {
@@ -312,95 +594,64 @@ export const Events = () => {
           <div className="flex flex-col xl:flex-row gap-6 items-stretch xl:items-center justify-between pb-8 border-b border-white/5 font-ui">
             {/* Input: Search */}
             <div className="relative flex-grow max-w-md">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20">
+              <span className={cn(
+                "absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20 transition-transform duration-250 ease-out-expo pointer-events-none origin-center",
+                searchFocused ? "rotate-[8deg] text-accent opacity-100" : ""
+              )}>
                 <Search className="w-4 h-4" />
               </span>
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
                 placeholder="Search by title, organizer, or venue..."
-                className="w-full bg-[#111]/80 border border-white/10 pl-10 pr-4 py-2.5 text-sm text-white/80 placeholder-white/20 focus:outline-none focus:border-accent rounded-none transition-colors"
+                className="search-input-premium w-full bg-[#111]/80 border pl-10 pr-4 py-2.5 text-sm text-white/80 focus:outline-none focus:border-accent rounded-none transition-colors duration-250 caret-accent"
+                style={{ caretColor: '#C96A2B' }}
               />
             </div>
 
             {/* Selector Filters Grid */}
             <div className="flex flex-wrap items-center gap-4 md:gap-6 text-xs select-none">
-              {/* Filter: Category */}
-              <div className="flex items-center gap-2">
-                <span className="text-[0.6rem] font-technical uppercase tracking-wider text-white/30">Category</span>
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="bg-[#111] border border-white/10 text-white/80 px-3 py-1.5 rounded-none focus:outline-none focus:border-accent cursor-pointer hover:bg-white/[0.02]"
-                >
-                  <option value="All">All Categories</option>
-                  {CATEGORIES.map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Filter: Status */}
-              <div className="flex items-center gap-2">
-                <span className="text-[0.6rem] font-technical uppercase tracking-wider text-white/30">Status</span>
-                <select
-                  value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value)}
-                  className="bg-[#111] border border-white/10 text-white/80 px-3 py-1.5 rounded-none focus:outline-none focus:border-accent cursor-pointer hover:bg-white/[0.02]"
-                >
-                  <option value="All">All States</option>
-                  <option value="Open">Open</option>
-                  <option value="Closed">Closed</option>
-                </select>
-              </div>
-
-              {/* Filter: Date Timeline */}
-              <div className="flex items-center gap-2">
-                <span className="text-[0.6rem] font-technical uppercase tracking-wider text-white/30">Timeline</span>
-                <select
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  className="bg-[#111] border border-white/10 text-white/80 px-3 py-1.5 rounded-none focus:outline-none focus:border-accent cursor-pointer hover:bg-white/[0.02]"
-                >
-                  <option value="All">Any Time</option>
-                  <option value="Today">Today</option>
-                  <option value="This Week">This Week</option>
-                  <option value="This Month">This Month</option>
-                  <option value="Upcoming">Upcoming Only</option>
-                </select>
-              </div>
-
-              {/* Selector: Sort */}
-              <div className="flex items-center gap-2">
-                <span className="text-[0.6rem] font-technical uppercase tracking-wider text-white/30">Sort</span>
-                <select
-                  value={selectedSort}
-                  onChange={(e) => setSelectedSort(e.target.value)}
-                  className="bg-[#111] border border-white/10 text-white/80 px-3 py-1.5 rounded-none focus:outline-none focus:border-accent cursor-pointer hover:bg-white/[0.02]"
-                >
-                  <option value="Newest">Newest First</option>
-                  <option value="Oldest">Oldest First</option>
-                  <option value="Deadline">Registration Deadline</option>
-                  <option value="Soonest">Soonest Event</option>
-                  <option value="Seats">Seats Remaining</option>
-                  <option value="Alphabetical">Alphabetical</option>
-                </select>
-              </div>
+              <PremiumDropdown 
+                label="Category" 
+                value={selectedCategory} 
+                onChange={setSelectedCategory} 
+                options={categoryOptions} 
+              />
+              <PremiumDropdown 
+                label="Status" 
+                value={selectedStatus} 
+                onChange={setSelectedStatus} 
+                options={statusOptions} 
+              />
+              <PremiumDropdown 
+                label="Timeline" 
+                value={selectedDate} 
+                onChange={setSelectedDate} 
+                options={dateOptions} 
+              />
+              <PremiumDropdown 
+                label="Sort" 
+                value={selectedSort} 
+                onChange={setSelectedSort} 
+                options={sortOptions} 
+              />
             </div>
           </div>
 
           {/* EVENTS ARCHIVE GRID CONTAINER */}
           <div className="min-h-[40vh]">
             {loading ? (
-              // Premium editorial line skeleton loaders (no spinner placeholders)
+              // Premium editorial line skeleton loaders shimmers slowly over 2s
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 font-ui">
                 {[1, 2, 3, 4, 5, 6].map(i => (
                   <div key={i} className="flex flex-col gap-5">
-                    <div className="w-full aspect-[16/10] bg-white/5 animate-pulse rounded-none" />
-                    <div className="h-4 w-1/4 bg-white/5 animate-pulse rounded-none" />
-                    <div className="h-6 w-3/4 bg-white/5 animate-pulse rounded-none" />
-                    <div className="h-3 w-1/2 bg-white/5 animate-pulse rounded-none" />
+                    <div className="w-full aspect-[16/10] bg-white/5 skeleton-shimmer rounded-none" />
+                    <div className="h-4 w-1/4 bg-white/5 skeleton-shimmer rounded-none" />
+                    <div className="h-6 w-3/4 bg-white/5 skeleton-shimmer rounded-none" />
+                    <div className="h-3 w-1/2 bg-white/5 skeleton-shimmer rounded-none" />
                   </div>
                 ))}
               </div>
@@ -409,37 +660,19 @@ export const Events = () => {
                 {error}
               </div>
             ) : processedEvents.length === 0 ? (
-              // Minimal typographic empty state (no illustration)
-              <div className="flex flex-col py-24 border border-dashed border-white/5 items-center justify-center text-center select-none font-ui">
-                <span className="text-[0.6rem] font-technical text-white/20 uppercase tracking-[0.25em] mb-4">
-                  Discovery Engine // Empty Results
-                </span>
-                <p className="text-body-m text-secondary max-w-sm">
-                  No active events match the specified search parameters. Adjust filters to broaden your lookup.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setSelectedCategory('All');
-                    setSelectedStatus('All');
-                    setSelectedDate('All');
-                  }}
-                  className="text-micro font-technical text-accent uppercase tracking-wider mt-6 hover:text-accent/80 transition-colors"
-                >
-                  Reset All Filters
-                </button>
-              </div>
+              <PremiumEmptyState 
+                title="NO EVENTS MATCH QUERY" 
+                subtitle="Adjust or reset your discovery filters to locate catalog listings." 
+              />
             ) : (
-              // Render Grid of Events
+              // Render Grid of Events with 80ms stagger reveal
               <motion.div
                 initial="hidden"
-                animate="show"
+                animate="visible"
                 variants={{
-                  hidden: { opacity: 0 },
-                  show: {
-                    opacity: 1,
-                    transition: { staggerChildren: 0.05 }
+                  hidden: {},
+                  visible: {
+                    transition: { staggerChildren: 0.08 }
                   }
                 }}
                 className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 md:gap-16"
@@ -455,160 +688,23 @@ export const Events = () => {
                     <motion.div
                       key={event.id}
                       variants={{
-                        hidden: { opacity: 0, y: 16 },
-                        show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: EASE } }
+                        hidden: { opacity: 0, y: 24, scale: 0.98 },
+                        visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.7, ease: EASE } }
                       }}
-                      className="group flex flex-col gap-5 text-left select-none relative"
                     >
-                      {/* 1. Large Image container with preview trigger */}
-                      <div className="relative aspect-[16/10] overflow-hidden border border-white/10 bg-[#111] cursor-pointer">
-                        <EventThumbnail event={event} onPreview={() => setPreviewEvent(event)} />
-
-                        {/* Top quick badges overlay */}
-                        <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-10 pointer-events-none">
-                          <span className="text-[0.52rem] font-technical uppercase tracking-wider px-2 py-0.5 border border-white/10 bg-[#0a0a0a]/90 text-secondary">
-                            {event.category || "General"}
-                          </span>
-                          <span className={cn(
-                            "text-[0.52rem] font-technical uppercase tracking-wider px-2 py-0.5 border",
-                            isClosed
-                              ? "border-red-500/20 bg-red-950/90 text-red-400"
-                              : "border-green-500/20 bg-green-950/90 text-green-400"
-                          )}>
-                            {isClosed ? "Closed" : "Open"}
-                          </span>
-                        </div>
-
-
-                        {/* HOVER ACTIONS OVERLAY (Fade-in on desktop hover) */}
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3 z-20">
-                          {/* Details Router */}
-                          <button
-                            onClick={() => navigate(`/events/${event.id}`)}
-                            className="p-3 bg-[#111] border border-white/10 hover:border-white/30 text-white transition-all transform hover:-translate-y-0.5"
-                            title="View Details"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-
-                          {/* Register Button */}
-                          <button
-                            onClick={(e) => !registered && !isClosed && handleRegister(event.id, e)}
-                            disabled={registered || isClosed}
-                            className={cn(
-                              "px-4 py-2.5 text-[0.65rem] font-technical uppercase tracking-wider font-semibold transition-all transform hover:-translate-y-0.5",
-                              registered
-                                ? "bg-green-900/30 border border-green-500/30 text-green-400"
-                                : isClosed
-                                  ? "bg-red-950/20 border border-red-500/10 text-red-500 cursor-not-allowed"
-                                  : "bg-white text-black hover:bg-white/90"
-                            )}
-                          >
-                            {registered ? "Registered ✓" : isClosed ? "Closed" : "Register Now"}
-                          </button>
-
-                          {/* Share link trigger */}
-                          <button
-                            onClick={(e) => handleShare(event.id, event.title, e)}
-                            className="p-3 bg-[#111] border border-white/10 hover:border-white/30 text-white transition-all transform hover:-translate-y-0.5"
-                            title="Share link"
-                          >
-                            <Share2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* 2. Text Content & Metadata */}
-                      <div className="flex flex-col gap-2 relative">
-                        {/* Title and Share */}
-                        <div className="flex items-start justify-between">
-                          <h3
-                            onClick={() => navigate(`/events/${event.id}`)}
-                            className="text-body-l font-light text-primary group-hover:text-white cursor-pointer transition-colors duration-200"
-                          >
-                            {event.title}
-                          </h3>
-                        </div>
-
-                        {/* Organizer & Venue */}
-                        <div className="text-[0.68rem] text-white/30 uppercase tracking-widest font-technical flex flex-wrap gap-x-2 gap-y-1">
-                          <span>{event.organizer || "NexEvent Organizer"}</span>
-                          <span>•</span>
-                          <span>{event.venue || "Campus Venue"}</span>
-                        </div>
-
-                        {/* Short Description */}
-                        <p className="text-body-s text-secondary/80 line-clamp-2 font-light mt-1.5 leading-relaxed">
-                          {event.description || "Explore and join this educational experience hosted in the campus archive halls."}
-                        </p>
-
-                        {/* Registration Stats & Badge */}
-                        <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-white/5 text-micro font-technical uppercase">
-                          <div className="flex justify-between text-white/40">
-                            <span>Remaining: {seatsRemaining}</span>
-                            <span>Registered: {currentReg}</span>
-                          </div>
-                          {event.registrationDeadline && (
-                            <span className="text-[10px] text-white/35 font-technical lowercase first-letter:uppercase">
-                              Deadline: {formatDate(event.registrationDeadline)}
-                            </span>
-                          )}
-                          <div className="flex justify-between items-center mt-2 gap-3">
-                            <div className="flex flex-wrap gap-1.5">
-                              {registered && (
-                                <span className="px-2 py-0.5 border border-green-500/20 bg-green-950/20 text-green-400 text-[9px] font-technical uppercase leading-tight select-none">
-                                  Already Registered
-                                </span>
-                              )}
-                              {isClosed && (
-                                <span className="px-2 py-0.5 border border-red-500/20 bg-red-950/20 text-red-400 text-[9px] font-technical uppercase leading-tight select-none">
-                                  Capacity Full
-                                </span>
-                              )}
-                              {getParticipationHours(event) > 0 && (
-                                <span className="px-2 py-0.5 border border-accent/20 bg-accent/5 text-accent text-[9px] font-technical uppercase leading-tight select-none">
-                                  {getParticipationHours(event)} HRS // CLUB CREDIT
-                                </span>
-                              )}
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (registered) {
-                                  navigate(`/my-events`);
-                                } else if (isClosed) {
-                                  navigate(`/events/${event.id}`);
-                                } else {
-                                  handleRegister(event.id, e);
-                                }
-                              }}
-                              className={cn(
-                                "px-3 py-1.5 text-[0.6rem] font-technical uppercase tracking-wider font-semibold border transition-all select-none focus:outline-none",
-                                registered
-                                  ? "border-green-500/30 bg-green-950/10 text-green-400 hover:bg-green-950/25"
-                                  : isClosed
-                                    ? "border-red-500/20 bg-red-950/10 text-red-400 cursor-not-allowed"
-                                    : "border-accent bg-accent/5 text-accent hover:bg-accent hover:text-black"
-                              )}
-                              disabled={isClosed && !registered}
-                            >
-                              {registered ? "View Ticket" : isClosed ? "Closed" : "Register"}
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Logistics info */}
-                        <div className="flex items-center justify-between text-micro text-white/30 pt-3 mt-1.5 border-t border-white/5 font-ui">
-                          <span className="flex items-center gap-1.5">
-                            <Calendar className="w-3.5 h-3.5 text-white/20" strokeWidth={1.5} />
-                            {formatDate(event.date)}
-                          </span>
-                          <span className="truncate max-w-[150px]">{event.venue}</span>
-                        </div>
-                      </div>
-
+                      <DirectoryEventCard
+                        event={event}
+                        registered={registered}
+                        isClosed={isClosed}
+                        seatsRemaining={seatsRemaining}
+                        currentReg={currentReg}
+                        formatDate={formatDate}
+                        getParticipationHours={getParticipationHours}
+                        navigate={navigate}
+                        handleRegister={handleRegister}
+                        handleShare={handleShare}
+                        setPreviewEvent={setPreviewEvent}
+                      />
                     </motion.div>
                   );
                 })}
@@ -654,11 +750,11 @@ export const Events = () => {
 
                   {/* Left Column: Image */}
                   <div className="w-full md:w-1/2 aspect-[16/10] md:aspect-auto md:min-h-[400px] relative bg-[#111]">
-                    <Image
+                    <EditorialImage
                       src={resolveEventImage(previewEvent)}
                       alt={previewEvent.title}
                       aspectRatio="aspect-auto"
-                      className="w-full h-full object-cover"
+                      grayscale={false}
                     />
                   </div>
 

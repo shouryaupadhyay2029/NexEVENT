@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AxisMarker } from "../../../components/layout/AxisMarker";
 import { Button } from "../../../components/ui/Button";
@@ -6,13 +6,14 @@ import { EditorialImage } from "../../../components/ui/EditorialImage";
 import { RevealSection, RevealItem } from "../../../components/ui/RevealSection";
 import { resolveEventImage } from "../../../utils/eventImage";
 import { cn } from "../../../utils/cn";
+import { PremiumEmptyState } from "../../../components/ui/PremiumEmptyState";
 const formatDate = (dateStr) => {
   if (!dateStr) return "";
   try {
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return dateStr;
     return d.toLocaleDateString("en-US", { month: "short", day: "2-digit" });
-  } catch (err) {
+  } catch {
     return dateStr;
   }
 };
@@ -37,6 +38,7 @@ const FeaturedEventSkeleton = () => (
 
 export const FeaturedEvent = ({ event, loading }) => {
   const navigate = useNavigate();
+  const [isCardHovered, setIsCardHovered] = useState(false);
 
   if (loading) {
     return <FeaturedEventSkeleton />;
@@ -52,16 +54,10 @@ export const FeaturedEvent = ({ event, loading }) => {
         </RevealSection>
         <RevealSection margin="-5%">
           <RevealItem>
-            <div className="w-full border border-dashed border-white/10 py-24 flex flex-col items-center justify-center text-center relative select-none">
-              <span className="text-[0.65rem] font-technical text-white/50 uppercase tracking-[0.25em] mb-4">ARCHIVE // VACANT</span>
-              <h3 className="text-display-md text-primary/80 mb-4 font-light">No events have been published yet.</h3>
-              <p className="text-body-s text-secondary max-w-sm mb-8">
-                The campus archive is currently empty. Initialize a new creative or academic event.
-              </p>
-              <Button variant="secondary" onClick={() => navigate("/create-event")}>
-                Create Event
-              </Button>
-            </div>
+            <PremiumEmptyState 
+              title="NO FEATURED FOCUS" 
+              subtitle="The campus directory does not have a featured showcase. Initialize a new creative or academic focus." 
+            />
           </RevealItem>
         </RevealSection>
       </section>
@@ -95,7 +91,7 @@ export const FeaturedEvent = ({ event, loading }) => {
           </div>
         </RevealItem>
 
-        {/* Image — slower reveal */}
+        {/* Image — slower reveal with ambient glow and animated outline */}
         <RevealItem image>
           <div
             onClick={() => navigate(`/events/${event.id}`)}
@@ -105,11 +101,30 @@ export const FeaturedEvent = ({ event, loading }) => {
                 navigate(`/events/${event.id}`);
               }
             }}
+            onMouseEnter={() => setIsCardHovered(true)}
+            onMouseLeave={() => setIsCardHovered(false)}
             role="button"
             tabIndex={0}
             aria-label={`View details for ${event.title}`}
             className="w-full relative mb-24 group cursor-pointer select-none focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
           >
+            {/* Subtle orange ambient behind the card */}
+            <div className="absolute inset-[-24px] bg-[radial-gradient(circle,rgba(214,123,42,0.05)_0%,transparent_70%)] pointer-events-none z-0" />
+
+            {/* Animated technical outline (Opacity: 5%) */}
+            <div className="absolute inset-[-8px] pointer-events-none opacity-5 z-20">
+              <svg className="w-full h-full stroke-accent fill-none" strokeWidth="1">
+                <rect 
+                  x="0" 
+                  y="0" 
+                  width="100%" 
+                  height="100%" 
+                  strokeDasharray="20 180"
+                  className="animate-[dash_8s_linear_infinite]"
+                />
+              </svg>
+            </div>
+
             <EditorialImage
               src={resolveEventImage(event)}
               alt={event.title}
@@ -117,6 +132,7 @@ export const FeaturedEvent = ({ event, loading }) => {
               grayscale={true}
               width={1200}
               height={514}
+              isHovered={isCardHovered}
             />
             {/* Live Now overlay badge */}
             {isLive && (

@@ -1,8 +1,42 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../../firebase/firestore";
 import { AxisMarker } from "../../../components/layout/AxisMarker";
 import { RevealSection, RevealItem, StandaloneReveal } from "../../../components/ui/RevealSection";
+import { useMotionValue, useTransform, animate, useInView } from "framer-motion";
+
+const AnimatedCounter = ({ value }) => {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, amount: 0.2 });
+  const motionValue = useMotionValue(0);
+  const roundedValue = useTransform(motionValue, (latest) => Math.round(latest));
+
+  useEffect(() => {
+    if (isInView && typeof value === "number") {
+      const controls = animate(motionValue, value, {
+        duration: 1.5,
+        ease: [0.16, 1, 0.3, 1]
+      });
+      return controls.stop;
+    } else if (isInView && !isNaN(Number(value))) {
+      const controls = animate(motionValue, Number(value), {
+        duration: 1.5,
+        ease: [0.16, 1, 0.3, 1]
+      });
+      return controls.stop;
+    }
+  }, [isInView, value, motionValue]);
+
+  const [displayVal, setDisplayVal] = useState(value);
+
+  useEffect(() => {
+    if (typeof value === "number" || !isNaN(Number(value))) {
+      return roundedValue.on("change", (v) => setDisplayVal(v));
+    }
+  }, [value, roundedValue]);
+
+  return <span ref={ref}>{displayVal}</span>;
+};
 
 export const Statistics = () => {
   const [stats, setStats] = useState({
@@ -51,8 +85,8 @@ export const Statistics = () => {
 
       // 4. Fetch Registrations (Requires Authentication)
       try {
-        const regsSnap = await getDocs(collection(db, "registrations"));
-        registrationsVal = regsSnap.size;
+        const registrationsSnap = await getDocs(collection(db, "registrations"));
+        registrationsVal = registrationsSnap.size;
       } catch (err) {
         console.warn("Could not fetch registrations count (unauthenticated):", err);
       }
@@ -76,7 +110,7 @@ export const Statistics = () => {
   ];
 
   return (
-    <section className="w-full flex flex-col mb-32 pt-24">
+    <RevealSection as="section" className="w-full flex flex-col mb-32 pt-24">
       <StandaloneReveal margin="-5%">
         <AxisMarker index="05" label="Volume Metrics" />
       </StandaloneReveal>
@@ -90,7 +124,7 @@ export const Statistics = () => {
                   {stat.ref}
                 </span>
                 <div className="text-display-l text-primary mb-6 font-light">
-                  {stat.value}
+                  <AnimatedCounter value={stat.value} />
                 </div>
                 <span className="text-micro">
                   {stat.label}
@@ -100,6 +134,6 @@ export const Statistics = () => {
           ))}
         </div>
       </RevealSection>
-    </section>
+    </RevealSection>
   );
 };

@@ -1,6 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { AxisMarker } from "../../../components/layout/AxisMarker";
+import { RevealSection } from "../../../components/ui/RevealSection";
 
 const ease = [0.16, 1, 0.3, 1];
 
@@ -24,7 +25,7 @@ const pillars = [
 
 export const WhyNexEvent = () => {
   return (
-    <section className="w-full flex flex-col mb-32 pt-24">
+    <RevealSection as="section" className="w-full flex flex-col mb-32 pt-24">
       <h2 className="sr-only">Core Philosophy</h2>
       <AxisMarker index="02" label="Core Philosophy" />
       
@@ -49,6 +50,6 @@ export const WhyNexEvent = () => {
           </motion.div>
         ))}
       </div>
-    </section>
+    </RevealSection>
   );
 };

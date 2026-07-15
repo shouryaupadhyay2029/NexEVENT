@@ -86,7 +86,7 @@ export const Testimonials = () => {
   }, []);
 
   return (
-    <section className="w-full flex flex-col mb-32 pt-24">
+    <RevealSection as="section" className="w-full flex flex-col mb-32 pt-24">
       <StandaloneReveal margin="-5%">
         <AxisMarker index="06" label="Platform Overview" />
       </StandaloneReveal>
@@ -153,6 +153,6 @@ export const Testimonials = () => {
 
         </div>
       </RevealSection>
-    </section>
+    </RevealSection>
   );
 };

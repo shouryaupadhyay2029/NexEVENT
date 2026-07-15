@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, useTransform } from 'framer-motion';
+import { motion, useTransform, useReducedMotion } from 'framer-motion';
 import { EditorialImage } from './EditorialImage';
 import { useAmbientLight } from '../../hooks/useMagnet';
 import { cn } from '../../utils/cn';
@@ -14,12 +14,30 @@ import { getParticipationHours } from '../../utils/clubHours';
 export const EventCard = ({ event, index, className }) => {
   const navigate = useNavigate();
   const [isHovered, setIsHovered] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
   const { ref, lightX, lightY, handlers } = useAmbientLight({ damping: 55, stiffness: 280 });
 
   const transformX = useTransform(lightX, (lx) => `calc(${lx * 100}% - 130px)`);
   const transformY = useTransform(lightY, (ly) => `calc(${ly * 100}% - 130px)`);
 
+  // Parallax Shifts: max movement 6px (-3px to 3px)
+  const rawCardParallaxX = useTransform(lightX, [0, 1], [-3, 3]);
+  const rawCardParallaxY = useTransform(lightY, [0, 1], [-3, 3]);
+  const rawImgParallaxX = useTransform(lightX, [0, 1], [-2.4, 2.4]);
+  const rawImgParallaxY = useTransform(lightY, [0, 1], [-2.4, 2.4]);
+  const rawTextParallaxX = useTransform(lightX, [0, 1], [-1.5, 1.5]);
+  const rawTextParallaxY = useTransform(lightY, [0, 1], [-1.5, 1.5]);
+  const rawTiltX = useTransform(lightY, [0, 1], [1.5, -1.5]);
+  const rawTiltY = useTransform(lightX, [0, 1], [-1.5, 1.5]);
 
+  const cardParallaxX = shouldReduceMotion ? 0 : rawCardParallaxX;
+  const cardParallaxY = shouldReduceMotion ? 0 : rawCardParallaxY;
+  const imgParallaxX = shouldReduceMotion ? 0 : rawImgParallaxX;
+  const imgParallaxY = shouldReduceMotion ? 0 : rawImgParallaxY;
+  const textParallaxX = shouldReduceMotion ? 0 : rawTextParallaxX;
+  const textParallaxY = shouldReduceMotion ? 0 : rawTextParallaxY;
+  const tiltX = shouldReduceMotion ? 0 : rawTiltX;
+  const tiltY = shouldReduceMotion ? 0 : rawTiltY;
 
   const resolveCountdown = (eVal) => {
     const status = (eVal.status || 'open').toLowerCase();
@@ -45,20 +63,48 @@ export const EventCard = ({ event, index, className }) => {
   };
 
   return (
-    <div
+    <motion.div
       ref={ref}
       {...handlers}
       onClick={() => navigate(`/events/${event.id}`)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      style={{
+        x: cardParallaxX,
+        y: cardParallaxY,
+        rotateX: tiltX,
+        rotateY: tiltY,
+        transformPerspective: 1000,
+      }}
       className={cn(
-        'flex flex-col group cursor-pointer relative',
+        'flex flex-col group cursor-pointer relative p-3 transition-shadow duration-[400ms]',
         event.status?.toLowerCase() === 'completed' ? 'opacity-35 hover:opacity-70 transition-opacity duration-500' : '',
         className
       )}
     >
-      {/* Image */}
-      <div className="w-full relative mb-8">
+      {/* Very faint background brightness layer (2% bg opacity peak on hover) */}
+      <motion.div
+        animate={{
+          backgroundColor: isHovered ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0)'
+        }}
+        transition={{ duration: 0.25 }}
+        className="absolute inset-0 pointer-events-none z-0"
+      />
+
+      {/* Faint orange border overlay on hover */}
+      <motion.div
+        animate={{
+          borderColor: isHovered ? 'rgba(214, 123, 42, 0.15)' : 'rgba(255, 255, 255, 0.04)'
+        }}
+        transition={{ duration: 0.25 }}
+        className="absolute inset-0 border pointer-events-none z-30"
+      />
+
+      {/* Image Container with Parallax offsets */}
+      <motion.div 
+        style={{ x: imgParallaxX, y: imgParallaxY }}
+        className="w-full relative mb-8 z-10"
+      >
         <EditorialImage
           src={resolveEventImage(event)}
           alt={event.title}
@@ -66,9 +112,10 @@ export const EventCard = ({ event, index, className }) => {
           grayscale={true}
           width={400}
           height={500}
+          isHovered={isHovered}
         />
 
-        {/* Ambient light overlay on the image using GPU translation (No layout repaints) */}
+        {/* Ambient light overlay on the image using GPU translation */}
         <div className="absolute inset-0 pointer-events-none z-20 overflow-hidden mix-blend-overlay">
           <motion.div
             className="absolute w-[260px] h-[260px] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.12)_0%,transparent_70%)]"
@@ -85,30 +132,39 @@ export const EventCard = ({ event, index, className }) => {
         <div className="absolute bottom-0 left-0 w-full flex justify-between items-center text-micro border-t border-border pt-2 pb-2 px-2 bg-background/50 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-700 z-30">
           <span>FIG. 0{index + 3}</span>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Text content */}
-      <div className="flex flex-col">
+      {/* Text content with Parallax offsets */}
+      <motion.div style={{ x: textParallaxX, y: textParallaxY }} className="flex flex-col z-10">
         <div className="flex items-center gap-4 mb-6">
-          <span
-            className="text-micro text-primary transition-colors duration-500"
-            style={{ color: isHovered ? 'rgba(255,255,255,0.9)' : undefined }}
+          {/* Category label orange becomes slightly brighter */}
+          <motion.span
+            animate={{ color: isHovered ? '#E07A35' : '#C96A2B' }}
+            transition={{ duration: 0.25 }}
+            className="text-micro font-medium"
           >
             {event.category}
-          </span>
+          </motion.span>
           <span className="w-4 h-[1px] bg-border" />
           <div className="flex items-center gap-2">
             {event.status?.toLowerCase() === "live" && <span className="w-1 h-1 rounded-none bg-red-500 animate-pulse" />}
-            <span className={cn(
-              "text-micro font-technical uppercase tracking-wider",
-              event.status?.toLowerCase() === "live" ? "text-red-400" :
-              event.status?.toLowerCase() === "open" ? "text-green-400" :
-              event.status?.toLowerCase() === "closed" ? "text-orange-400" :
-              event.status?.toLowerCase() === "completed" ? "text-white/40" :
-              "text-white/30"
-            )}>
+            {/* Status Badges scale-up on load and brighten on hover */}
+            <motion.span 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              whileHover={{ filter: "brightness(1.2)" }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              className={cn(
+                "text-micro font-technical uppercase tracking-wider",
+                event.status?.toLowerCase() === "live" ? "text-red-400" :
+                event.status?.toLowerCase() === "open" ? "text-green-400" :
+                event.status?.toLowerCase() === "closed" ? "text-orange-400" :
+                event.status?.toLowerCase() === "completed" ? "text-white/40" :
+                "text-white/30"
+              )}
+            >
               {resolveCountdown(event)}
-            </span>
+            </motion.span>
           </div>
           {getParticipationHours(event) > 0 && (
             <>
@@ -120,19 +176,26 @@ export const EventCard = ({ event, index, className }) => {
           )}
         </div>
 
-        {/* Heading with brightness response */}
-        <h3
-          className="text-display-m mb-8 font-light transition-colors duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
-          style={{
+        {/* Heading with 2px upward translate response */}
+        <motion.h3
+          animate={{
+            y: isHovered ? -2 : 0,
             color: isHovered ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.88)',
           }}
+          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          className="text-display-m mb-8 font-light"
         >
           {event.title}
-        </h3>
+        </motion.h3>
 
-        <div
-          className="flex justify-between items-center text-micro border-t border-border pt-6 transition-colors duration-500"
-          style={{ color: isHovered ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.35)' }}
+        {/* Metadata opacity increases */}
+        <motion.div
+          animate={{ 
+            color: isHovered ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.35)',
+            borderTopColor: isHovered ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)'
+          }}
+          transition={{ duration: 0.25 }}
+          className="flex justify-between items-center text-micro border-t pt-6"
         >
           <span>
             {(() => {
@@ -147,8 +210,8 @@ export const EventCard = ({ event, index, className }) => {
             })()}
           </span>
           <span>{event.venue}</span>
-        </div>
-      </div>
-    </div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
   );
 };

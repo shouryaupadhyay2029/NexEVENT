@@ -23,7 +23,7 @@ export const RevealSection = ({
   as = 'div',
 }) => {
   const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin, amount: 0.1 });
+  const isInView = useInView(ref, { once: true, margin, amount: 0.2 });
 
   // Partial-visibility fading: if we can see the element but it's not "fully in"
   const partialRef = useRef(null);
@@ -109,7 +109,7 @@ export const StandaloneReveal = ({
     <MotionTag
       initial="hidden"
       whileInView="visible"
-      viewport={{ once: true, margin, amount: 0.1 }}
+      viewport={{ once: true, margin, amount: 0.2 }}
       variants={{
         hidden: baseVariants.hidden,
         visible: {

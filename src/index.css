@@ -114,9 +114,9 @@
   }
   
   .skeleton-shimmer {
-    background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
+    background: linear-gradient(90deg, rgba(255,255,255,0.015) 25%, rgba(255,255,255,0.045) 50%, rgba(255,255,255,0.015) 75%);
     background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
+    animation: shimmer 2s infinite linear;
   }
 }
 
@@ -194,4 +194,19 @@ img.loaded {
   }
 }
 
+/* Custom search placeholder translation */
+.search-input-premium::placeholder {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateX(0);
+}
+.search-input-premium:focus::placeholder {
+  transform: translateX(-6px);
+  opacity: 0.15;
+}
 
+/* Technical outline dash scrolling */
+@keyframes dash {
+  to {
+    stroke-dashoffset: -200;
+  }
+}
