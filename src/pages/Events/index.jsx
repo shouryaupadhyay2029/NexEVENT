@@ -33,6 +33,109 @@ const CATEGORIES = [
 // Easing curves
 const EASE = [0.16, 1, 0.3, 1];
 
+const ArchiveTimelineEntry = ({
+  event,
+  registered,
+  isClosed,
+  seatsRemaining,
+  currentReg,
+  formatDate,
+  getParticipationHours,
+  navigate,
+}) => {
+  const [isHovered, setIsHovered] = useState(false);
+  const hours = getParticipationHours(event);
+
+  return (
+    <div
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onClick={() => navigate(`/events/${event.id}`)}
+      className="group relative flex flex-col sm:flex-row sm:items-center gap-6 py-6 cursor-pointer border-b border-white/[0.03] transition-colors select-none"
+    >
+      {/* Poster thumbnail - scales 1.02 on hover */}
+      <div className="w-24 sm:w-32 aspect-[16/9] overflow-hidden bg-[#0c0c0c] border border-white/[0.04] flex-shrink-0 relative">
+        <motion.img
+          src={resolveEventImage(event)}
+          alt={event.title}
+          animate={{ scale: isHovered ? 1.02 : 1 }}
+          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          className="w-full h-full object-cover grayscale mix-blend-luminosity group-hover:grayscale-0 group-hover:mix-blend-normal transition-all duration-300"
+        />
+      </div>
+
+      {/* Title, Club, and Date */}
+      <div className="flex-1 min-w-0 flex flex-col gap-1">
+        <motion.h3
+          animate={{ color: isHovered ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.85)' }}
+          transition={{ duration: 0.22 }}
+          className="text-body-lg font-light truncate leading-snug"
+        >
+          {event.title}
+        </motion.h3>
+        
+        <div className="flex flex-wrap items-center gap-2 text-[0.6rem] font-technical uppercase tracking-[0.1em] text-white/35">
+          <span className={cn("transition-colors duration-220", isHovered ? "text-white/60" : "text-white/40")}>
+            {event.organizer || 'NexEvent Organizer'}
+          </span>
+          <span className="text-white/15">·</span>
+          <span className={cn("transition-colors duration-220", isHovered ? "text-white/60" : "text-white/38")}>
+            {event.venue || 'Campus'}
+          </span>
+          <span className="text-white/15">·</span>
+          <span>{formatDate(event.date)}</span>
+        </div>
+      </div>
+
+      {/* Right side metadata: stats & badges */}
+      <motion.div
+        animate={{ opacity: isHovered ? 0.95 : 0.65 }}
+        transition={{ duration: 0.22 }}
+        className="flex items-center gap-6 flex-wrap sm:flex-nowrap justify-between sm:justify-end text-[0.58rem] font-technical uppercase tracking-wider"
+      >
+        {/* Participants stats */}
+        <div className="flex flex-col gap-0.5 items-end text-right min-w-[70px]">
+          <span className="text-white/20">Participants</span>
+          <span className="text-white/70 tabular-nums text-[0.65rem]">{currentReg} / {parseInt(event.capacity) || '∞'}</span>
+        </div>
+
+        {/* Club hours */}
+        {hours > 0 && (
+          <div className="flex flex-col gap-0.5 items-end text-right min-w-[70px]">
+            <span className="text-white/20">Club Hours</span>
+            <span className="text-accent/90 text-[0.65rem]">{hours}h Credit</span>
+          </div>
+        )}
+
+        {/* Completion badge */}
+        <div className="flex items-center">
+          {registered ? (
+            <span className="px-2.5 py-0.5 border border-green-500/18 bg-green-950/12 text-green-400/80 text-[0.46rem] font-technical uppercase tracking-wider leading-none">
+              Registered
+            </span>
+          ) : isClosed ? (
+            <span className="px-2.5 py-0.5 border border-red-500/18 bg-red-950/12 text-red-400/75 text-[0.46rem] font-technical uppercase tracking-wider leading-none">
+              Closed
+            </span>
+          ) : (
+            <span className="px-2.5 py-0.5 border border-accent/22 bg-accent/4 text-accent text-[0.46rem] font-technical uppercase tracking-wider leading-none">
+              Open
+            </span>
+          )}
+        </div>
+      </motion.div>
+
+      {/* Thin orange line grows underneath on hover */}
+      <motion.div
+        initial={{ scaleX: 0 }}
+        animate={{ scaleX: isHovered ? 1 : 0 }}
+        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+        className="absolute bottom-0 left-0 right-0 h-[1px] bg-accent origin-left pointer-events-none"
+      />
+    </div>
+  );
+};
+
 const DirectoryEventCard = ({
   event,
   registered,
@@ -486,6 +589,68 @@ export const Events = () => {
       .filter(e => e.status === 'completed' || e.status === 'closed')
       .reduce((acc, e) => acc + (getParticipationHours(e) * (parseInt(e.registeredCount) || 0)), 0);
   }, [events]);
+
+  const groupedEvents = useMemo(() => {
+    const groups = {};
+    processedEvents.forEach(event => {
+      const dateStr = event.date;
+      let year = 'Undated';
+      let month = 'Undated';
+
+      if (dateStr) {
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+          year = parts[0];
+          const dateObj = new Date(dateStr);
+          if (!isNaN(dateObj.getTime())) {
+            month = dateObj.toLocaleDateString("en-US", { month: "long" });
+          }
+        }
+      }
+
+      if (!groups[year]) {
+        groups[year] = {};
+      }
+      if (!groups[year][month]) {
+        groups[year][month] = [];
+      }
+      groups[year][month].push(event);
+    });
+    return groups;
+  }, [processedEvents]);
+
+  const sortedYears = useMemo(() => {
+    return Object.keys(groupedEvents).sort((a, b) => {
+      if (a === 'Undated') return 1;
+      if (b === 'Undated') return -1;
+      return b.localeCompare(a);
+    });
+  }, [groupedEvents]);
+
+  const getSortedMonthsForYear = (year) => {
+    const monthsObj = groupedEvents[year] || {};
+    const monthsList = Object.keys(monthsObj);
+    const firstOccurrences = {};
+    
+    processedEvents.forEach((event, idx) => {
+      const dateStr = event.date;
+      if (!dateStr) return;
+      const parts = dateStr.split('-');
+      if (parts[0] === year) {
+        const dateObj = new Date(dateStr);
+        if (!isNaN(dateObj.getTime())) {
+          const m = dateObj.toLocaleDateString("en-US", { month: "long" });
+          if (firstOccurrences[m] === undefined) {
+            firstOccurrences[m] = idx;
+          }
+        }
+      }
+    });
+
+    return monthsList.sort((a, b) => {
+      return (firstOccurrences[a] ?? 9999) - (firstOccurrences[b] ?? 9999);
+    });
+  };
 
   // Load events and user metadata
   const fetchData = async () => {
@@ -1069,22 +1234,23 @@ export const Events = () => {
           {/* EVENTS ARCHIVE GRID CONTAINER */}
           <div className="min-h-[40vh]">
             {loading ? (
-              // Skeleton cards â€” poster + title + metadata rows + button
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-14 md:gap-x-12 md:gap-y-16 font-ui">
-                {[1, 2, 3, 4, 5, 6].map(i => (
-                  <div key={i} className="flex flex-col gap-0">
-                    <div className="w-full aspect-[16/10] bg-white/[0.04] skeleton-shimmer rounded-none" />
-                    <div className="pt-4 pb-1 flex flex-col gap-3">
-                      <div className="h-5 w-4/5 bg-white/[0.04] skeleton-shimmer rounded-none" />
-                      <div className="h-3 w-2/5 bg-white/[0.03] skeleton-shimmer rounded-none" />
-                      <div className="h-3 w-full bg-white/[0.03] skeleton-shimmer rounded-none" />
-                      <div className="h-3 w-3/4 bg-white/[0.03] skeleton-shimmer rounded-none" />
-                      <div className="h-px w-full bg-white/[0.04] mt-1" />
-                      <div className="flex justify-between mt-1">
-                        <div className="h-6 w-1/4 bg-white/[0.03] skeleton-shimmer rounded-none" />
-                        <div className="h-6 w-1/5 bg-white/[0.04] skeleton-shimmer rounded-none" />
+              // Skeleton timeline entries
+              <div className="flex flex-col gap-10 font-ui select-none">
+                {[1, 2].map(i => (
+                  <div key={i} className="flex flex-col gap-6 animate-pulse">
+                    {/* Year/Month header skeleton */}
+                    <div className="h-6 w-16 bg-white/[0.04] rounded-none" />
+                    <div className="h-px w-full bg-white/[0.04]" />
+                    {[1, 2, 3].map(j => (
+                      <div key={j} className="flex flex-col sm:flex-row sm:items-center gap-6 py-6 border-b border-white/[0.03]">
+                        <div className="w-24 sm:w-32 aspect-[16/9] bg-white/[0.04] rounded-none" />
+                        <div className="flex-1 flex flex-col gap-3">
+                          <div className="h-5 w-1/3 bg-white/[0.04] rounded-none" />
+                          <div className="h-3.5 w-1/4 bg-white/[0.03] rounded-none" />
+                        </div>
+                        <div className="h-6 w-24 bg-white/[0.04] rounded-none" />
                       </div>
-                    </div>
+                    ))}
                   </div>
                 ))}
               </div>
@@ -1112,51 +1278,65 @@ export const Events = () => {
                 />
               )
             ) : (
-              // Render Grid of Events â€” row-by-row reveal, 80ms stagger, 600ms
-              <motion.div
-                initial="hidden"
-                animate="visible"
-                variants={{
-                  hidden: {},
-                  visible: {
-                    transition: { staggerChildren: 0.08 }
-                  }
-                }}
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-14 md:gap-x-12 md:gap-y-16"
-              >
-                {processedEvents.map((event, idx) => {
-                  const registered = userRegIds.has(event.id);
-                  const capacity = parseInt(event.capacity) || 0;
-                  const currentReg = parseInt(event.registeredCount) || 0;
-                  const seatsRemaining = Math.max(capacity - currentReg, 0);
-                  const isClosed = event.status?.toLowerCase() === 'closed' || seatsRemaining <= 0;
+              // Render timeline grouped by Year -> Month
+              <div className="flex flex-col gap-14 font-ui">
+                {sortedYears.map(year => (
+                  <div key={year} className="flex flex-col gap-6">
+                    {/* Year heading */}
+                    <div className="flex items-baseline justify-between select-none">
+                      <h2 className="text-display-md font-light text-primary tracking-tight">
+                        {year}
+                      </h2>
+                      <span className="text-[0.42rem] font-technical uppercase tracking-[0.2em] text-white/20">
+                        Preserved Chapter
+                      </span>
+                    </div>
 
-                  return (
-                    <motion.div
-                      key={event.id}
-                      variants={{
-                        hidden: { opacity: 0, y: 24, scale: 0.98 },
-                        visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.6, ease: EASE } }
-                      }}
-                    >
-                      <DirectoryEventCard
-                        event={event}
-                        registered={registered}
-                        isClosed={isClosed}
-                        seatsRemaining={seatsRemaining}
-                        currentReg={currentReg}
-                        formatDate={formatDate}
-                        getParticipationHours={getParticipationHours}
-                        navigate={navigate}
-                        handleRegister={handleRegister}
-                        handleShare={handleShare}
-                        setPreviewEvent={setPreviewEvent}
-                        cardIndex={idx}
-                      />
-                    </motion.div>
-                  );
-                })}
-              </motion.div>
+                    {/* Year divider */}
+                    <div className="h-px w-full bg-white/[0.06] select-none" />
+
+                    {/* Months grouped within this year */}
+                    <div className="flex flex-col gap-10 pl-0 sm:pl-4">
+                      {getSortedMonthsForYear(year).map(month => {
+                        const monthEvents = groupedEvents[year][month] || [];
+                        return (
+                          <div key={month} className="flex flex-col gap-3">
+                            {/* Month sub-heading */}
+                            <div className="text-[0.52rem] font-technical uppercase tracking-[0.25em] text-accent/80 select-none pb-2">
+                              {month}
+                            </div>
+
+                            {/* List of entries inside this month */}
+                            <div className="flex flex-col divide-y divide-white/[0.02]">
+                              {monthEvents.map(event => {
+                                const registered = userRegIds.has(event.id);
+                                const capacity = parseInt(event.capacity) || 0;
+                                const currentReg = parseInt(event.registeredCount) || 0;
+                                const seatsRemaining = Math.max(capacity - currentReg, 0);
+                                const isClosed = event.status?.toLowerCase() === 'closed' || seatsRemaining <= 0;
+
+                                return (
+                                  <ArchiveTimelineEntry
+                                    key={event.id}
+                                    event={event}
+                                    registered={registered}
+                                    isClosed={isClosed}
+                                    seatsRemaining={seatsRemaining}
+                                    currentReg={currentReg}
+                                    formatDate={formatDate}
+                                    getParticipationHours={getParticipationHours}
+                                    navigate={navigate}
+                                  />
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
