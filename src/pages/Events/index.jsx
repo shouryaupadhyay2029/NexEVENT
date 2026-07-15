@@ -33,120 +33,150 @@ const CATEGORIES = [
 // Easing curves
 const EASE = [0.16, 1, 0.3, 1];
 
-const EventThumbnail = ({ event, onPreview, isHovered }) => {
-  return (
-    <div onClick={onPreview} className="w-full h-full cursor-pointer">
-      <EditorialImage
-        src={resolveEventImage(event)}
-        alt={event.title || 'Event cover'}
-        aspectRatio="aspect-square"
-        grayscale={true}
-        isHovered={isHovered}
-      />
-    </div>
-  );
-};
-
-const DirectoryEventCard = ({ 
-  event, 
-  registered, 
-  isClosed, 
-  seatsRemaining, 
-  currentReg, 
-  formatDate, 
-  getParticipationHours, 
-  navigate, 
-  handleRegister, 
-  handleShare, 
-  setPreviewEvent 
+const DirectoryEventCard = ({
+  event,
+  registered,
+  isClosed,
+  seatsRemaining,
+  currentReg,
+  formatDate,
+  getParticipationHours,
+  navigate,
+  handleRegister,
+  handleShare,
+  setPreviewEvent,
+  cardIndex = 0,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const shouldReduceMotion = useReducedMotion();
-  const { ref, lightX, lightY, handlers } = useAmbientLight({ damping: 55, stiffness: 280 });
+  const creditBadgeRef = useRef(null);
+  const [creditPulsed, setCreditPulsed] = useState(false);
 
+  // Viewport observer â€” single-pulse on credit badge when it enters view
+  useEffect(() => {
+    const hours = getParticipationHours(event);
+    if (!hours || creditPulsed) return;
+    const el = creditBadgeRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !creditPulsed) {
+          setCreditPulsed(true);
+          obs.disconnect();
+        }
+      },
+      { threshold: 0.6 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [creditPulsed, event, getParticipationHours]);
+
+  // Ambient light for parallax
+  const { ref, lightX, lightY, handlers } = useAmbientLight({ damping: 55, stiffness: 280 });
   const transformX = useTransform(lightX, (lx) => `calc(${lx * 100}% - 130px)`);
   const transformY = useTransform(lightY, (ly) => `calc(${ly * 100}% - 130px)`);
 
-  const rawCardParallaxX = useTransform(lightX, [0, 1], [-3, 3]);
-  const rawCardParallaxY = useTransform(lightY, [0, 1], [-3, 3]);
+  // Image parallax â€” max 6px
+  const rawImgX = useTransform(lightX, [0, 1], [-6, 6]);
+  const rawImgY = useTransform(lightY, [0, 1], [-6, 6]);
+  // Badge parallax â€” max 1px
+  const rawBadgeX = useTransform(lightX, [0, 1], [-1, 1]);
+  const rawBadgeY = useTransform(lightY, [0, 1], [-1, 1]);
 
-  const rawImgParallaxX = useTransform(lightX, [0, 1], [-2.4, 2.4]);
-  const rawImgParallaxY = useTransform(lightY, [0, 1], [-2.4, 2.4]);
+  const imgX = shouldReduceMotion ? 0 : rawImgX;
+  const imgY = shouldReduceMotion ? 0 : rawImgY;
+  const badgeX = shouldReduceMotion ? 0 : rawBadgeX;
+  const badgeY = shouldReduceMotion ? 0 : rawBadgeY;
 
-  const rawTextParallaxX = useTransform(lightX, [0, 1], [-1.5, 1.5]);
-  const rawTextParallaxY = useTransform(lightY, [0, 1], [-1.5, 1.5]);
-
-  const rawTiltX = useTransform(lightY, [0, 1], [1.5, -1.5]);
-  const rawTiltY = useTransform(lightX, [0, 1], [-1.5, 1.5]);
-
-  const cardParallaxX = shouldReduceMotion ? 0 : rawCardParallaxX;
-  const cardParallaxY = shouldReduceMotion ? 0 : rawCardParallaxY;
-  const imgParallaxX = shouldReduceMotion ? 0 : rawImgParallaxX;
-  const imgParallaxY = shouldReduceMotion ? 0 : rawImgParallaxY;
-  const textParallaxX = shouldReduceMotion ? 0 : rawTextParallaxX;
-  const textParallaxY = shouldReduceMotion ? 0 : rawTextParallaxY;
-  const tiltX = shouldReduceMotion ? 0 : rawTiltX;
-  const tiltY = shouldReduceMotion ? 0 : rawTiltY;
+  const figNum = String(cardIndex + 1).padStart(2, '0');
+  const hours = getParticipationHours(event);
 
   return (
     <motion.div
       ref={ref}
       {...handlers}
-      style={{
-        x: cardParallaxX,
-        y: cardParallaxY,
-        rotateX: tiltX,
-        rotateY: tiltY,
-        transformPerspective: 1000,
-      }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="group flex flex-col gap-5 text-left select-none relative p-3 transition-shadow duration-[400ms]"
+      animate={{ y: isHovered && !shouldReduceMotion ? -4 : 0 }}
+      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+      className="group flex flex-col text-left select-none relative"
     >
-      {/* 2% bg brightness shift */}
+      {/* Hover atmosphere */}
       <motion.div
-        animate={{
-          backgroundColor: isHovered ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0)'
+        animate={{ opacity: isHovered ? 1 : 0 }}
+        transition={{ duration: 0.45 }}
+        className="absolute -inset-6 pointer-events-none z-0"
+        style={{
+          background: 'radial-gradient(ellipse 80% 60% at 50% 50%, rgba(201,106,43,0.028) 0%, transparent 70%)'
         }}
-        transition={{ duration: 0.25 }}
-        className="absolute inset-0 pointer-events-none z-0"
       />
 
-      {/* Faint border overlay */}
+      {/* Card border â€” idles at 4% white, tints orange on hover */}
       <motion.div
         animate={{
-          borderColor: isHovered ? 'rgba(214, 123, 42, 0.15)' : 'rgba(255, 255, 255, 0.04)'
+          borderColor: isHovered ? 'rgba(201,106,43,0.16)' : 'rgba(255,255,255,0.04)'
         }}
-        transition={{ duration: 0.25 }}
+        transition={{ duration: 0.3 }}
         className="absolute inset-0 border pointer-events-none z-30"
       />
 
-      {/* 1. Large Image container with preview trigger */}
-      <motion.div 
-        style={{ x: imgParallaxX, y: imgParallaxY }}
-        className="relative aspect-[16/10] overflow-hidden border border-white/10 bg-[#111] cursor-pointer z-10"
+      {/* â”€â”€ IMAGE SECTION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      <motion.div
+        style={{ x: imgX, y: imgY, aspectRatio: '16/9' }}
+        className="relative overflow-hidden bg-[#0e0e0e] cursor-pointer z-10"
+        onClick={() => setPreviewEvent(event)}
       >
-        <EventThumbnail event={event} onPreview={() => setPreviewEvent(event)} isHovered={isHovered} />
+        <EditorialImage
+          src={resolveEventImage(event)}
+          alt={event.title || 'Event cover'}
+          aspectRatio="aspect-video"
+          grayscale={true}
+          isHovered={isHovered}
+        />
 
-        {/* Top quick badges overlay */}
-        <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-10 pointer-events-none">
-          <span className="text-[0.52rem] font-technical uppercase tracking-wider px-2 py-0.5 border border-white/10 bg-[#0a0a0a]/90 text-secondary">
-            {event.category || "General"}
-          </span>
-          <span className={cn(
-            "text-[0.52rem] font-technical uppercase tracking-wider px-2 py-0.5 border",
-            isClosed
-              ? "border-red-500/20 bg-red-950/90 text-red-400"
-              : "border-green-500/20 bg-green-950/90 text-green-400"
-          )}>
-            {isClosed ? "Closed" : "Open"}
-          </span>
-        </div>
+        {/* Bottom readability gradient */}
+        <div
+          className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none z-10"
+          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.42) 0%, transparent 100%)' }}
+        />
 
-        {/* Ambient light overlay on the image using GPU translation */}
+        {/* Top badges â€” inset 16px from every edge */}
+        <motion.div
+          style={{ x: badgeX, y: badgeY }}
+          className="absolute top-4 left-4 right-4 flex justify-between items-center z-20 pointer-events-none"
+        >
+          <motion.span
+            animate={{
+              letterSpacing: isHovered ? '0.13em' : '0.09em',
+              opacity: isHovered ? 0.92 : 0.72,
+            }}
+            transition={{ duration: 0.18 }}
+            className={cn(
+              'text-[0.46rem] font-technical uppercase px-2.5 py-1 border bg-[#080808]/95',
+              isHovered ? 'border-accent/22 text-accent/75' : 'border-white/10 text-white/50'
+            )}
+          >
+            {event.category || 'General'}
+          </motion.span>
+
+          <motion.span
+            animate={{ opacity: isHovered ? 1 : 0.72 }}
+            transition={{ duration: 0.18 }}
+            className={cn(
+              'text-[0.46rem] font-technical uppercase tracking-wider px-2.5 py-1 border',
+              isClosed
+                ? 'border-red-500/20 bg-red-950/90 text-red-400'
+                : 'border-green-500/20 bg-green-950/90 text-green-400'
+            )}
+          >
+            {isClosed ? 'Closed' : 'Open'}
+          </motion.span>
+        </motion.div>
+
+        {/* Cursor-tracked ambient light */}
         <div className="absolute inset-0 pointer-events-none z-20 overflow-hidden mix-blend-overlay">
           <motion.div
-            className="absolute w-[260px] h-[260px] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.12)_0%,transparent_70%)]"
+            className="absolute w-[260px] h-[260px] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.09)_0%,transparent_70%)]"
             style={{
               x: transformX,
               y: transformY,
@@ -156,141 +186,236 @@ const DirectoryEventCard = ({
           />
         </div>
 
-        {/* HOVER ACTIONS OVERLAY */}
-        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3 z-20">
-          <button
-            onClick={() => navigate(`/events/${event.id}`)}
-            className="p-3 bg-[#111] border border-white/10 hover:border-white/30 text-white transition-all transform hover:-translate-y-0.5"
-            title="View Details"
-          >
-            <Eye className="w-4 h-4" />
-          </button>
+        {/* â”€â”€ QUICK ACTIONS â€” centered editorial control strip â”€â”€ */}
+        <AnimatePresence>
+          {isHovered && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              className="absolute inset-0 bg-black/52 flex flex-col items-center justify-center z-20"
+            >
+              {/* Control strip â€” three equal-width buttons */}
+              <div className="flex items-stretch gap-0 w-[72%]">
+                {/* VIEW */}
+                <motion.button
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 6 }}
+                  transition={{ duration: 0.2, delay: 0, ease: [0.16, 1, 0.3, 1] }}
+                  onClick={() => navigate(`/events/${event.id}`)}
+                  whileTap={{ scale: 0.97 }}
+                  title="View Details"
+                  className="flex-1 flex flex-col items-center justify-center gap-1.5 py-3.5 border border-white/10 bg-[#0e0e0e]/85 text-white/65 hover:text-white/90 hover:border-white/22 hover:bg-[#151515]/90 transition-colors duration-150 focus:outline-none"
+                >
+                  <Eye className="w-3.5 h-3.5" strokeWidth={1.5} />
+                  <span className="text-[0.44rem] font-technical uppercase tracking-[0.14em] leading-none">View</span>
+                </motion.button>
 
-          <button
-            onClick={(e) => !registered && !isClosed && handleRegister(event.id, e)}
-            disabled={registered || isClosed}
-            className={cn(
-              "px-4 py-2.5 text-[0.65rem] font-technical uppercase tracking-wider font-semibold transition-all transform hover:-translate-y-0.5",
-              registered
-                ? "bg-green-900/30 border border-green-500/30 text-green-400"
-                : isClosed
-                  ? "bg-red-950/20 border border-red-500/10 text-red-500 cursor-not-allowed"
-                  : "bg-white text-black hover:bg-white/90"
-            )}
-          >
-            {registered ? "Registered ✓" : isClosed ? "Closed" : "Register Now"}
-          </button>
+                {/* REGISTER */}
+                <motion.button
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 6 }}
+                  transition={{ duration: 0.2, delay: 0.04, ease: [0.16, 1, 0.3, 1] }}
+                  onClick={(e) => !registered && !isClosed && handleRegister(event.id, e)}
+                  disabled={registered || isClosed}
+                  whileTap={registered || isClosed ? {} : { scale: 0.97 }}
+                  className={cn(
+                    'flex-1 flex flex-col items-center justify-center gap-1.5 py-3.5 border-y transition-colors duration-150 focus:outline-none',
+                    registered
+                      ? 'border-y-green-500/22 bg-green-950/25 text-green-400/80 cursor-default'
+                      : isClosed
+                        ? 'border-y-red-500/15 bg-red-950/20 text-red-400/65 cursor-not-allowed'
+                        : 'border-y-white/10 bg-[#0e0e0e]/85 text-white/65 hover:text-white/90 hover:bg-[#151515]/90 hover:border-y-white/22'
+                  )}
+                >
+                  <span className="text-[0.55rem] font-technical uppercase tracking-[0.12em] leading-none font-semibold">
+                    {registered ? 'âœ“' : isClosed ? 'â€”' : '+'}
+                  </span>
+                  <span className="text-[0.44rem] font-technical uppercase tracking-[0.14em] leading-none">
+                    {registered ? 'Registered' : isClosed ? 'Closed' : 'Register'}
+                  </span>
+                </motion.button>
 
-          <button
-            onClick={(e) => handleShare(event.id, event.title, e)}
-            className="p-3 bg-[#111] border border-white/10 hover:border-white/30 text-white transition-all transform hover:-translate-y-0.5"
-            title="Share link"
-          >
-            <Share2 className="w-4 h-4" />
-          </button>
-        </div>
+                {/* SHARE */}
+                <motion.button
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 6 }}
+                  transition={{ duration: 0.2, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
+                  onClick={(e) => handleShare(event.id, event.title, e)}
+                  whileTap={{ scale: 0.97 }}
+                  title="Share"
+                  className="flex-1 flex flex-col items-center justify-center gap-1.5 py-3.5 border border-white/10 bg-[#0e0e0e]/85 text-white/65 hover:text-white/90 hover:border-white/22 hover:bg-[#151515]/90 transition-colors duration-150 focus:outline-none"
+                >
+                  <Share2 className="w-3.5 h-3.5" strokeWidth={1.5} />
+                  <span className="text-[0.44rem] font-technical uppercase tracking-[0.14em] leading-none">Share</span>
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
 
-      {/* 2. Text Content & Metadata */}
-      <motion.div style={{ x: textParallaxX, y: textParallaxY }} className="flex flex-col gap-2 relative z-10">
-        <div className="flex items-start justify-between">
-          {/* Title translates 2px upward */}
-          <motion.h3
-            onClick={() => navigate(`/events/${event.id}`)}
-            animate={{
-              y: isHovered ? -2 : 0,
-              color: isHovered ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.88)',
-            }}
-            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className="text-body-l font-light cursor-pointer"
-          >
-            {event.title}
-          </motion.h3>
-        </div>
+      {/* â”€â”€ TEXT BODY â€” 28â€“32px horizontal padding â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      <div className="flex flex-col relative z-10 px-7 pt-7 pb-6">
 
-        <div className="text-[0.68rem] text-white/30 uppercase tracking-widest font-technical flex flex-wrap gap-x-2 gap-y-1">
-          <span>{event.organizer || "NexEvent Organizer"}</span>
-          <span>•</span>
-          <span>{event.venue || "Campus Venue"}</span>
-        </div>
+        {/* Title */}
+        <motion.h3
+          onClick={() => navigate(`/events/${event.id}`)}
+          animate={{
+            y: isHovered ? -2 : 0,
+            color: isHovered ? 'rgba(255,255,255,0.96)' : 'rgba(255,255,255,0.84)',
+          }}
+          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          className="text-body-l font-light cursor-pointer leading-snug"
+        >
+          {event.title}
+        </motion.h3>
 
-        <p className="text-body-s text-secondary/80 line-clamp-2 font-light mt-1.5 leading-relaxed">
-          {event.description || "Explore and join this educational experience hosted in the campus archive halls."}
+        {/* Organizer â€” generous gap below title */}
+        <motion.div
+          animate={{ opacity: isHovered ? 0.52 : 0.34 }}
+          transition={{ duration: 0.22 }}
+          className="text-[0.6rem] text-white uppercase tracking-[0.1em] font-technical flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-4"
+        >
+          <span>{event.organizer || 'NexEvent Organizer'}</span>
+          <span className="text-white/20 text-[0.45rem]">â—†</span>
+          <span>{event.venue || 'Campus'}</span>
+        </motion.div>
+
+        {/* Description â€” more line height, generous top spacing */}
+        <p className="text-[0.7rem] text-white/32 line-clamp-2 font-light leading-[1.75] mt-5">
+          {event.description || 'Explore and join this educational experience hosted in the campus archive halls.'}
         </p>
 
-        {/* Registration Stats & Badge */}
-        <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-white/5 text-micro font-technical uppercase">
-          <div className="flex justify-between text-white/40">
-            <span>Remaining: {seatsRemaining}</span>
-            <span>Registered: {currentReg}</span>
-          </div>
-          {event.registrationDeadline && (
-            <span className="text-[10px] text-white/35 font-technical lowercase first-letter:uppercase">
-              Deadline: {formatDate(event.registrationDeadline)}
-            </span>
-          )}
-          <div className="flex justify-between items-center mt-2 gap-3">
-            <div className="flex flex-wrap gap-1.5">
-              {registered && (
-                <span className="px-2 py-0.5 border border-green-500/20 bg-green-950/20 text-green-400 text-[9px] font-technical uppercase leading-tight select-none">
-                  Already Registered
-                </span>
-              )}
-              {isClosed && (
-                <span className="px-2 py-0.5 border border-red-500/20 bg-red-950/20 text-red-400 text-[9px] font-technical uppercase leading-tight select-none">
-                  Capacity Full
-                </span>
-              )}
-              {getParticipationHours(event) > 0 && (
-                <span className="px-2 py-0.5 border border-accent/20 bg-accent/5 text-accent text-[9px] font-technical uppercase leading-tight select-none">
-                  {getParticipationHours(event)} HRS // CLUB CREDIT
-                </span>
-              )}
-            </div>
-
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (registered) {
-                  navigate(`/my-events`);
-                } else if (isClosed) {
-                  navigate(`/events/${event.id}`);
-                } else {
-                  handleRegister(event.id, e);
-                }
-              }}
-              className={cn(
-                "px-3 py-1.5 text-[0.6rem] font-technical uppercase tracking-wider font-semibold border transition-all select-none focus:outline-none",
-                registered
-                  ? "border-green-500/30 bg-green-950/10 text-green-400 hover:bg-green-950/25"
-                  : isClosed
-                    ? "border-red-500/20 bg-red-950/10 text-red-400 cursor-not-allowed"
-                    : "border-accent bg-accent/5 text-accent hover:bg-accent hover:text-black"
-              )}
-              disabled={isClosed && !registered}
+        {/* â”€â”€ DATA BLOCKS â€” Remaining Â· Registered Â· Deadline â”€â”€â”€â”€ */}
+        <div className="grid grid-cols-3 gap-0 mt-8">
+          <div className="flex flex-col gap-2">
+            <span className="text-[0.46rem] font-technical uppercase tracking-[0.14em] text-white/22">Remaining</span>
+            <motion.span
+              animate={{ color: isHovered ? 'rgba(255,255,255,0.78)' : 'rgba(255,255,255,0.52)' }}
+              transition={{ duration: 0.22 }}
+              className="text-[0.88rem] font-light tabular-nums leading-none"
             >
-              {registered ? "View Ticket" : isClosed ? "Closed" : "Register"}
-            </button>
+              {seatsRemaining}
+            </motion.span>
           </div>
+          <div className="flex flex-col gap-2 items-center">
+            <span className="text-[0.46rem] font-technical uppercase tracking-[0.14em] text-white/22">Registered</span>
+            <motion.span
+              animate={{ color: isHovered ? 'rgba(255,255,255,0.78)' : 'rgba(255,255,255,0.52)' }}
+              transition={{ duration: 0.22 }}
+              className="text-[0.88rem] font-light tabular-nums leading-none"
+            >
+              {currentReg}
+            </motion.span>
+          </div>
+          {event.registrationDeadline ? (
+            <div className="flex flex-col gap-2 items-end">
+              <span className="text-[0.46rem] font-technical uppercase tracking-[0.14em] text-white/22">Deadline</span>
+              <span className="text-[0.7rem] font-light text-white/48 leading-none tabular-nums">
+                {formatDate(event.registrationDeadline)}
+              </span>
+            </div>
+          ) : (
+            <div />
+          )}
         </div>
 
-        {/* Logistics info (Metadata opacity increases) */}
-        <motion.div 
+        {/* â”€â”€ STATUS MICRO-BADGES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {(registered || (isClosed && !registered) || hours > 0) && (
+          <div className="flex flex-wrap gap-2 mt-6">
+            {registered && (
+              <span className="px-2.5 py-1 border border-green-500/16 bg-green-950/12 text-green-400/75 text-[0.44rem] font-technical uppercase tracking-wider leading-none">
+                Registered
+              </span>
+            )}
+            {isClosed && !registered && (
+              <span className="px-2.5 py-1 border border-red-500/16 bg-red-950/12 text-red-400/70 text-[0.44rem] font-technical uppercase tracking-wider leading-none">
+                Capacity Full
+              </span>
+            )}
+            {hours > 0 && (
+              <motion.span
+                ref={creditBadgeRef}
+                animate={creditPulsed ? {
+                  borderColor: ['rgba(201,106,43,0.35)', 'rgba(201,106,43,0.65)', 'rgba(201,106,43,0.22)'],
+                  backgroundColor: ['rgba(201,106,43,0.04)', 'rgba(201,106,43,0.10)', 'rgba(201,106,43,0.04)'],
+                } : {}}
+                transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
+                className="px-2.5 py-1 border border-accent/22 bg-accent/[0.04] text-accent text-[0.44rem] font-technical uppercase tracking-wider leading-none"
+              >
+                {hours}h Â· Club Credit
+              </motion.span>
+            )}
+          </div>
+        )}
+
+        {/* â”€â”€ PRIMARY BUTTON â€” centered, full-width, generous â”€â”€â”€â”€ */}
+        <motion.button
+          type="button"
+          whileTap={!isClosed || registered ? { scale: 0.98 } : {}}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (registered) navigate('/my-events');
+            else if (isClosed) navigate(`/events/${event.id}`);
+            else handleRegister(event.id, e);
+          }}
           animate={{
-            color: isHovered ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.3)',
-            borderTopColor: isHovered ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.05)'
+            letterSpacing: isHovered && !registered && !isClosed ? '0.1em' : '0.07em',
+            borderColor: isHovered && !registered && !isClosed
+              ? 'rgba(201,106,43,0.65)'
+              : registered
+                ? 'rgba(74,222,128,0.22)'
+                : isClosed
+                  ? 'rgba(239,68,68,0.14)'
+                  : 'rgba(201,106,43,0.35)',
+            backgroundColor: isHovered && !registered && !isClosed
+              ? 'rgba(201,106,43,0.07)'
+              : undefined,
+          }}
+          transition={{ duration: 0.22 }}
+          className={cn(
+            'w-full mt-6 py-3 text-[0.54rem] font-technical uppercase font-semibold border transition-colors duration-200 select-none focus:outline-none',
+            registered
+              ? 'border-green-500/22 bg-green-950/08 text-green-400/75 hover:bg-green-950/16'
+              : isClosed
+                ? 'border-red-500/14 bg-red-950/08 text-red-400/65 cursor-not-allowed'
+                : 'border-accent/35 bg-transparent text-accent'
+          )}
+          disabled={isClosed && !registered}
+        >
+          {registered ? 'View Ticket' : isClosed ? 'Registration Closed' : 'Register for Event'}
+        </motion.button>
+
+        {/* â”€â”€ FOOTER â€” date + venue â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        <motion.div
+          animate={{
+            opacity: isHovered ? 0.52 : 0.28,
           }}
           transition={{ duration: 0.25 }}
-          className="flex items-center justify-between text-micro pt-3 mt-1.5 border-t font-ui"
+          className="flex items-center justify-between text-[0.56rem] pt-5 mt-5 border-t border-white/[0.05] font-ui gap-6"
         >
-          <span className="flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5 text-white/20" strokeWidth={1.5} />
-            {formatDate(event.date)}
+          <span className="flex items-center gap-2 flex-shrink-0">
+            <Calendar className="w-3 h-3 flex-shrink-0" strokeWidth={1.25} />
+            <span className="text-white">{formatDate(event.date)}</span>
           </span>
-          <span className="truncate max-w-[150px]">{event.venue}</span>
+          <span className="flex items-center gap-2 min-w-0">
+            <MapPin className="w-3 h-3 flex-shrink-0" strokeWidth={1.25} />
+            <span className="truncate text-white">{event.venue || 'â€”'}</span>
+          </span>
         </motion.div>
-      </motion.div>
+
+        {/* Editorial fig number */}
+        <div className="absolute bottom-5 right-7 pointer-events-none select-none">
+          <span className="text-[0.36rem] font-technical uppercase tracking-widest text-white/08">
+            FIG. {figNum}
+          </span>
+        </div>
+      </div>
     </motion.div>
   );
 };
@@ -581,7 +706,7 @@ export const Events = () => {
       <PageContainer>
         <SectionWrapper className="max-w-7xl py-12 md:py-20 flex flex-col gap-12 relative">
 
-          {/* ── SYSTEM HEADER ──────────────────────────────────────────────── */}
+          {/* â”€â”€ SYSTEM HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <div className="relative flex flex-col gap-3">
             <AxisMarker index="03" label="Discovery Engine" />
 
@@ -601,11 +726,11 @@ export const Events = () => {
                   transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
                   className="text-[0.52rem] font-technical uppercase tracking-widest text-accent/70"
                 >
-                  {loading ? '—' : `${processedEvents.length} Results`}
+                  {loading ? 'â€”' : `${processedEvents.length} Results`}
                 </motion.span>
                 <span className="w-px h-3 bg-white/10" />
                 <span className="text-[0.52rem] font-technical uppercase tracking-widest text-white/20">
-                  {loading ? '…' : `${events.filter(e => e.status !== 'draft' && e.status !== 'archived').length} Total`}
+                  {loading ? 'â€¦' : `${events.filter(e => e.status !== 'draft' && e.status !== 'archived').length} Total`}
                 </span>
               </div>
             </div>
@@ -615,10 +740,10 @@ export const Events = () => {
             </p>
           </div>
 
-          {/* ── DISCOVERY CONSOLE ──────────────────────────────────────────── */}
+          {/* â”€â”€ DISCOVERY CONSOLE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <div className="flex flex-col border border-white/[0.06] bg-[#0c0c0c] font-ui">
 
-            {/* ── Console system bar ──── */}
+            {/* â”€â”€ Console system bar â”€â”€â”€â”€ */}
             <div className="flex items-start justify-between px-5 py-3 border-b border-white/[0.05] select-none">
               {/* Left: label + metadata */}
               <div className="flex flex-col gap-1.5">
@@ -632,7 +757,7 @@ export const Events = () => {
                 <div className="flex items-center gap-3 pl-[18px]">
                   <span className="text-[0.42rem] font-technical uppercase tracking-widest text-white/15">
                     Indexed &nbsp;
-                    <span className="text-white/30">{loading ? '—' : events.filter(e => e.status !== 'draft' && e.status !== 'archived').length}</span>
+                    <span className="text-white/30">{loading ? 'â€”' : events.filter(e => e.status !== 'draft' && e.status !== 'archived').length}</span>
                   </span>
                   <span className="w-px h-2.5 bg-white/[0.06]" />
                   <span className="text-[0.42rem] font-technical uppercase tracking-widest text-white/15">
@@ -673,10 +798,10 @@ export const Events = () => {
               </AnimatePresence>
             </div>
 
-            {/* ── Main input row ──── */}
+            {/* â”€â”€ Main input row â”€â”€â”€â”€ */}
             <div className="flex flex-col xl:flex-row divide-y xl:divide-y-0 xl:divide-x divide-white/[0.05]">
 
-              {/* Search — ~45% width on xl */}
+              {/* Search â€” ~45% width on xl */}
               <div className="relative xl:flex-[0_0_45%]">
                 <div className="absolute left-5 top-0 bottom-0 flex items-center gap-3 pointer-events-none">
                   <motion.span
@@ -698,7 +823,7 @@ export const Events = () => {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onFocus={() => setSearchFocused(true)}
                   onBlur={() => setSearchFocused(false)}
-                  placeholder="Search title, organizer, venue…"
+                  placeholder="Search title, organizer, venueâ€¦"
                   className="w-full bg-transparent pl-[3.25rem] pr-10 py-4 text-[0.78rem] text-white/72 placeholder:text-white/18 focus:outline-none caret-accent font-ui tracking-wide"
                   style={{ caretColor: '#C96A2B' }}
                 />
@@ -729,7 +854,7 @@ export const Events = () => {
                 />
               </div>
 
-              {/* Filter strip — four identical pills */}
+              {/* Filter strip â€” four identical pills */}
               <div className="flex flex-1 items-stretch divide-x divide-white/[0.05] overflow-x-auto scrollbar-none">
 
                 <div className="flex-1">
@@ -774,7 +899,7 @@ export const Events = () => {
               </div>
             </div>
 
-            {/* ── Active filter pill strip ──── */}
+            {/* â”€â”€ Active filter pill strip â”€â”€â”€â”€ */}
             <AnimatePresence>
               {(selectedCategory !== 'All' || selectedStatus !== 'All' || selectedDate !== 'All') && (
                 <motion.div
@@ -840,7 +965,7 @@ export const Events = () => {
             </AnimatePresence>
           </div>
 
-          {/* ── Live result footer ──── */}
+          {/* â”€â”€ Live result footer â”€â”€â”€â”€ */}
           <div className="flex items-center justify-between -mt-8">
             <motion.span
               key={`${processedEvents.length}-${selectedCategory}-${selectedStatus}-${selectedDate}`}
@@ -849,13 +974,13 @@ export const Events = () => {
               transition={{ duration: 0.25 }}
               className="text-[0.5rem] font-technical uppercase tracking-widest text-white/22"
             >
-              {loading ? 'Loading directory…' : (
+              {loading ? 'Loading directoryâ€¦' : (
                 <>
                   <span className="text-white/40">{processedEvents.length}</span>
                   &nbsp;Events Found
                   {[selectedCategory !== 'All', selectedStatus !== 'All', selectedDate !== 'All', !!searchQuery.trim()].filter(Boolean).length > 0 && (
                     <>
-                      &nbsp;•&nbsp;
+                      &nbsp;â€¢&nbsp;
                       <span className="text-accent/60">
                         {[selectedCategory !== 'All', selectedStatus !== 'All', selectedDate !== 'All', !!searchQuery.trim()].filter(Boolean).length} Filters Active
                       </span>
@@ -869,14 +994,22 @@ export const Events = () => {
           {/* EVENTS ARCHIVE GRID CONTAINER */}
           <div className="min-h-[40vh]">
             {loading ? (
-              // Premium editorial line skeleton loaders shimmers slowly over 2s
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 font-ui">
+              // Skeleton cards â€” poster + title + metadata rows + button
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-14 md:gap-x-12 md:gap-y-16 font-ui">
                 {[1, 2, 3, 4, 5, 6].map(i => (
-                  <div key={i} className="flex flex-col gap-5">
-                    <div className="w-full aspect-[16/10] bg-white/5 skeleton-shimmer rounded-none" />
-                    <div className="h-4 w-1/4 bg-white/5 skeleton-shimmer rounded-none" />
-                    <div className="h-6 w-3/4 bg-white/5 skeleton-shimmer rounded-none" />
-                    <div className="h-3 w-1/2 bg-white/5 skeleton-shimmer rounded-none" />
+                  <div key={i} className="flex flex-col gap-0">
+                    <div className="w-full aspect-[16/10] bg-white/[0.04] skeleton-shimmer rounded-none" />
+                    <div className="pt-4 pb-1 flex flex-col gap-3">
+                      <div className="h-5 w-4/5 bg-white/[0.04] skeleton-shimmer rounded-none" />
+                      <div className="h-3 w-2/5 bg-white/[0.03] skeleton-shimmer rounded-none" />
+                      <div className="h-3 w-full bg-white/[0.03] skeleton-shimmer rounded-none" />
+                      <div className="h-3 w-3/4 bg-white/[0.03] skeleton-shimmer rounded-none" />
+                      <div className="h-px w-full bg-white/[0.04] mt-1" />
+                      <div className="flex justify-between mt-1">
+                        <div className="h-6 w-1/4 bg-white/[0.03] skeleton-shimmer rounded-none" />
+                        <div className="h-6 w-1/5 bg-white/[0.04] skeleton-shimmer rounded-none" />
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -904,7 +1037,7 @@ export const Events = () => {
                 />
               )
             ) : (
-              // Render Grid of Events with 80ms stagger reveal
+              // Render Grid of Events â€” row-by-row reveal, 80ms stagger, 600ms
               <motion.div
                 initial="hidden"
                 animate="visible"
@@ -914,9 +1047,9 @@ export const Events = () => {
                     transition: { staggerChildren: 0.08 }
                   }
                 }}
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 md:gap-16"
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-14 md:gap-x-12 md:gap-y-16"
               >
-                {processedEvents.map((event) => {
+                {processedEvents.map((event, idx) => {
                   const registered = userRegIds.has(event.id);
                   const capacity = parseInt(event.capacity) || 0;
                   const currentReg = parseInt(event.registeredCount) || 0;
@@ -928,7 +1061,7 @@ export const Events = () => {
                       key={event.id}
                       variants={{
                         hidden: { opacity: 0, y: 24, scale: 0.98 },
-                        visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.7, ease: EASE } }
+                        visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.6, ease: EASE } }
                       }}
                     >
                       <DirectoryEventCard
@@ -943,6 +1076,7 @@ export const Events = () => {
                         handleRegister={handleRegister}
                         handleShare={handleShare}
                         setPreviewEvent={setPreviewEvent}
+                        cardIndex={idx}
                       />
                     </motion.div>
                   );
@@ -1062,7 +1196,7 @@ export const Events = () => {
                           size="sm"
                           className="flex-grow"
                         >
-                          {userRegIds.has(previewEvent.id) ? "Registered ✓" : "Register"}
+                          {userRegIds.has(previewEvent.id) ? "Registered âœ“" : "Register"}
                         </Button>
                       </div>
                     </div>
