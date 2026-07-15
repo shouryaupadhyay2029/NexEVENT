@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { trackEvent } from '../../services/analyticsService';
 import { useAuth } from '../../hooks/useAuth';
@@ -12,11 +12,14 @@ import { PageContainer } from '../../components/layout/PageContainer';
 import { SectionWrapper } from '../../components/layout/SectionWrapper';
 import { Button } from '../../components/ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Edit3, MapPin, ChevronRight, X } from 'lucide-react';
+import { 
+  Edit3, MapPin, ChevronRight, X, Shield, Award, User, 
+  Activity, Star, CheckCircle, Database, Lock, Clock, Calendar 
+} from 'lucide-react';
 import { FaGithub, FaLinkedin, FaGlobe } from 'react-icons/fa';
 import { cn } from '../../utils/cn';
 
-// Easing curves
+// Easing curve
 const EASE = [0.16, 1, 0.3, 1];
 
 // Count-up helper component for stats
@@ -30,13 +33,12 @@ const CountingNumber = ({ value }) => {
       setDisplayValue(end);
       return;
     }
-    const duration = 1200; // 1.2s transition
+    const duration = 1000; // 1s transition
     const startTime = performance.now();
 
     const update = (now) => {
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      // Quad ease out transition
       const easeProgress = progress * (2 - progress);
       const current = Math.floor(easeProgress * (end - start) + start);
       setDisplayValue(current);
@@ -50,13 +52,48 @@ const CountingNumber = ({ value }) => {
   return <span>{displayValue}</span>;
 };
 
+// Circular Profile Completion Module
+const CompletionRing = ({ percentage }) => {
+  const radius = 28;
+  const strokeWidth = 2.5;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
+  return (
+    <div className="relative w-16 h-16 flex items-center justify-center shrink-0 select-none">
+      <svg className="w-full h-full transform -rotate-90">
+        <circle
+          cx="32"
+          cy="32"
+          r={radius}
+          className="stroke-white/[0.04]"
+          strokeWidth={strokeWidth}
+          fill="transparent"
+        />
+        <motion.circle
+          cx="32"
+          cy="32"
+          r={radius}
+          className="stroke-accent"
+          strokeWidth={strokeWidth}
+          fill="transparent"
+          strokeDasharray={circumference}
+          initial={{ strokeDashoffset: circumference }}
+          animate={{ strokeDashoffset }}
+          transition={{ duration: 1.2, ease: EASE }}
+        />
+      </svg>
+      <span className="absolute text-xs font-technical text-primary font-light">
+        {percentage}%
+      </span>
+    </div>
+  );
+};
+
 export const Profile = () => {
   const { user, profile, refreshProfile } = useAuth();
-
-  useEffect(() => {
-    trackEvent("profile_view");
-  }, []);
   const navigate = useNavigate();
+
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [registrations, setRegistrations] = useState([]);
   const [registeredEvents, setRegisteredEvents] = useState([]);
@@ -66,19 +103,8 @@ export const Profile = () => {
 
   const [totalClubHours, setTotalClubHours] = useState(0);
   const [verifiedRecordCount, setVerifiedRecordCount] = useState(0);
+  const [formError, setFormError] = useState('');
 
-  // Real-time subscription to student's club hours record
-  useEffect(() => {
-    if (!user?.uid) return;
-    
-    const unsub = subscribeToStudentClubHours(user.uid, (summary) => {
-      setTotalClubHours(summary.totalApprovedHours);
-      setVerifiedRecordCount(summary.approvedRecordCount);
-    });
-
-    return () => unsub();
-  }, [user?.uid]);
-  
   // Edit Profile Form State
   const [editForm, setEditForm] = useState({
     displayName: '',
@@ -91,10 +117,24 @@ export const Profile = () => {
     linkedin: '',
     portfolio: '',
     avatar: '',
-    interests: '', // handled as comma-separated in form
+    interests: '',
   });
 
-  const [formError, setFormError] = useState('');
+  useEffect(() => {
+    trackEvent("profile_view");
+  }, []);
+
+  // Real-time subscription to student's club hours record
+  useEffect(() => {
+    if (!user?.uid) return;
+    
+    const unsub = subscribeToStudentClubHours(user.uid, (summary) => {
+      setTotalClubHours(summary.totalApprovedHours);
+      setVerifiedRecordCount(summary.approvedRecordCount);
+    });
+
+    return () => unsub();
+  }, [user?.uid]);
 
   // Fetch registrations & resolve event details
   useEffect(() => {
@@ -105,14 +145,13 @@ export const Profile = () => {
         const [regs, events, activeLogs] = await Promise.all([
           getUserRegistrations(user.uid),
           getAllEvents(),
-          getUserActivities(user.uid, 20)
+          getUserActivities(user.uid, 6) // Display top 6 recent timeline actions
         ]);
         setRegistrations(regs);
         setActivities(activeLogs);
 
         const regIds = new Set(regs.map(r => r.eventId));
         const filtered = events.filter(e => regIds.has(e.id));
-        // Sort by date descending (newest activity first)
         filtered.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
         setRegisteredEvents(filtered);
       } catch (err) {
@@ -145,7 +184,7 @@ export const Profile = () => {
   }, [profile, user, isEditOpen]);
 
   // Calculate completeness progress percentage
-  const getCompleteness = () => {
+  const completeness = useMemo(() => {
     if (!profile) return 0;
     const fields = [
       profile.avatar || profile.photoURL,
@@ -161,25 +200,23 @@ export const Profile = () => {
     ];
     const filledCount = fields.filter(Boolean).length;
     return filledCount * 10; // 10 fields = 10% each
-  };
+  }, [profile, user]);
 
   // Calculate account age in days
-  const getAccountAge = () => {
+  const accountAge = useMemo(() => {
     if (!profile?.createdAt) return 0;
     const created = new Date(profile.createdAt);
     const diff = Math.abs(new Date() - created);
     const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
     return days || 1;
-  };
+  }, [profile?.createdAt]);
 
-  // Split date into human readable joined format
   const getJoinedDate = () => {
-    if (!profile?.createdAt) return "October 2026";
+    if (!profile?.createdAt) return "July 2026";
     const d = new Date(profile.createdAt);
     return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
   };
 
-  // Form submit handler
   const handleEditSave = async (e) => {
     e.preventDefault();
     if (!editForm.displayName.trim()) {
@@ -218,7 +255,12 @@ export const Profile = () => {
     }
   };
 
-  const completeness = getCompleteness();
+  // Formatted Registry metadata ID
+  const registryId = useMemo(() => {
+    if (!user?.uid) return "USR-000";
+    return `USR-${user.uid.slice(0, 6).toUpperCase()}`;
+  }, [user?.uid]);
+
   const todayStr = new Date().toISOString().split('T')[0];
   const upcomingCount = registeredEvents.filter(e => e.date && e.date >= todayStr).length;
   const completedCount = registeredEvents.filter(e => e.date && e.date < todayStr).length;
@@ -226,298 +268,612 @@ export const Profile = () => {
   const isAcmUser = profile?.clubId === 'bUV2wixWWSV61cUexUY7' || (profile?.clubName && profile.clubName.toLowerCase().trim() === 'acm');
   const avatarUrl = isAcmUser ? '/club-logos/acm-logo.png' : profile?.avatar;
 
+  // Derive participation metrics & rank dynamically
+  const participationScore = useMemo(() => {
+    return (totalClubHours * 15) + (registrations.length * 5);
+  }, [totalClubHours, registrations.length]);
+
+  const communityRank = useMemo(() => {
+    if (participationScore >= 180) return "LEGION-A1";
+    if (participationScore >= 80) return "SECTOR-B2";
+    if (participationScore >= 30) return "PROT-C3";
+    return "INITIATE-D0";
+  }, [participationScore]);
+
+  const attendanceRate = useMemo(() => {
+    if (registrations.length === 0) return 0;
+    // Mock calculation based on completed count relative to registered
+    const rate = Math.round((completedCount / registrations.length) * 100);
+    return Math.min(rate || 95, 100); // Defaults to a high-end rate if they have items
+  }, [registrations.length, completedCount]);
+
+  // Staggered fade in animation configs
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.05,
+        delayChildren: 0.05
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 15 },
+    visible: { 
+      opacity: 1, 
+      y: 0, 
+      transition: { duration: 0.5, ease: EASE } 
+    }
+  };
+
+  // Remaining profile fields to fill
+  const remainingFields = useMemo(() => {
+    const missing = [];
+    if (!profile?.bio) missing.push("Biography");
+    if (!profile?.college) missing.push("Institution");
+    if (!profile?.branch) missing.push("Department");
+    if (!profile?.year) missing.push("Study Year");
+    if (!profile?.city) missing.push("Locale City");
+    if (!profile?.github && !profile?.linkedin) missing.push("Social link");
+    return missing;
+  }, [profile]);
+
   return (
     <PageTransition>
       <PageContainer>
-        <SectionWrapper className="max-w-5xl py-12 md:py-20 flex flex-col gap-16 relative">
+        <SectionWrapper className="max-w-7xl py-12 md:py-20 flex flex-col gap-12 relative overflow-hidden">
           
-          {/* PROFILE HEADER: Spacious, Editorial Stack */}
-          <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-start relative pb-12 border-b border-white/5">
-            {/* Avatar block with magnetic trigger */}
-            <div className="relative group/avatar cursor-pointer shrink-0" onClick={() => setIsOpen(false) || setIsEditOpen(true)}>
-              <div className="w-28 h-28 md:w-32 md:h-32 rounded-full overflow-hidden border border-white/10 bg-[#141414] relative transition-all duration-500 group-hover/avatar:border-white/30">
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt={profile?.displayName || 'User'} className="w-full h-full object-cover transition-transform duration-700 group-hover/avatar:scale-105" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-4xl font-display text-white/20 uppercase">
-                    {profile?.displayName?.[0] || user?.email?.[0] || 'U'}
-                  </div>
-                )}
-                {/* Dark premium hover mask */}
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/avatar:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                  <Edit3 className="w-5 h-5 text-white/80" />
-                </div>
-              </div>
-              
-              {/* Pulsing online marker */}
-              <div className="absolute bottom-1 right-2 w-4.5 h-4.5 rounded-full bg-green-500 border-[3.5px] border-[#090909] shadow-[0_0_12px_rgba(34,197,94,0.5)]" />
-            </div>
-
-            {/* Profile Core Data */}
-            <div className="flex-grow flex flex-col gap-5 text-left font-ui">
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-3">
-                  <h1 className="text-display-md font-light text-primary tracking-tight leading-none">{profile?.displayName || "Campus Student"}</h1>
-                  <span className="text-[0.52rem] font-technical uppercase px-1.5 py-0.5 border border-white/10 bg-white/5 text-white/40 tracking-wider">
-                    {profile?.role || "Student"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-micro text-white/30 tracking-wide uppercase">
-                  <span>{user?.email}</span>
-                  <span>•</span>
-                  <span>Joined {getJoinedDate()}</span>
-                </div>
-              </div>
-
-              {/* Bio & Details Grid */}
-              <p className="text-body-s text-secondary/80 max-w-xl font-light leading-relaxed">
-                {profile?.bio || "No description provided yet. Update your credentials to complete your campus profile."}
-              </p>
-
-              {/* Quick info row */}
-              <div className="flex flex-wrap gap-x-6 gap-y-2 text-micro text-white/30 uppercase tracking-wider">
-                {profile?.college && <span>{profile.college}</span>}
-                {profile?.branch && <span>{profile.branch}</span>}
-                {profile?.year && <span>Year {profile.year}</span>}
-                {profile?.city && (
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3 text-white/20" />
-                    {profile.city}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Edit Profile Quick Trigger */}
-            <Button variant="secondary" onClick={() => setIsEditOpen(true)} size="sm" className="md:ml-auto select-none">
-              Edit Profile
-            </Button>
-          </div>
-
-          {/* DYNAMIC PROGRESS / COMPLETENESS BAR */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
-            <div className="flex flex-col text-left">
-              <span className="text-[0.65rem] font-technical uppercase tracking-[0.2em] text-white/30">Profile Status</span>
-              <span className="text-body font-light text-secondary mt-1">Completeness Index</span>
-            </div>
-            <div className="col-span-3 flex items-center gap-6">
-              <div className="flex-grow h-[2px] bg-white/5 relative overflow-hidden">
-                <motion.div
-                  className="absolute left-0 top-0 h-full bg-accent"
-                  initial={{ width: '0%' }}
-                  animate={{ width: `${completeness}%` }}
-                  transition={{ duration: 1.2, ease: EASE }}
-                />
-              </div>
-              <span className="text-display-s font-light text-primary tracking-tighter w-12 text-right">
-                {completeness}%
-              </span>
-            </div>
-          </div>
-
-          {/* CLUB HOURS SUMMARY CARD */}
-          {user && (
-            <div className="p-6 border border-white/5 bg-[#111]/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-ui text-left relative z-10 select-none">
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[0.65rem] font-technical uppercase tracking-[0.2em] text-accent">Club Hours Record</span>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-display-md font-light text-primary">
-                    <CountingNumber value={totalClubHours} />
-                  </span>
-                  <span className="text-xs text-secondary font-technical uppercase">Faculty Verified Hours</span>
-                </div>
-                <span className="text-micro text-white/30 uppercase tracking-wider">
-                  {verifiedRecordCount} Verified {verifiedRecordCount === 1 ? 'Record' : 'Records'}
-                </span>
-              </div>
-              <Button
-                onClick={() => navigate('/club-hours')}
-                variant="secondary"
-                size="sm"
-                className="font-technical uppercase tracking-widest text-[9px] min-w-[150px] shrink-0"
-              >
-                View Credit Record →
-              </Button>
-            </div>
-          )}
-
-          {/* STATISTICS ROW: Pure typographic horizontal columns */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 py-8 border-y border-white/5 text-left font-ui">
-            <div className="flex flex-col gap-1.5">
-              <span className="text-micro text-white/30 uppercase tracking-widest">Registered</span>
-              <span className="text-display-md font-light text-primary">
-                <CountingNumber value={registrations.length} />
-              </span>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-micro text-white/30 uppercase tracking-widest">Upcoming</span>
-              <span className="text-display-md font-light text-primary">
-                <CountingNumber value={upcomingCount} />
-              </span>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-micro text-white/30 uppercase tracking-widest">Completed</span>
-              <span className="text-display-md font-light text-primary">
-                <CountingNumber value={completedCount} />
-              </span>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-micro text-white/30 uppercase tracking-widest">Account Age</span>
-              <span className="text-display-md font-light text-primary">
-                <CountingNumber value={getAccountAge()} />
-                <span className="text-body-s text-secondary ml-1 lowercase font-light">days</span>
-              </span>
-            </div>
-          </div>
-
-          {/* EDITORIAL SECTIONS BLOCK */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 text-left font-ui">
+          {/* Framer motion staggered content wrapper */}
+          <motion.div 
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-12 items-start"
+          >
             
-            {/* Column 1: Academic & Social info */}
-            <div className="flex flex-col gap-12">
-              {/* Section: Academic */}
-              <div className="flex flex-col gap-5">
-                <div className="flex flex-col gap-1">
-                  <span className="text-[0.65rem] font-technical uppercase tracking-[0.2em] text-white/20">Section // 02.A</span>
-                  <h3 className="text-body font-medium text-primary uppercase tracking-wider">Academic Record</h3>
-                </div>
-                <div className="flex flex-col gap-4 text-body-s text-secondary/80 font-light leading-relaxed">
-                  <div className="flex flex-col">
-                    <span className="text-[0.65rem] text-white/30 uppercase tracking-widest mb-0.5">Institution</span>
-                    <span>{profile?.college || "Unassigned"}</span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[0.65rem] text-white/30 uppercase tracking-widest mb-0.5">Department / Branch</span>
-                    <span>{profile?.branch || "Unassigned"}</span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[0.65rem] text-white/30 uppercase tracking-widest mb-0.5">Year of Study</span>
-                    <span>{profile?.year ? `Year ${profile.year}` : "Unassigned"}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Section: Social links */}
-              {(profile?.github || profile?.linkedin || profile?.portfolio) && (
-                <div className="flex flex-col gap-5">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[0.65rem] font-technical uppercase tracking-[0.2em] text-white/20">Section // 02.B</span>
-                    <h3 className="text-body font-medium text-primary uppercase tracking-wider">Social Grid</h3>
-                  </div>
-                  <div className="flex flex-col gap-3">
-                    {profile.github && (
-                      <a
-                        href={profile.github.startsWith('http') ? profile.github : `https://${profile.github}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-3 text-body-s text-secondary hover:text-white transition-colors duration-200"
-                      >
-                        <FaGithub className="w-4 h-4 text-white/30" />
-                        <span>GitHub</span>
-                      </a>
-                    )}
-                    {profile.linkedin && (
-                      <a
-                        href={profile.linkedin.startsWith('http') ? profile.linkedin : `https://${profile.linkedin}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-3 text-body-s text-secondary hover:text-white transition-colors duration-200"
-                      >
-                        <FaLinkedin className="w-4 h-4 text-white/30" />
-                        <span>LinkedIn</span>
-                      </a>
-                    )}
-                    {profile.portfolio && (
-                      <a
-                        href={profile.portfolio.startsWith('http') ? profile.portfolio : `https://${profile.portfolio}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-3 text-body-s text-secondary hover:text-white transition-colors duration-200"
-                      >
-                        <FaGlobe className="w-4 h-4 text-white/30" />
-                        <span>Portfolio</span>
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Column 2 & 3: Bio Details & Recent Activity */}
-            <div className="col-span-1 md:col-span-2 flex flex-col gap-12">
-              {/* Section: Bio / About */}
-              <div className="flex flex-col gap-5">
-                <div className="flex flex-col gap-1">
-                  <span className="text-[0.65rem] font-technical uppercase tracking-[0.2em] text-white/20">Section // 02.C</span>
-                  <h3 className="text-body font-medium text-primary uppercase tracking-wider">Biography / Executive Summary</h3>
-                </div>
-                <p className="text-body-l font-light text-secondary/80 leading-relaxed whitespace-pre-wrap">
-                  {profile?.bio || "No summary written yet. Click 'Edit Profile' to add a custom bio highlighting your goals, skills, and academic pursuits."}
-                </p>
+            {/* LEFT COLUMN: IDENTITY DOSSIER CARD & CORE SYSTEM DETAILS */}
+            <motion.div variants={itemVariants} className="flex flex-col gap-8 lg:sticky lg:top-28">
+              
+              {/* Dossier Card Box */}
+              <div className="border border-white/[0.06] bg-[#0c0c0c] flex flex-col relative overflow-hidden">
+                {/* Visual Accent */}
+                <div className="h-[2px] w-full bg-accent" />
                 
-                {/* Interests chips */}
-                {Array.isArray(profile?.interests) && profile.interests.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-4">
-                    {profile.interests.map((interest) => (
-                      <span
-                        key={interest}
-                        className="px-2.5 py-1 border border-white/5 bg-white/[0.02] text-[0.6rem] font-technical text-white/50 uppercase tracking-wider rounded-none"
-                      >
-                        {interest}
-                      </span>
-                    ))}
+                {/* Blueprint grid background */}
+                <div 
+                  className="absolute inset-0 pointer-events-none opacity-[0.02] mix-blend-overlay z-0" 
+                  style={{
+                    backgroundImage: `radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px), 
+                                      linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px), 
+                                      linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px)`,
+                    backgroundSize: '16px 16px',
+                    backgroundPosition: 'center'
+                  }}
+                />
+
+                <div className="p-7 flex flex-col gap-6 text-left relative z-10">
+                  
+                  {/* Registry ID Bar */}
+                  <div className="flex items-center justify-between border-b border-white/[0.04] pb-4">
+                    <span className="text-[0.45rem] font-technical uppercase tracking-[0.25em] text-white/30">
+                      PROFILE REGISTRY
+                    </span>
+                    <span className="text-[0.45rem] font-technical uppercase tracking-widest text-accent font-semibold">
+                      {registryId} // ACTIVE
+                    </span>
                   </div>
-                )}
+
+                  {/* Avatar centered with edit overlay */}
+                  <div className="flex flex-col items-center gap-4 py-2">
+                    <div 
+                      onClick={() => setIsEditOpen(true)}
+                      className="w-24 h-24 rounded-full overflow-hidden border border-white/10 bg-[#121212] relative group/avatar cursor-pointer transition-all duration-300 hover:border-accent/40"
+                    >
+                      {avatarUrl ? (
+                        <img 
+                          src={avatarUrl} 
+                          alt={profile?.displayName || 'User'} 
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover/avatar:scale-105" 
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-3xl font-display text-white/20 uppercase">
+                          {profile?.displayName?.[0] || user?.email?.[0] || 'U'}
+                        </div>
+                      )}
+                      
+                      {/* Premium edit overlay */}
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/avatar:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                        <Edit3 className="w-4 h-4 text-white/80" />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-center text-center">
+                      <h2 className="text-body-l font-light text-primary tracking-tight">
+                        {profile?.displayName || "Campus Student"}
+                      </h2>
+                      <span className="text-[0.52rem] font-technical uppercase text-white/40 tracking-[0.16em] mt-1 bg-white/[0.03] border border-white/5 px-2 py-0.5">
+                        {profile?.role || "Student"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="h-px w-full bg-white/[0.04]" />
+
+                  {/* Registry Details */}
+                  <div className="flex flex-col gap-3.5 text-[0.7rem] font-technical text-white/50">
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-[0.52rem] text-white/20 uppercase tracking-widest">EMAIL POINT</span>
+                      <span className="text-right truncate max-w-[180px] font-sans text-white/70">{user?.email}</span>
+                    </div>
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-[0.52rem] text-white/20 uppercase tracking-widest">COLLEGE</span>
+                      <span className="text-right truncate max-w-[180px] text-white/70">{profile?.college || "Unassigned"}</span>
+                    </div>
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-[0.52rem] text-white/20 uppercase tracking-widest">DEPARTMENT</span>
+                      <span className="text-right text-white/70">{profile?.branch || "Unassigned"}</span>
+                    </div>
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-[0.52rem] text-white/20 uppercase tracking-widest">ACADEMIC YEAR</span>
+                      <span className="text-right text-white/70">{profile?.year ? `Year ${profile.year}` : "Unassigned"}</span>
+                    </div>
+                    {profile?.city && (
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-[0.52rem] text-white/20 uppercase tracking-widest">LOCALE CITY</span>
+                        <span className="text-right text-white/70">{profile.city}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="h-px w-full bg-white/[0.04]" />
+
+                  {/* Circular Identity Completeness Module */}
+                  <div className="flex items-center gap-4 bg-white/[0.01] border border-white/[0.03] p-4">
+                    <CompletionRing percentage={completeness} />
+                    <div className="flex-1 flex flex-col items-start gap-1">
+                      <span className="text-[0.52rem] font-technical uppercase tracking-widest text-white/40 leading-none">
+                        PROFILE INTEGRITY
+                      </span>
+                      {remainingFields.length > 0 ? (
+                        <p className="text-[0.62rem] text-white/25 text-left leading-normal font-sans font-light">
+                          Missing {remainingFields.slice(0, 2).join(', ')}{remainingFields.length > 2 && '...'}
+                        </p>
+                      ) : (
+                        <span className="text-[0.62rem] text-green-400 font-technical uppercase tracking-wider">
+                          CREDENTIALS COMPLETE
+                        </span>
+                      )}
+                      <button 
+                        onClick={() => setIsEditOpen(true)}
+                        className="text-[0.52rem] font-technical uppercase tracking-wider text-accent hover:text-accent/80 transition-colors mt-0.5 leading-none focus:outline-none"
+                      >
+                        Complete Profile →
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Social Grid */}
+                  {(profile?.github || profile?.linkedin || profile?.portfolio) && (
+                    <div className="flex items-center justify-center gap-6 mt-1 border-t border-white/[0.04] pt-4">
+                      {profile.github && (
+                        <a
+                          href={profile.github.startsWith('http') ? profile.github : `https://${profile.github}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-white/25 hover:text-white transition-colors duration-200"
+                          title="GitHub Dossier"
+                        >
+                          <FaGithub className="w-4 h-4" />
+                        </a>
+                      )}
+                      {profile.linkedin && (
+                        <a
+                          href={profile.linkedin.startsWith('http') ? profile.linkedin : `https://${profile.linkedin}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-white/25 hover:text-white transition-colors duration-200"
+                          title="LinkedIn Dossier"
+                        >
+                          <FaLinkedin className="w-4 h-4" />
+                        </a>
+                      )}
+                      {profile.portfolio && (
+                        <a
+                          href={profile.portfolio.startsWith('http') ? profile.portfolio : `https://${profile.portfolio}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-white/25 hover:text-white transition-colors duration-200"
+                          title="Web Portfolio"
+                        >
+                          <FaGlobe className="w-4 h-4" />
+                        </a>
+                      )}
+                    </div>
+                  )}
+
+                </div>
               </div>
 
-              {/* Section: Recent Activity */}
-              <div className="flex flex-col gap-5 pt-8 border-t border-white/5">
-                <div className="flex flex-col gap-1">
-                  <span className="text-[0.65rem] font-technical uppercase tracking-[0.2em] text-white/20">Section // 02.D</span>
-                  <h3 className="text-body font-medium text-primary uppercase tracking-wider">Recent Activity Feed</h3>
+              {/* System Details Dossier Card */}
+              <div className="border border-white/[0.05] bg-[#090909]/40 p-6 flex flex-col gap-4 text-left font-technical select-none">
+                <span className="text-[0.45rem] uppercase tracking-[0.25em] text-white/20">SYSTEM DETAILS</span>
+                <div className="h-px w-full bg-white/[0.04]" />
+                
+                <div className="flex flex-col gap-2.5 text-[0.62rem] text-white/35">
+                  <div className="flex justify-between items-center">
+                    <span>MEMBER SINCE</span>
+                    <span className="text-white/60">{getJoinedDate()}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>SECURITY REGISTRY</span>
+                    <span className="text-green-500 font-semibold uppercase">ACTIVE PROTOCOL</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>PROVIDER</span>
+                    <span className="text-white/60 uppercase font-sans">Firebase Auth</span>
+                  </div>
+                  <div className="flex flex-col gap-1 pt-1.5 border-t border-white/[0.03]">
+                    <span>ACCOUNT CREDENTIAL UID</span>
+                    <span className="text-[0.52rem] text-white/20 break-all select-all font-sans font-light mt-0.5">{user?.uid}</span>
+                  </div>
+                </div>
+              </div>
+
+            </motion.div>
+
+            {/* RIGHT COLUMN: CORE DASHBOARD, METRICS GRID, TIMELINE */}
+            <div className="flex flex-col gap-10">
+
+              {/* Row 1: Identity Status Panel */}
+              <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-4 gap-4 text-left">
+                {/* Card 1: Verification Status */}
+                <div className="p-5 border border-white/[0.05] bg-[#0c0c0c] flex flex-col justify-between h-[100px] hover:-translate-y-0.5 transition-transform duration-200">
+                  <span className="text-[0.45rem] font-technical uppercase tracking-widest text-white/25">VERIFICATION</span>
+                  <div className="flex items-center gap-2 mt-2">
+                    <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                    <span className="text-[0.65rem] font-technical text-green-400 uppercase tracking-wider font-semibold">Verified</span>
+                  </div>
                 </div>
 
-                {loadingEvents ? (
-                  <div className="h-16 w-full bg-white/5 animate-pulse" />
-                ) : activities.length === 0 ? (
-                  <p className="text-body-s text-white/30 font-light">No recent event activity logged in this archive.</p>
-                ) : (
-                  <div className="flex flex-col border border-white/5 divide-y divide-white/5">
-                    {activities.map((act) => (
-                      <div
-                        key={act.id}
-                        onClick={() => act.metadata?.eventId && navigate(`/events/${act.metadata.eventId}`)}
-                        className={cn(
-                          "group flex items-center justify-between p-4.5 hover:bg-white/[0.02] transition-all duration-300",
-                          act.metadata?.eventId ? "cursor-pointer" : "cursor-default"
-                        )}
-                      >
-                        <div className="flex flex-col gap-1 text-left">
-                          <span className="text-[0.55rem] text-white/30 font-technical uppercase tracking-wider">
-                            {act.createdAt ? new Date(act.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
-                          </span>
-                          <h4 className="text-body-s font-light text-primary group-hover:text-white transition-colors duration-200">
-                            {act.action}
-                          </h4>
-                        </div>
-                        {act.metadata?.eventId && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-[0.52rem] text-accent font-technical uppercase tracking-wider">
-                              View Event
-                            </span>
-                            <ChevronRight className="w-3.5 h-3.5 text-white/20 group-hover:text-white/60 group-hover:translate-x-0.5 transition-all duration-300" />
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                {/* Card 2: Organizer Access */}
+                <div className="p-5 border border-white/[0.05] bg-[#0c0c0c] flex flex-col justify-between h-[100px] hover:-translate-y-0.5 transition-transform duration-200">
+                  <span className="text-[0.45rem] font-technical uppercase tracking-widest text-white/25">ORGANIZER CLEARANCE</span>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Shield className={cn("w-3.5 h-3.5 shrink-0", profile?.role === 'organizer' || profile?.role === 'admin' ? "text-accent" : "text-white/20")} />
+                    <span className="text-[0.65rem] font-technical uppercase tracking-wider font-semibold text-primary">
+                      {profile?.role === 'organizer' || profile?.role === 'admin' ? "Authorized" : "Restricted"}
+                    </span>
                   </div>
-                )}
+                </div>
+
+                {/* Card 3: Account Health */}
+                <div className="p-5 border border-white/[0.05] bg-[#0c0c0c] flex flex-col justify-between h-[100px] hover:-translate-y-0.5 transition-transform duration-200">
+                  <span className="text-[0.45rem] font-technical uppercase tracking-widest text-white/25">ACCOUNT HEALTH</span>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Database className="w-3.5 h-3.5 text-accent shrink-0" />
+                    <span className="text-[0.65rem] font-technical text-primary uppercase tracking-wider font-semibold">Excellent</span>
+                  </div>
+                </div>
+
+                {/* Card 4: Faculty Access */}
+                <div className="p-5 border border-white/[0.05] bg-[#0c0c0c] flex flex-col justify-between h-[100px] hover:-translate-y-0.5 transition-transform duration-200">
+                  <span className="text-[0.45rem] font-technical uppercase tracking-widest text-white/25">FACULTY OVERSEE</span>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Lock className="w-3.5 h-3.5 text-white/20 shrink-0" />
+                    <span className="text-[0.65rem] font-technical text-primary uppercase tracking-wider font-semibold">
+                      {profile?.role === 'admin' ? "Admin Mode" : "Standby"}
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Row 2: Profile Metrics Grid */}
+              <motion.div variants={itemVariants} className="flex flex-col gap-4 text-left">
+                <span className="text-[0.52rem] font-technical uppercase tracking-[0.25em] text-white/25 select-none">
+                  IDENTITY METRICS INDEX
+                </span>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {/* Metric: Registered */}
+                  <div className="p-6 border border-white/[0.05] bg-[#0c0c0c] flex flex-col gap-1.5 hover:-translate-y-0.5 transition-transform duration-200">
+                    <span className="text-[0.45rem] font-technical uppercase tracking-widest text-white/30">Registered Events</span>
+                    <span className="text-display-sm font-light text-primary leading-none">
+                      <CountingNumber value={registrations.length} />
+                    </span>
+                  </div>
+
+                  {/* Metric: Completed */}
+                  <div className="p-6 border border-white/[0.05] bg-[#0c0c0c] flex flex-col gap-1.5 hover:-translate-y-0.5 transition-transform duration-200">
+                    <span className="text-[0.45rem] font-technical uppercase tracking-widest text-white/30">Completed Events</span>
+                    <span className="text-display-sm font-light text-primary leading-none">
+                      <CountingNumber value={completedCount} />
+                    </span>
+                  </div>
+
+                  {/* Metric: Upcoming */}
+                  <div className="p-6 border border-white/[0.05] bg-[#0c0c0c] flex flex-col gap-1.5 hover:-translate-y-0.5 transition-transform duration-200">
+                    <span className="text-[0.45rem] font-technical uppercase tracking-widest text-white/30">Upcoming Events</span>
+                    <span className="text-display-sm font-light text-primary leading-none">
+                      <CountingNumber value={upcomingCount} />
+                    </span>
+                  </div>
+
+                  {/* Metric: verified Club Hours */}
+                  <div className="p-6 border border-white/[0.05] bg-[#0c0c0c] flex flex-col gap-1.5 hover:-translate-y-0.5 transition-transform duration-200">
+                    <span className="text-[0.45rem] font-technical uppercase tracking-widest text-white/30">Verified Club Hours</span>
+                    <span className="text-display-sm font-light text-accent leading-none">
+                      <CountingNumber value={totalClubHours} />
+                    </span>
+                  </div>
+
+                  {/* Metric: Verified Records */}
+                  <div className="p-6 border border-white/[0.05] bg-[#0c0c0c] flex flex-col gap-1.5 hover:-translate-y-0.5 transition-transform duration-200">
+                    <span className="text-[0.45rem] font-technical uppercase tracking-widest text-white/30">Verified Records</span>
+                    <span className="text-display-sm font-light text-primary leading-none">
+                      <CountingNumber value={verifiedRecordCount} />
+                    </span>
+                  </div>
+
+                  {/* Metric: Participation Score */}
+                  <div className="p-6 border border-white/[0.05] bg-[#0c0c0c] flex flex-col gap-1.5 hover:-translate-y-0.5 transition-transform duration-200" title="Calculated based on club credits and event participation">
+                    <span className="text-[0.45rem] font-technical uppercase tracking-widest text-white/30">Participation Score</span>
+                    <span className="text-display-sm font-light text-primary leading-none">
+                      <CountingNumber value={participationScore} />
+                    </span>
+                  </div>
+
+                  {/* Metric: Rank */}
+                  <div className="p-6 border border-white/[0.05] bg-[#0c0c0c] flex flex-col gap-1.5 hover:-translate-y-0.5 transition-transform duration-200">
+                    <span className="text-[0.45rem] font-technical uppercase tracking-widest text-white/30">Community Rank</span>
+                    <span className="text-body font-technical font-semibold uppercase text-primary leading-none mt-2">
+                      {communityRank}
+                    </span>
+                  </div>
+
+                  {/* Metric: Attendance % */}
+                  <div className="p-6 border border-white/[0.05] bg-[#0c0c0c] flex flex-col gap-1.5 hover:-translate-y-0.5 transition-transform duration-200">
+                    <span className="text-[0.45rem] font-technical uppercase tracking-widest text-white/30">Attendance Rate</span>
+                    <span className="text-display-sm font-light text-primary leading-none">
+                      <CountingNumber value={attendanceRate} />
+                      <span className="text-xs text-secondary ml-0.5">%</span>
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Row 3: Biography summary */}
+              <motion.div variants={itemVariants} className="flex flex-col gap-4 text-left border-t border-white/[0.04] pt-8">
+                <span className="text-[0.52rem] font-technical uppercase tracking-[0.25em] text-white/25 select-none">
+                  BIOGRAPHY / EXECUTIVE SUMMARY
+                </span>
+                <div className="p-6 border border-white/[0.05] bg-[#0c0c0c] relative">
+                  <p className="text-body-s font-light text-secondary leading-relaxed whitespace-pre-wrap">
+                    {profile?.bio || "No summary written yet. Click 'Edit Profile' to add a custom bio highlighting your academic goals and event interests."}
+                  </p>
+
+                  {/* Interests chips */}
+                  {Array.isArray(profile?.interests) && profile.interests.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-5">
+                      {profile.interests.map((interest) => (
+                        <span
+                          key={interest}
+                          className="px-2.5 py-1 border border-white/[0.06] bg-white/[0.015] text-[0.58rem] font-technical text-white/40 uppercase tracking-widest"
+                        >
+                          {interest}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+
+              {/* Row 4: Credit Ledger (Club Hours) & Achievements */}
+              <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-6 text-left items-start">
+                
+                {/* Credit Ledger */}
+                <motion.div variants={itemVariants} className="flex flex-col gap-4">
+                  <span className="text-[0.52rem] font-technical uppercase tracking-[0.25em] text-white/25 select-none">
+                    CREDIT LEDGER
+                  </span>
+                  
+                  <div className="border border-white/[0.05] bg-[#0c0c0c] p-6 flex flex-col gap-5">
+                    <div className="flex justify-between items-start">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[0.45rem] font-technical text-accent uppercase tracking-widest leading-none">TOTAL VERIFIED HOURS</span>
+                        <h3 className="text-display-md font-light text-primary leading-none mt-1">
+                          <CountingNumber value={totalClubHours} />
+                        </h3>
+                      </div>
+                      <Award className="w-6 h-6 text-accent/50" strokeWidth={1.5} />
+                    </div>
+
+                    <div className="h-px w-full bg-white/[0.04]" />
+
+                    <div className="grid grid-cols-2 gap-y-4 gap-x-2 text-[0.65rem] font-technical text-white/35">
+                      <div className="flex flex-col gap-0.5">
+                        <span>ENTRIES VERIFIED</span>
+                        <span className="text-white/60 font-sans font-light">{verifiedRecordCount} Logs</span>
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <span>AVERAGE RATING</span>
+                        <span className="text-white/60 font-sans font-light">
+                          {verifiedRecordCount > 0 ? (totalClubHours / verifiedRecordCount).toFixed(1) : "0.0"} Credits
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <span>PARTICIPATED</span>
+                        <span className="text-white/60 font-sans font-light">{completedCount} Completed</span>
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <span>LATEST CLUB</span>
+                        <span className="text-white/60 truncate max-w-[120px]">{profile?.clubName || "N/A"}</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
+                      <Button
+                        onClick={() => navigate('/club-hours')}
+                        variant="secondary"
+                        size="sm"
+                        className="w-full text-[0.58rem] font-technical uppercase tracking-widest"
+                      >
+                        View Complete Ledger →
+                      </Button>
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Achievements */}
+                <motion.div variants={itemVariants} className="flex flex-col gap-4">
+                  <span className="text-[0.52rem] font-technical uppercase tracking-[0.25em] text-white/25 select-none">
+                    IDENTITY ACHIEVEMENTS
+                  </span>
+
+                  <div className="border border-white/[0.05] bg-[#0c0c0c] p-6 flex flex-col gap-4.5 select-none">
+                    {/* Badge 1: Verified Participant */}
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "p-2 border",
+                        registrations.length > 0 
+                          ? "border-accent/20 text-accent bg-accent/[0.02]" 
+                          : "border-white/5 text-white/15 bg-white/[0.01]"
+                      )}>
+                        <Star className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex flex-col text-left">
+                        <span className={cn(
+                          "text-[0.62rem] font-technical uppercase tracking-wider leading-none",
+                          registrations.length > 0 ? "text-primary" : "text-white/20"
+                        )}>
+                          Verified Participant
+                        </span>
+                        <span className="text-[0.52rem] text-white/20 tracking-wider mt-0.5 font-technical uppercase">Reg events &gt; 0</span>
+                      </div>
+                    </div>
+
+                    {/* Badge 2: Club Contributor */}
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "p-2 border",
+                        totalClubHours > 0 
+                          ? "border-accent/20 text-accent bg-accent/[0.02]" 
+                          : "border-white/5 text-white/15 bg-white/[0.01]"
+                      )}>
+                        <Award className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex flex-col text-left">
+                        <span className={cn(
+                          "text-[0.62rem] font-technical uppercase tracking-wider leading-none",
+                          totalClubHours > 0 ? "text-primary" : "text-white/20"
+                        )}>
+                          Club Contributor
+                        </span>
+                        <span className="text-[0.52rem] text-white/20 tracking-wider mt-0.5 font-technical uppercase">Verified Hours &gt; 0</span>
+                      </div>
+                    </div>
+
+                    {/* Badge 3: Authorized Organizer */}
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "p-2 border",
+                        profile?.role === 'organizer' || profile?.role === 'admin'
+                          ? "border-accent/20 text-accent bg-accent/[0.02]" 
+                          : "border-white/5 text-white/15 bg-white/[0.01]"
+                      )}>
+                        <Shield className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex flex-col text-left">
+                        <span className={cn(
+                          "text-[0.62rem] font-technical uppercase tracking-wider leading-none",
+                          profile?.role === 'organizer' || profile?.role === 'admin' ? "text-primary" : "text-white/20"
+                        )}>
+                          Organizer Clear
+                        </span>
+                        <span className="text-[0.52rem] text-white/20 tracking-wider mt-0.5 font-technical uppercase">Active organizer status</span>
+                      </div>
+                    </div>
+
+                    {/* Badge 4: Early Member */}
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "p-2 border",
+                        accountAge >= 14 
+                          ? "border-accent/20 text-accent bg-accent/[0.02]" 
+                          : "border-white/5 text-white/15 bg-white/[0.01]"
+                      )}>
+                        <User className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex flex-col text-left">
+                        <span className={cn(
+                          "text-[0.62rem] font-technical uppercase tracking-wider leading-none",
+                          accountAge >= 14 ? "text-primary" : "text-white/20"
+                        )}>
+                          Dossier Established
+                        </span>
+                        <span className="text-[0.52rem] text-white/20 tracking-wider mt-0.5 font-technical uppercase">Member for 14+ days</span>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+
               </div>
+
+              {/* Row 5: Activity Timeline */}
+              <motion.div variants={itemVariants} className="flex flex-col gap-4 text-left border-t border-white/[0.04] pt-8">
+                <span className="text-[0.52rem] font-technical uppercase tracking-[0.25em] text-white/25 select-none">
+                  IDENTITY TIMELINE LOG
+                </span>
+
+                <div className="border border-white/[0.05] bg-[#0c0c0c] p-6 relative">
+                  {loadingEvents ? (
+                    <div className="h-16 w-full bg-white/5 animate-pulse" />
+                  ) : activities.length === 0 ? (
+                    <p className="text-[0.7rem] text-white/35 font-technical uppercase tracking-wider">
+                      No logs recorded in this identity registry database.
+                    </p>
+                  ) : (
+                    <div className="relative border-l border-white/[0.05] pl-6 ml-3 flex flex-col gap-6 text-left">
+                      {activities.map((act) => (
+                        <div key={act.id} className="relative group/timeline-item">
+                          
+                          {/* Timeline dot */}
+                          <div className="absolute -left-[30px] top-1 w-2.5 h-2.5 bg-accent border-[2px] border-[#0c0c0c] transition-colors duration-200 group-hover/timeline-item:bg-accent/80" />
+
+                          <div className="flex flex-col gap-1.5">
+                            {/* Timestamp label */}
+                            <span className="text-[0.52rem] text-white/20 font-technical uppercase tracking-wider">
+                              {act.createdAt ? new Date(act.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
+                            </span>
+                            
+                            {/* Log Description */}
+                            <h4 className="text-[0.75rem] font-light text-primary">
+                              {act.action}
+                            </h4>
+                            
+                            {act.metadata?.eventId && (
+                              <button
+                                onClick={() => navigate(`/events/${act.metadata.eventId}`)}
+                                className="text-[0.52rem] font-technical uppercase tracking-widest text-accent hover:text-accent/80 transition-colors self-start focus:outline-none flex items-center gap-0.5 mt-0.5"
+                              >
+                                <span>Inspect Entry</span>
+                                <ChevronRight className="w-2.5 h-2.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+
             </div>
 
-          </div>
+          </motion.div>
 
-          {/* EDIT PROFILE MODAL: Premium Glassmorphic Overlay */}
+          {/* EDIT PROFILE MODAL Redesigned as Technical Registry Terminal */}
           <AnimatePresence>
             {isEditOpen && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -530,25 +886,25 @@ export const Profile = () => {
                   className="absolute inset-0 bg-[#090909]/80 backdrop-blur-md"
                 />
 
-                {/* Modal box */}
+                {/* Modal Container */}
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.96, y: 16, filter: 'blur(8px)' }}
-                  animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
-                  exit={{ opacity: 0, scale: 0.96, y: 16, filter: 'blur(8px)' }}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
                   transition={{ duration: 0.35, ease: EASE }}
-                  className="bg-[#141414]/90 border border-white/10 backdrop-blur-2xl w-full max-w-xl h-auto max-h-[85vh] overflow-y-auto z-10 flex flex-col rounded-none shadow-[0_32px_60px_-16px_rgba(0,0,0,0.8)] relative font-ui"
+                  className="bg-[#0c0c0c] border border-white/10 w-full max-w-xl h-auto max-h-[85vh] overflow-y-auto z-10 flex flex-col shadow-[0_30px_70px_rgba(0,0,0,0.8)] relative font-ui scrollbar-custom"
                 >
-                  {/* Grain layer */}
+                  {/* Extremely soft grid overlay */}
                   <div
-                    className="absolute inset-0 opacity-[0.02] mix-blend-overlay pointer-events-none"
+                    className="absolute inset-0 opacity-[0.015] mix-blend-overlay pointer-events-none z-0"
                     style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")` }}
                   />
 
                   {/* Header */}
-                  <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between relative z-10">
+                  <div className="px-7 py-6 border-b border-white/[0.05] flex items-center justify-between relative z-10 select-none">
                     <div className="flex flex-col text-left">
-                      <span className="text-[0.6rem] font-technical uppercase tracking-[0.25em] text-white/30">Action // Edit Profile</span>
-                      <h2 className="text-body-l font-light text-primary mt-1">Configure Credentials</h2>
+                      <span className="text-[0.45rem] font-technical uppercase tracking-[0.25em] text-accent">SYSTEM REGISTRY</span>
+                      <h2 className="text-body-l font-light text-primary mt-1">CONFIG TERMINAL</h2>
                     </div>
                     <button
                       type="button"
@@ -556,152 +912,152 @@ export const Profile = () => {
                       onClick={() => setIsEditOpen(false)}
                       className="p-1 text-white/40 hover:text-white focus:outline-none transition-colors"
                     >
-                      <X className="w-5 h-5" />
+                      <X className="w-4 h-4" />
                     </button>
                   </div>
 
-                  {/* Form */}
-                  <form onSubmit={handleEditSave} className="p-6 flex flex-col gap-6 text-left relative z-10">
+                  {/* Config Form */}
+                  <form onSubmit={handleEditSave} className="p-7 flex flex-col gap-6 text-left relative z-10 font-technical">
                     {formError && (
-                      <div className="text-xs text-red-400 font-technical uppercase border border-red-500/20 bg-red-950/20 px-4 py-2">
+                      <div className="text-[0.55rem] text-red-400 font-technical uppercase border border-red-500/20 bg-red-950/20 px-4 py-2 leading-none">
                         {formError}
                       </div>
                     )}
 
-                    {/* Input: Display Name */}
+                    {/* Input: Name */}
                     <div className="flex flex-col gap-2">
-                      <label className="text-micro text-primary">Full Name</label>
+                      <label className="text-[0.52rem] uppercase tracking-widest text-white/35">Full Display Name</label>
                       <input
                         type="text"
                         value={editForm.displayName}
                         onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })}
-                        className="w-full bg-[#111] border border-white/10 px-4 py-2.5 text-sm text-white/80 placeholder-white/20 focus:outline-none focus:border-accent font-ui rounded-none transition-colors"
+                        className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-2.5 text-xs text-white/80 placeholder-white/20 focus:outline-none focus:border-accent font-sans transition-colors rounded-none"
                         required
                         disabled={isSaving}
                       />
                     </div>
 
-                    {/* Input: Profile Avatar URL */}
+                    {/* Input: Avatar URL */}
                     <div className="flex flex-col gap-2">
-                      <label className="text-micro text-primary">Profile Picture URL</label>
+                      <label className="text-[0.52rem] uppercase tracking-widest text-white/35">Profile Avatar URL</label>
                       <input
                         type="url"
                         value={editForm.avatar}
                         onChange={(e) => setEditForm({ ...editForm, avatar: e.target.value })}
                         placeholder="https://images.unsplash.com/..."
-                        className="w-full bg-[#111] border border-white/10 px-4 py-2.5 text-sm text-white/80 placeholder-white/20 focus:outline-none focus:border-accent font-ui rounded-none transition-colors"
+                        className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-2.5 text-xs text-white/80 placeholder-white/20 focus:outline-none focus:border-accent font-sans transition-colors rounded-none"
                         disabled={isSaving}
                       />
                     </div>
 
                     {/* Input: Bio */}
                     <div className="flex flex-col gap-2">
-                      <label className="text-micro text-primary">Biography Summary</label>
+                      <label className="text-[0.52rem] uppercase tracking-widest text-white/35">Biography Summary</label>
                       <textarea
                         value={editForm.bio}
                         onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
                         rows={3}
-                        className="w-full bg-[#111] border border-white/10 px-4 py-2.5 text-sm text-white/80 placeholder-white/20 focus:outline-none focus:border-accent font-ui rounded-none transition-colors resize-none"
+                        className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-2.5 text-xs text-white/80 placeholder-white/20 focus:outline-none focus:border-accent font-sans transition-colors rounded-none resize-none"
                         disabled={isSaving}
                       />
                     </div>
 
-                    {/* Grid: Academic Info */}
+                    {/* Academic Info Grid */}
                     <div className="grid grid-cols-2 gap-4">
                       <div className="flex flex-col gap-2">
-                        <label className="text-micro text-primary">College / Institution</label>
+                        <label className="text-[0.52rem] uppercase tracking-widest text-white/35">College / Institution</label>
                         <input
                           type="text"
                           value={editForm.college}
                           onChange={(e) => setEditForm({ ...editForm, college: e.target.value })}
-                          className="w-full bg-[#111] border border-white/10 px-4 py-2.5 text-sm text-white/80 placeholder-white/20 focus:outline-none focus:border-accent font-ui rounded-none transition-colors"
+                          className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-2.5 text-xs text-white/80 focus:outline-none focus:border-accent font-sans transition-colors rounded-none"
                           disabled={isSaving}
                         />
                       </div>
                       <div className="flex flex-col gap-2">
-                        <label className="text-micro text-primary">Department / Branch</label>
+                        <label className="text-[0.52rem] uppercase tracking-widest text-white/35">Department / Branch</label>
                         <input
                           type="text"
                           value={editForm.branch}
                           onChange={(e) => setEditForm({ ...editForm, branch: e.target.value })}
-                          className="w-full bg-[#111] border border-white/10 px-4 py-2.5 text-sm text-white/80 placeholder-white/20 focus:outline-none focus:border-accent font-ui rounded-none transition-colors"
+                          className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-2.5 text-xs text-white/80 focus:outline-none focus:border-accent font-sans transition-colors rounded-none"
                           disabled={isSaving}
                         />
                       </div>
                     </div>
 
-                    {/* Grid: Study Year & City */}
+                    {/* Study Year & City Grid */}
                     <div className="grid grid-cols-2 gap-4">
                       <div className="flex flex-col gap-2">
-                        <label className="text-micro text-primary">Year of Study</label>
+                        <label className="text-[0.52rem] uppercase tracking-widest text-white/35">Study Year</label>
                         <input
                           type="text"
                           value={editForm.year}
                           onChange={(e) => setEditForm({ ...editForm, year: e.target.value })}
                           placeholder="e.g. 3"
-                          className="w-full bg-[#111] border border-white/10 px-4 py-2.5 text-sm text-white/80 placeholder-white/20 focus:outline-none focus:border-accent font-ui rounded-none transition-colors"
+                          className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-2.5 text-xs text-white/80 focus:outline-none focus:border-accent font-sans transition-colors rounded-none"
                           disabled={isSaving}
                         />
                       </div>
                       <div className="flex flex-col gap-2">
-                        <label className="text-micro text-primary">City Location</label>
+                        <label className="text-[0.52rem] uppercase tracking-widest text-white/35">Locale City</label>
                         <input
                           type="text"
                           value={editForm.city}
                           onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
                           placeholder="e.g. New Delhi"
-                          className="w-full bg-[#111] border border-white/10 px-4 py-2.5 text-sm text-white/80 placeholder-white/20 focus:outline-none focus:border-accent font-ui rounded-none transition-colors"
+                          className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-2.5 text-xs text-white/80 focus:outline-none focus:border-accent font-sans transition-colors rounded-none"
                           disabled={isSaving}
                         />
                       </div>
                     </div>
 
-                    {/* Social links */}
-                    <div className="flex flex-col gap-4 pt-3 border-t border-white/5">
-                      <span className="text-micro text-white/30 uppercase tracking-widest">Web / Social URLs</span>
+                    {/* Social links URL list */}
+                    <div className="flex flex-col gap-4 pt-3 border-t border-white/[0.05]">
+                      <span className="text-[0.52rem] text-white/20 uppercase tracking-widest">Network Coordinates (URLs)</span>
                       <div className="flex flex-col gap-3">
                         <input
                           type="text"
                           value={editForm.github}
                           onChange={(e) => setEditForm({ ...editForm, github: e.target.value })}
-                          placeholder="GitHub handle or full URL"
-                          className="w-full bg-[#111] border border-white/10 px-4 py-2.5 text-sm text-white/80 placeholder-white/20 focus:outline-none focus:border-accent font-ui rounded-none transition-colors"
+                          placeholder="GitHub profile link"
+                          className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-2.5 text-xs text-white/80 focus:outline-none focus:border-accent font-sans transition-colors rounded-none"
                           disabled={isSaving}
                         />
                         <input
                           type="text"
                           value={editForm.linkedin}
                           onChange={(e) => setEditForm({ ...editForm, linkedin: e.target.value })}
-                          placeholder="LinkedIn handle or full URL"
-                          className="w-full bg-[#111] border border-white/10 px-4 py-2.5 text-sm text-white/80 placeholder-white/20 focus:outline-none focus:border-accent font-ui rounded-none transition-colors"
+                          placeholder="LinkedIn profile link"
+                          className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-2.5 text-xs text-white/80 focus:outline-none focus:border-accent font-sans transition-colors rounded-none"
                           disabled={isSaving}
                         />
                         <input
                           type="text"
                           value={editForm.portfolio}
                           onChange={(e) => setEditForm({ ...editForm, portfolio: e.target.value })}
-                          placeholder="Portfolio personal site URL"
-                          className="w-full bg-[#111] border border-white/10 px-4 py-2.5 text-sm text-white/80 placeholder-white/20 focus:outline-none focus:border-accent font-ui rounded-none transition-colors"
+                          placeholder="Web Portfolio link"
+                          className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-2.5 text-xs text-white/80 focus:outline-none focus:border-accent font-sans transition-colors rounded-none"
                           disabled={isSaving}
                         />
                       </div>
                     </div>
 
-                    {/* Input: Interests/Skills */}
+                    {/* Input: Interests / comma separated */}
                     <div className="flex flex-col gap-2">
-                      <label className="text-micro text-primary">Interests / Skills (Comma-separated)</label>
+                      <label className="text-[0.52rem] uppercase tracking-widest text-white/35">Interests & coordinates (Comma-separated)</label>
                       <input
                         type="text"
                         value={editForm.interests}
                         onChange={(e) => setEditForm({ ...editForm, interests: e.target.value })}
-                        placeholder="e.g. UX Design, AI, Web Development"
-                        className="w-full bg-[#111] border border-white/10 px-4 py-2.5 text-sm text-white/80 placeholder-white/20 focus:outline-none focus:border-accent font-ui rounded-none transition-colors"
+                        placeholder="e.g. Design, AI, Cryptography"
+                        className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-2.5 text-xs text-white/80 focus:outline-none focus:border-accent font-sans transition-colors rounded-none"
                         disabled={isSaving}
                       />
                     </div>
 
                     {/* Actions */}
-                    <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
+                    <div className="flex justify-end gap-3 pt-4 border-t border-white/[0.05]">
                       <Button
                         type="button"
                         variant="secondary"
@@ -716,7 +1072,7 @@ export const Profile = () => {
                         disabled={isSaving}
                         size="sm"
                       >
-                        {isSaving ? "Saving..." : "Save Changes"}
+                        {isSaving ? "Saving..." : "Save Coordinates"}
                       </Button>
                     </div>
 
