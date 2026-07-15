@@ -65,7 +65,11 @@ export const createEventPublishedNotification = async (event) => {
   // Resolve publishing club/organizer name with fallbacks:
   // event.clubName -> event.organizer -> event.creatorName -> "NexEvent Organizer"
   const clubName = (event.clubName || event.organizer || event.creatorName || "NexEvent Organizer").trim();
-  const message = `"${event.title}" has been published by ${clubName}.`;
+  
+  let message = `"${event.title}" has been published by ${clubName}.`;
+  if (event.clubHours?.enabled && event.clubHours.participationHours > 0) {
+    message = `"${event.title}" has been published by ${clubName}. Eligible participants may receive ${event.clubHours.participationHours} verified club hours.`;
+  }
 
   const notification = {
     id: notifId,

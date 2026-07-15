@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useMagnet } from '../../hooks/useMagnet';
 import { useConfirm } from '../../context/ConfirmContext';
-import { cn } from '../../utils/cn';
 
 const EASE = [0.16, 1, 0.3, 1];
 
@@ -61,19 +60,24 @@ export const ProfileDropdown = () => {
 
   const role = (profile?.role || 'student').toLowerCase().trim();
   const showStudio = role === 'organizer' || role === 'admin';
+  const showFaculty = role === 'faculty' || role === 'admin';
   const showAdmin = role === 'admin';
 
-  const menuItems = [
-    { index: '01', label: 'PROFILE', to: '/profile' },
-    { index: '02', label: 'MY REGISTRATIONS', to: '/my-events' },
-    ...(showStudio ? [
-      { index: '03', label: 'ORGANIZER STUDIO', to: '/organizer' }
-    ] : []),
-    ...(showAdmin ? [
-      { index: '04', label: 'ADMIN CONSOLE', to: '/admin' }
-    ] : []),
-    { index: '05', label: 'SETTINGS', to: '/settings' },
+  const baseItems = [
+    { label: 'PROFILE', to: '/profile' },
+    { label: 'MY REGISTRATIONS', to: '/my-events' },
+    { label: 'MY CLUB HOURS', to: '/club-hours' },
+    ...(showStudio ? [{ label: 'ORGANIZER STUDIO', to: '/organizer' }] : []),
+    ...(showFaculty ? [{ label: 'FACULTY DESK', to: '/faculty' }] : []),
+    ...(showAdmin ? [{ label: 'ADMIN CONSOLE', to: '/admin' }] : []),
+    { label: 'SETTINGS', to: '/settings' },
   ];
+
+  const menuItems = baseItems.map((item, idx) => ({
+    index: String(idx + 1).padStart(2, '0'),
+    label: item.label,
+    to: item.to
+  }));
 
   const containerVariants = {
     hidden: { opacity: 0, y: -6 },

@@ -167,6 +167,12 @@ export const registerForEvent = async (userId, eventId) => {
         userId,
         userName: userProfile.displayName || userProfile.email || "Unknown Student",
         userEmail: userProfile.email || "",
+        // Snapshot additional profile fields for robust attendee registry hydration
+        studentName: userProfile.displayName || userProfile.email || "Unknown Student",
+        email: userProfile.email || "",
+        college: userProfile.college || "N/A",
+        branch: userProfile.department || userProfile.branch || "N/A",
+        avatar: userProfile.avatar || "",
         clubId: eventData.clubId || null,
         organizerId: eventData.creatorId || "",
         registeredAt: new Date().toISOString(),
@@ -196,6 +202,12 @@ export const registerForEvent = async (userId, eventId) => {
       // If capacity reached, close the registration
       if (newRegisteredCount >= capacity) {
         updateData.status = "closed";
+      }
+
+      // Lock club hours configuration on the first registration
+      if (currentRegistered === 0 && eventData.clubHours?.enabled === true && eventData.clubHoursLocked !== true) {
+        updateData.clubHoursLocked = true;
+        updateData.clubHoursLockedAt = new Date().toISOString();
       }
 
       transaction.update(eventRef, updateData);
@@ -416,9 +428,13 @@ export const checkInByPassToken = async (passToken, scannerEventId, actorId) => 
   }
 
   try {
-    // Step 1: Find registration by passToken
+    // Step 1: Find registration by passToken under the specific scanned event
     const registrationsCol = collection(db, COLLECTION_NAME);
-    const q = query(registrationsCol, where("passToken", "==", passToken));
+    const q = query(
+      registrationsCol,
+      where("eventId", "==", scannerEventId),
+      where("passToken", "==", passToken)
+    );
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
@@ -510,21 +526,21 @@ export const subscribeToEventRegistrations = (eventId, onUpdate) => {
         const uData = uDoc.exists() ? uDoc.data() : {};
         return {
           ...reg,
-          studentName: uData.displayName || "Unknown Student",
-          email: uData.email || "",
-          college: uData.college || "N/A",
-          branch: uData.department || uData.branch || "N/A",
-          avatar: uData.avatar || ""
+          studentName: uData.displayName || reg.studentName || reg.userName || "Unknown Student",
+          email: uData.email || reg.email || reg.userEmail || "",
+          college: uData.college || reg.college || "N/A",
+          branch: uData.department || uData.branch || reg.branch || "N/A",
+          avatar: uData.avatar || reg.avatar || ""
         };
       } catch (e) {
-        logFirebaseError("[subscribeToEventRegistrations] User profile fetch failed", e);
+        logFirebaseError("[subscribeToEventRegistrations] User profile fetch failed, using registration snapshots", e);
         return {
           ...reg,
-          studentName: "Unknown Student",
-          email: "",
-          college: "N/A",
-          branch: "N/A",
-          avatar: ""
+          studentName: reg.studentName || reg.userName || "Unknown Student",
+          email: reg.email || reg.userEmail || "",
+          college: reg.college || "N/A",
+          branch: reg.branch || "N/A",
+          avatar: reg.avatar || ""
         };
       }
     }));

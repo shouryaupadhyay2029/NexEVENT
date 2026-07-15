@@ -1,6 +1,5 @@
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, orderBy, limit, onSnapshot } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, orderBy, limit, onSnapshot, runTransaction, serverTimestamp, where } from "firebase/firestore";
 import { db } from "../firebase/firestore";
-import { auth } from "../firebase/config";
 import { logFirebaseError } from "../firebase/errorLogging";
 import { verifyUserPermission } from "./permissionService";
 
@@ -204,6 +203,7 @@ export const updateUserRole = async (targetUid, newRole, updates = {}) => {
     const fields = {
       role: newRole,
       updatedAt: new Date().toISOString(),
+      ...(newRole === "student" ? { assignedClubIds: [] } : {}),
       ...updates
     };
 
@@ -436,4 +436,255 @@ export const subscribeToAdminStats = (onUpdate) => {
     unsubEvents();
     unsubRegs();
   };
+};
+
+/**
+ * Faculty Role & Scope Management Operations
+ */
+
+/**
+ * Activates faculty role for a target student.
+ */
+export const activateFaculty = async (targetUid, clubIds, expectedAuthorityVersion = 0) => {
+  const adminUid = await verifyAdminAccess();
+  
+  // Normalize club IDs: unique, trim, non-empty
+  const cleanClubIds = [...new Set((clubIds || []).map(id => (id || '').trim()).filter(Boolean))];
+  
+  const userRef = doc(db, USERS_COLLECTION, targetUid);
+  
+  try {
+    return await runTransaction(db, async (transaction) => {
+      const userSnap = await transaction.get(userRef);
+      if (!userSnap.exists()) {
+        throw new Error("Target user profile not found.");
+      }
+      
+      const userData = userSnap.data();
+      const targetEmail = (userData.email || "").toLowerCase().trim();
+      
+      // System Owner Protection check
+      if (targetUid === "YsSzEO8nS3UXcr7bv7X2XJ4BaDH3" || targetEmail === "upadhyayshourya352@gmail.com") {
+        throw new Error("SYSTEM_OWNER_PROTECTED: The NexEvent System Owner authority cannot be modified.");
+      }
+      
+      const currentRole = (userData.role || "student").toLowerCase().trim();
+      if (currentRole === "faculty") {
+        throw new Error("ALREADY_FACULTY: This user is already a faculty verifier.");
+      }
+      if (currentRole === "organizer") {
+        throw new Error("ROLE_CONFLICT: This user currently has Organizer authority. Activating Faculty authority would replace their current role.");
+      }
+      if (currentRole !== "student") {
+        throw new Error("INVALID_ROLE_TRANSITION: This account cannot be converted to faculty from its current role.");
+      }
+      
+      // Concurrency check
+      const currentVersion = userData.authorityVersion || 0;
+      if (currentVersion !== expectedAuthorityVersion) {
+        throw new Error("AUTHORITY_CHANGED_CONCURRENTLY: This user's authority changed during your action. Refresh and review the latest state.");
+      }
+      
+      // Validate each club exists and is active
+      for (const clubId of cleanClubIds) {
+        const clubRef = doc(db, CLUBS_COLLECTION, clubId);
+        const clubSnap = await transaction.get(clubRef);
+        if (!clubSnap.exists()) {
+          throw new Error(`Club "${clubId}" does not exist.`);
+        }
+        if (clubSnap.data().status !== "active") {
+          throw new Error(`Club "${clubSnap.data().name || clubId}" is inactive or archived.`);
+        }
+      }
+      
+      // Update user document
+      transaction.update(userRef, {
+        role: "faculty",
+        assignedClubIds: cleanClubIds,
+        authorityVersion: currentVersion + 1,
+        updatedAt: new Date().toISOString()
+      });
+      
+      // Create role audit record
+      const auditCol = collection(db, "roleAudit");
+      const auditRef = doc(auditCol);
+      transaction.set(auditRef, {
+        action: "faculty_activated",
+        targetUserId: targetUid,
+        actorId: adminUid,
+        previousRole: currentRole,
+        newRole: "faculty",
+        previousAssignedClubIds: [],
+        newAssignedClubIds: cleanClubIds,
+        createdAt: serverTimestamp()
+      });
+      
+      return true;
+    });
+  } catch (error) {
+    logFirebaseError("[activateFaculty] Failed to activate faculty role.", error);
+    throw error;
+  }
+};
+
+/**
+ * Updates the verification scope of an existing faculty member.
+ */
+export const updateFacultyScope = async (targetUid, clubIds, expectedAuthorityVersion = 0) => {
+  const adminUid = await verifyAdminAccess();
+  
+  // Normalize club IDs: unique, trim, non-empty
+  const cleanClubIds = [...new Set((clubIds || []).map(id => (id || '').trim()).filter(Boolean))];
+  
+  const userRef = doc(db, USERS_COLLECTION, targetUid);
+  
+  try {
+    return await runTransaction(db, async (transaction) => {
+      const userSnap = await transaction.get(userRef);
+      if (!userSnap.exists()) {
+        throw new Error("Target user profile not found.");
+      }
+      
+      const userData = userSnap.data();
+      const targetEmail = (userData.email || "").toLowerCase().trim();
+      
+      if (targetUid === "YsSzEO8nS3UXcr7bv7X2XJ4BaDH3" || targetEmail === "upadhyayshourya352@gmail.com") {
+        throw new Error("SYSTEM_OWNER_PROTECTED: The NexEvent System Owner authority cannot be modified.");
+      }
+      
+      const currentRole = (userData.role || "student").toLowerCase().trim();
+      if (currentRole !== "faculty") {
+        throw new Error("Target user is not a faculty verifier.");
+      }
+      
+      // Concurrency check
+      const currentVersion = userData.authorityVersion || 0;
+      if (currentVersion !== expectedAuthorityVersion) {
+        throw new Error("AUTHORITY_CHANGED_CONCURRENTLY: This user's authority changed during your action. Refresh and review the latest state.");
+      }
+      
+      // Validate each club exists and is active
+      for (const clubId of cleanClubIds) {
+        const clubRef = doc(db, CLUBS_COLLECTION, clubId);
+        const clubSnap = await transaction.get(clubRef);
+        if (!clubSnap.exists()) {
+          throw new Error(`Club "${clubId}" does not exist.`);
+        }
+        if (clubSnap.data().status !== "active") {
+          throw new Error(`Club "${clubSnap.data().name || clubId}" is inactive or archived.`);
+        }
+      }
+      
+      const prevAssignedClubIds = userData.assignedClubIds || [];
+      
+      // Update user document
+      transaction.update(userRef, {
+        assignedClubIds: cleanClubIds,
+        authorityVersion: currentVersion + 1,
+        updatedAt: new Date().toISOString()
+      });
+      
+      // Create role audit record
+      const auditCol = collection(db, "roleAudit");
+      const auditRef = doc(auditCol);
+      transaction.set(auditRef, {
+        action: "faculty_scope_updated",
+        targetUserId: targetUid,
+        actorId: adminUid,
+        previousRole: "faculty",
+        newRole: "faculty",
+        previousAssignedClubIds: prevAssignedClubIds,
+        newAssignedClubIds: cleanClubIds,
+        createdAt: serverTimestamp()
+      });
+      
+      return true;
+    });
+  } catch (error) {
+    logFirebaseError("[updateFacultyScope] Failed to update faculty scope.", error);
+    throw error;
+  }
+};
+
+/**
+ * Revokes faculty authority and demotes back to student.
+ */
+export const revokeFaculty = async (targetUid, expectedAuthorityVersion = 0) => {
+  const adminUid = await verifyAdminAccess();
+  const userRef = doc(db, USERS_COLLECTION, targetUid);
+  
+  try {
+    return await runTransaction(db, async (transaction) => {
+      const userSnap = await transaction.get(userRef);
+      if (!userSnap.exists()) {
+        throw new Error("Target user profile not found.");
+      }
+      
+      const userData = userSnap.data();
+      const targetEmail = (userData.email || "").toLowerCase().trim();
+      
+      if (targetUid === "YsSzEO8nS3UXcr7bv7X2XJ4BaDH3" || targetEmail === "upadhyayshourya352@gmail.com") {
+        throw new Error("SYSTEM_OWNER_PROTECTED: The NexEvent System Owner authority cannot be modified.");
+      }
+      
+      const currentRole = (userData.role || "student").toLowerCase().trim();
+      if (currentRole !== "faculty") {
+        throw new Error("Target user is not a faculty verifier.");
+      }
+      
+      // Concurrency check
+      const currentVersion = userData.authorityVersion || 0;
+      if (currentVersion !== expectedAuthorityVersion) {
+        throw new Error("AUTHORITY_CHANGED_CONCURRENTLY: This user's authority changed during your action. Refresh and review the latest state.");
+      }
+      
+      const prevAssignedClubIds = userData.assignedClubIds || [];
+      
+      // Update user document (role -> student, assignedClubIds -> empty)
+      transaction.update(userRef, {
+        role: "student",
+        assignedClubIds: [],
+        authorityVersion: currentVersion + 1,
+        updatedAt: new Date().toISOString()
+      });
+      
+      // Create role audit record
+      const auditCol = collection(db, "roleAudit");
+      const auditRef = doc(auditCol);
+      transaction.set(auditRef, {
+        action: "faculty_revoked",
+        targetUserId: targetUid,
+        actorId: adminUid,
+        previousRole: "faculty",
+        newRole: "student",
+        previousAssignedClubIds: prevAssignedClubIds,
+        newAssignedClubIds: [],
+        createdAt: serverTimestamp()
+      });
+      
+      return true;
+    });
+  } catch (error) {
+    logFirebaseError("[revokeFaculty] Failed to revoke faculty authority.", error);
+    throw error;
+  }
+};
+
+/**
+ * Checks number of pending submissions for a specific club.
+ */
+export const getPendingSubmissionsCountForClub = async (clubId) => {
+  await verifyAdminAccess();
+  try {
+    const q = query(
+      collection(db, "clubHourSubmissions"),
+      where("clubId", "==", clubId),
+      where("status", "==", "pending_faculty")
+    );
+    const snap = await getDocs(q);
+    return snap.size;
+  } catch (error) {
+    logFirebaseError("[getPendingSubmissionsCountForClub] Failed to check pending count.", error);
+    return 0;
+  }
 };

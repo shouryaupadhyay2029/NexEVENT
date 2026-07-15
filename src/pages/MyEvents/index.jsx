@@ -8,10 +8,14 @@ import { PageTransition } from '../../components/layout/PageTransition';
 import { PageContainer } from '../../components/layout/PageContainer';
 import { SectionWrapper } from '../../components/layout/SectionWrapper';
 import { AxisMarker } from '../../components/layout/AxisMarker';
+import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
 import { Calendar, Clock, MapPin, ChevronRight, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useConfirm } from '../../context/ConfirmContext';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '../../firebase/firestore';
+import { resolveStudentClubCreditState } from '../../utils/clubHours';
 
 export const MyEvents = () => {
   const { user } = useAuth();
@@ -24,6 +28,45 @@ export const MyEvents = () => {
   const [selectedEventForPass, setSelectedEventForPass] = useState(null);
   const [error, setError] = useState('');
   const [toast, setToast] = useState(null);
+
+  const [ledgerEntries, setLedgerEntries] = useState([]);
+  const [pendingStatuses, setPendingStatuses] = useState([]);
+  const [totalHours, setTotalHours] = useState(0);
+
+  // Real-time subscriptions for student club hours state
+  useEffect(() => {
+    if (!user?.uid) return;
+    
+    // Fetch ledger entries
+    const qLedger = query(
+      collection(db, "clubHourLedger"),
+      where("studentId", "==", user.uid),
+      where("status", "==", "approved")
+    );
+    
+    const unsubLedger = onSnapshot(qLedger, (snap) => {
+      const records = snap.docs.map(doc => doc.data());
+      setLedgerEntries(records);
+      const total = records.reduce((sum, r) => sum + (Number(r.hours) || 0), 0);
+      setTotalHours(total);
+    });
+
+    // Fetch pending statuses
+    const qStatus = query(
+      collection(db, "studentCreditStatus"),
+      where("studentId", "==", user.uid)
+    );
+
+    const unsubStatus = onSnapshot(qStatus, (snap) => {
+      const records = snap.docs.map(doc => doc.data());
+      setPendingStatuses(records);
+    });
+
+    return () => {
+      unsubLedger();
+      unsubStatus();
+    };
+  }, [user?.uid]);
 
   const triggerToast = (type, message) => {
     setToast({ type, message });
@@ -184,6 +227,26 @@ export const MyEvents = () => {
             </p>
           </div>
 
+          {/* CLUB HOURS SUMMARY PREVIEW */}
+          {user && (
+            <div className="p-6 border border-white/5 bg-[#111]/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-ui relative z-10 select-none">
+              <div className="flex flex-col gap-1.5 text-left">
+                <span className="text-[0.65rem] font-technical uppercase tracking-[0.2em] text-accent">NEXEVENT CLUB CREDIT</span>
+                <span className="text-body-s font-light text-secondary">
+                  You have accumulated <strong className="text-primary font-medium">{totalHours} verified club hours</strong>.
+                </span>
+              </div>
+              <Button
+                onClick={() => navigate('/club-hours')}
+                variant="secondary"
+                size="sm"
+                className="font-technical uppercase tracking-widest text-[9px] min-w-[150px] shrink-0"
+              >
+                View Credit Record
+              </Button>
+            </div>
+          )}
+
           {/* Tab Selector */}
           <div className="w-full overflow-x-auto scrollbar-none snap-x snap-mandatory flex gap-6 border-b border-white/5 pb-2 mt-8 px-1">
             {['upcoming', 'past', 'cancelled', 'completed'].map((tab) => (
@@ -246,6 +309,45 @@ export const MyEvents = () => {
                     : (reg.ticketQR || JSON.stringify({ ticketId: reg.ticketId, eventId: event.id, userId: user.uid }));
                   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(qrPayload)}&color=ffffff&bgcolor=141414`;
 
+                  const eventStatus = pendingStatuses.find(s => s.eventId === event.id);
+                  const eventLedger = ledgerEntries.find(l => l.eventId === event.id);
+                  
+                  const creditState = resolveStudentClubCreditState({
+                    registration: reg,
+                    studentCreditStatus: eventStatus,
+                    ledgerEntry: eventLedger
+                  });
+
+                  const creditBadge = (() => {
+                    if (!event.clubHours?.enabled) return null;
+                    
+                    switch (creditState) {
+                      case 'verified':
+                        return {
+                          label: `+${eventLedger?.hours || 0} HRS // VERIFIED`,
+                          className: "border-green-500/20 bg-green-950/20 text-green-400 font-semibold"
+                        };
+                      case 'organizer_review':
+                        return {
+                          label: "CREDIT UNDER ORGANIZER REVIEW",
+                          className: "border-orange-500/20 bg-orange-950/20 text-orange-400"
+                        };
+                      case 'pending_faculty':
+                        return {
+                          label: `${eventStatus?.proposedHours || event.clubHours.participationHours} HRS // PENDING FACULTY`,
+                          className: "border-accent/20 bg-accent/5 text-accent"
+                        };
+                      case 'draft_allocation':
+                      case 'eligible':
+                      case 'attendance_pending':
+                      default:
+                        return {
+                          label: `${event.clubHours.participationHours} HRS // CLUB CREDIT`,
+                          className: "border-white/10 bg-white/5 text-white/50"
+                        };
+                    }
+                  })();
+
                   return (
                     <div
                       key={event.id}
@@ -276,6 +378,14 @@ export const MyEvents = () => {
                             )}>
                               {reg.status === 'cancelled' ? "Cancelled" : reg.checkedIn ? "Checked In" : "Confirmed"}
                             </span>
+                            {creditBadge && (
+                              <span className={cn(
+                                "text-[0.55rem] font-technical uppercase px-2 py-0.5 border leading-tight",
+                                creditBadge.className
+                              )}>
+                                {creditBadge.label}
+                              </span>
+                            )}
                           </div>
 
                           {/* Event Title */}
@@ -349,8 +459,46 @@ export const MyEvents = () => {
               const regDoc = regs[eventItem.id] || {};
               const regNo = regDoc.ticketId || "PENDING";
               const isCheckedIn = regDoc.checkedIn || false;
-              // QR identity: always read persisted passToken from Firestore.
-              // NEVER generate a replacement token here — the QR component is a renderer only.
+
+              const eventStatus = pendingStatuses.find(s => s.eventId === eventItem.id);
+              const eventLedger = ledgerEntries.find(l => l.eventId === eventItem.id);
+              
+              const creditState = resolveStudentClubCreditState({
+                registration: regDoc,
+                studentCreditStatus: eventStatus,
+                ledgerEntry: eventLedger
+              });
+
+              const modalCreditBadge = (() => {
+                if (!eventItem.clubHours?.enabled) return null;
+                
+                switch (creditState) {
+                  case 'verified':
+                    return {
+                      label: `+${eventLedger?.hours || 0} HRS // VERIFIED`,
+                      className: "border-green-500/20 bg-green-950/20 text-green-400 font-semibold"
+                    };
+                  case 'organizer_review':
+                    return {
+                      label: "CREDIT UNDER ORGANIZER REVIEW",
+                      className: "border-orange-500/20 bg-orange-950/20 text-orange-400"
+                    };
+                  case 'pending_faculty':
+                    return {
+                      label: `${eventStatus?.proposedHours || eventItem.clubHours.participationHours} HRS // PENDING FACULTY`,
+                      className: "border-accent/20 bg-accent/5 text-accent"
+                    };
+                  case 'draft_allocation':
+                  case 'eligible':
+                  case 'attendance_pending':
+                  default:
+                    return {
+                      label: `${eventItem.clubHours.participationHours} HRS // CLUB CREDIT`,
+                      className: "border-white/10 bg-white/5 text-white/50"
+                    };
+                }
+              })();
+
               const qrPayload = regDoc.passToken
                 ? JSON.stringify({ v: 1, type: 'nexevent_pass', token: regDoc.passToken })
                 : (regDoc.ticketQR || JSON.stringify({ ticketId: regDoc.ticketId, eventId: eventItem.id, userId: user.uid }));
@@ -465,6 +613,19 @@ export const MyEvents = () => {
                             {isCheckedIn ? "Checked In" : "Confirmed"}
                           </span>
                         </div>
+
+                        {/* Club Credit Badge */}
+                        {modalCreditBadge && (
+                          <div className="flex flex-col items-center gap-1 border-t border-white/5 pt-4 mt-1 w-full">
+                            <span className="text-micro text-white/30 uppercase tracking-widest">Club Credit</span>
+                            <span className={cn(
+                              "text-micro font-technical uppercase tracking-widest px-2.5 py-0.5 border leading-tight",
+                              modalCreditBadge.className
+                            )}>
+                              {modalCreditBadge.label}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       <span className="text-[9px] text-white/20 font-mono uppercase tracking-wider pt-6">

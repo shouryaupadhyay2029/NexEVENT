@@ -13,13 +13,14 @@ import { cn } from '../../utils/cn';
 import { 
   createClub, updateClub, deleteClub, getAllClubs, 
   getAllUsers, updateUserRole, getAuditLogs, updateUserSuspension,
-  subscribeToAdminStats
+  subscribeToAdminStats, activateFaculty, updateFacultyScope, revokeFaculty,
+  getPendingSubmissionsCountForClub
 } from '../../services/adminService';
 import { updateEvent, deleteEvent, getAllEvents } from '../../services/eventService';
 import { createInvite, revokeInvite, getInvites } from '../../services/inviteService';
 import { 
-  Shield, Layers, Ticket, Users, Calendar, FileText, Plus, Edit2, 
-  Trash2, Copy, Check, X, Search, Sliders,
+  Shield, Ticket, Plus, Edit2, 
+  Trash2, Copy, X, Search,
   Ban, ShieldCheck, UserMinus, UserCheck, Lock
 } from 'lucide-react';
 import { useConfirm } from '../../context/ConfirmContext';
@@ -29,9 +30,10 @@ const TABS = [
   { id: 'clubs', label: 'Clubs', index: '02' },
   { id: 'invitations', label: 'Invitations', index: '03' },
   { id: 'users', label: 'Users & Roles', index: '04' },
-  { id: 'organizers', label: 'Organizers Registry', index: '05' },
-  { id: 'events', label: 'Events Archive', index: '06' },
-  { id: 'logs', label: 'Audit Registry', index: '07' }
+  { id: 'faculty', label: 'Faculty Management', index: '05' },
+  { id: 'organizers', label: 'Organizers Registry', index: '06' },
+  { id: 'events', label: 'Events Archive', index: '07' },
+  { id: 'logs', label: 'Audit Registry', index: '08' }
 ];
 
 const EASE = [0.16, 1, 0.3, 1];
@@ -92,6 +94,13 @@ export const AdminConsole = () => {
   const [organizerQuery, setOrganizerQuery] = useState('');
   const [viewingUserProfile, setViewingUserProfile] = useState(null);
   
+  // Faculty Management State
+  const [facultySearchQuery, setFacultySearchQuery] = useState('');
+  const [facultyScopeModalOpen, setFacultyScopeModalOpen] = useState(false);
+  const [selectedFacultyForEdit, setSelectedFacultyForEdit] = useState(null);
+  const [facultyScopeClubs, setFacultyScopeClubs] = useState([]);
+  const [activateSearchQuery, setActivateSearchQuery] = useState('');
+  
   // Modals & Forms State
   const [clubModalOpen, setClubModalOpen] = useState(false);
   const [editingClub, setEditingClub] = useState(null);
@@ -144,6 +153,9 @@ export const AdminConsole = () => {
         await Promise.all([loadInvites(), loadClubs()]);
       }
       else if (activeTab === 'users') await loadUsers();
+      else if (activeTab === 'faculty') {
+        await Promise.all([loadUsers(), loadClubs()]);
+      }
       else if (activeTab === 'organizers') {
         await Promise.all([loadUsers(), loadEvents(), loadClubs()]);
       }
@@ -372,6 +384,132 @@ export const AdminConsole = () => {
     }
   };
 
+  const checkCoverageWarning = async (targetUid, newClubIds) => {
+    const targetUser = users.find(u => u.uid === targetUid);
+    if (!targetUser) return [];
+    
+    const currentClubs = targetUser.assignedClubIds || [];
+    const removedClubs = currentClubs.filter(cid => !newClubIds.includes(cid));
+    
+    if (removedClubs.length === 0) return [];
+    
+    const otherFaculty = users.filter(u => u.uid !== targetUid && (u.role || '').toLowerCase().trim() === 'faculty');
+    const warningClubs = [];
+    
+    for (const clubId of removedClubs) {
+      const hasOtherVerifier = otherFaculty.some(f => Array.isArray(f.assignedClubIds) && f.assignedClubIds.includes(clubId));
+      if (!hasOtherVerifier) {
+        const pendingCount = await getPendingSubmissionsCountForClub(clubId);
+        if (pendingCount > 0) {
+          const clubObj = clubs.find(c => c.clubId === clubId);
+          warningClubs.push({
+            clubId,
+            clubName: clubObj?.name || clubId,
+            pendingCount
+          });
+        }
+      }
+    }
+    
+    return warningClubs;
+  };
+
+  const handleSaveFacultyScope = async (targetUid, clubIds) => {
+    try {
+      const warningClubs = await checkCoverageWarning(targetUid, clubIds);
+      
+      const proceedSave = async () => {
+        setLoading(true);
+        try {
+          const targetUser = users.find(u => u.uid === targetUid);
+          const expectedVersion = targetUser ? (targetUser.authorityVersion || 0) : 0;
+          const isNew = !targetUser || (targetUser.role || '').toLowerCase().trim() !== 'faculty';
+          if (isNew) {
+            await activateFaculty(targetUid, clubIds, expectedVersion);
+            triggerToast('success', 'Faculty verification authority activated.');
+          } else {
+            await updateFacultyScope(targetUid, clubIds, expectedVersion);
+            triggerToast('success', 'Verification scope updated.');
+          }
+          setFacultyScopeModalOpen(false);
+          await loadUsers();
+        } catch (err) {
+          console.error(err);
+          triggerToast('error', err.message || 'Failed to update faculty authority.');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      if (warningClubs.length > 0) {
+        const warningsListStr = warningClubs.map(wc => `${wc.clubName} currently has ${wc.pendingCount} pending club-hour submissions and no other assigned faculty verifier.`).join('\n\n');
+        await confirm({
+          title: 'VERIFICATION COVERAGE WARNING',
+          message: `${warningsListStr}\n\nDo you want to proceed and leave these clubs with no active faculty coverage?`,
+          variant: 'danger',
+          confirmText: 'Proceed Anyway',
+          cancelText: 'Cancel',
+          onConfirm: proceedSave
+        });
+      } else {
+        await proceedSave();
+      }
+    } catch (err) {
+      console.error(err);
+      triggerToast('error', err.message || 'Verification check failed.');
+    }
+  };
+
+  const handleRevokeFacultyRole = async (targetUid) => {
+    const targetUser = users.find(u => u.uid === targetUid);
+    if (!targetUser) return;
+    
+    await confirm({
+      title: 'REVOKE FACULTY AUTHORITY?',
+      message: `Are you sure you want to revoke faculty authority for ${targetUser.displayName || 'this user'}? They will immediately lose access to the Faculty Verification Desk and all club verification scopes.`,
+      variant: 'danger',
+      confirmText: 'Revoke Authority',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          const warningClubs = await checkCoverageWarning(targetUid, []);
+          
+          const proceedRevoke = async () => {
+            setLoading(true);
+            try {
+              const expectedVersion = targetUser ? (targetUser.authorityVersion || 0) : 0;
+              await revokeFaculty(targetUid, expectedVersion);
+              triggerToast('success', 'Faculty authority revoked.');
+              await loadUsers();
+            } catch (err) {
+              console.error(err);
+              triggerToast('error', err.message || 'Failed to revoke faculty role.');
+            } finally {
+              setLoading(false);
+            }
+          };
+
+          if (warningClubs.length > 0) {
+            const warningsListStr = warningClubs.map(wc => `${wc.clubName} currently has ${wc.pendingCount} pending club-hour submissions and no other assigned faculty verifier.`).join('\n\n');
+            await confirm({
+              title: 'VERIFICATION COVERAGE WARNING',
+              message: `${warningsListStr}\n\nDo you want to proceed with revocation and leave these clubs with no active faculty coverage?`,
+              variant: 'danger',
+              confirmText: 'Proceed Revocation',
+              cancelText: 'Cancel',
+              onConfirm: proceedRevoke
+            });
+          } else {
+            await proceedRevoke();
+          }
+        } catch (err) {
+          console.error(err);
+          triggerToast('error', err.message || 'Verification check failed.');
+        }
+      }
+    });
+  };
+
   // Event administrative operations
   const handleAdminDeleteEvent = async (eventId) => {
     await confirm({
@@ -449,6 +587,35 @@ export const AdminConsole = () => {
         (u.clubName || '').toLowerCase().includes(organizerQuery.toLowerCase());
     });
   }, [users, organizerQuery]);
+
+  // Memoized faculty search/filters
+  const facultyList = useMemo(() => {
+    return users.filter(u => (u.role || '').toLowerCase().trim() === 'faculty');
+  }, [users]);
+
+  const filteredFaculty = useMemo(() => {
+    return facultyList.filter(f => {
+      const q = facultySearchQuery.toLowerCase().trim();
+      if (!q) return true;
+      return (
+        (f.displayName || '').toLowerCase().includes(q) ||
+        (f.email || '').toLowerCase().includes(q)
+      );
+    });
+  }, [facultyList, facultySearchQuery]);
+
+  // List of student users available to be activated as faculty
+  const availableStudentsForFaculty = useMemo(() => {
+    const list = users.filter(u => (u.role || 'student').toLowerCase().trim() === 'student');
+    return list.filter(u => {
+      const q = activateSearchQuery.toLowerCase().trim();
+      if (!q) return true;
+      return (
+        (u.displayName || '').toLowerCase().includes(q) ||
+        (u.email || '').toLowerCase().includes(q)
+      );
+    });
+  }, [users, activateSearchQuery]);
 
   const formatDate = (dateStr) => {
     if (!dateStr) return "";
@@ -1092,12 +1259,139 @@ export const AdminConsole = () => {
                                   <span>Deactivate</span>
                                 </button>
                               </div>
-
                             </div>
                           );
                         })
                       )}
 
+                    </div>
+                  </div>
+                )}
+
+                {/* 5.b FACULTY MANAGEMENT */}
+                {activeTab === 'faculty' && (
+                  <div className="flex flex-col gap-8 text-left font-ui animate-fadeIn">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/5 pb-6">
+                      <div className="flex flex-col">
+                        <span className="text-micro text-white/30 uppercase tracking-widest font-technical">Control club-scoped verification authority.</span>
+                        <h3 className="text-body-m font-light text-primary mt-1">Faculty Registry</h3>
+                      </div>
+                      
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setSelectedFacultyForEdit(null);
+                          setFacultyScopeClubs([]);
+                          setActivateSearchQuery('');
+                          setFacultyScopeModalOpen(true);
+                        }}
+                        className="flex items-center gap-1.5"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Activate Faculty</span>
+                      </Button>
+                    </div>
+
+                    <div className="flex flex-col gap-4">
+                      {/* Search Bar */}
+                      <div className="relative max-w-md w-full">
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20">
+                          <Search className="w-4 h-4" />
+                        </span>
+                        <input
+                          type="text"
+                          value={facultySearchQuery}
+                          onChange={(e) => setFacultySearchQuery(e.target.value)}
+                          placeholder="Search faculty by name or email..."
+                          className="w-full bg-[#111]/80 border border-white/10 pl-10 pr-4 py-2.5 text-sm text-white/80 placeholder-white/20 focus:outline-none focus:border-accent"
+                        />
+                      </div>
+
+                      {/* Faculty List Table */}
+                      <div className="flex flex-col border border-white/5 divide-y divide-white/5 mt-2">
+                        
+                        {/* Header Row */}
+                        <div className="hidden md:flex items-center justify-between px-6 py-3 bg-white/[0.01] text-micro font-technical uppercase tracking-wider text-white/30 select-none">
+                          <span className="w-1/3">Faculty Verifier Identity</span>
+                          <span className="w-5/12">Assigned Verification Scope</span>
+                          <span className="w-1/4 text-right">Actions</span>
+                        </div>
+
+                        {filteredFaculty.length === 0 ? (
+                          <div className="py-16 text-center text-secondary text-body-s font-light">
+                            {facultySearchQuery ? "No faculty verifiers match your search." : "No faculty verifiers have been activated."}
+                          </div>
+                        ) : (
+                          filteredFaculty.map((fac) => {
+                            const scopeIds = fac.assignedClubIds || [];
+                            const scopeNames = scopeIds.map(cid => {
+                              const matchClub = clubs.find(c => c.clubId === cid);
+                              return matchClub ? matchClub.shortName || matchClub.name : 'UNKNOWN CLUB';
+                            });
+
+                            return (
+                              <div key={fac.uid} className="flex flex-col md:flex-row md:items-center justify-between p-6 hover:bg-white/[0.01] gap-4 md:gap-0">
+                                
+                                {/* Identity */}
+                                <div className="flex items-center gap-3.5 w-full md:w-1/3 min-w-0 cursor-pointer" onClick={() => setViewingUserProfile(fac)}>
+                                  <div className="w-9 h-9 rounded-full bg-[#1c1c1c] border border-white/10 flex items-center justify-center font-display text-xs uppercase text-primary overflow-hidden shrink-0">
+                                    {fac.avatar ? <img src={fac.avatar} alt={fac.displayName} className="w-full h-full object-cover" /> : (fac.displayName?.[0] || fac.email?.[0] || 'F')}
+                                  </div>
+                                  <div className="flex flex-col min-w-0">
+                                    <h4 className="text-body-m font-light text-primary truncate flex items-center">
+                                      {fac.displayName || 'Faculty Verifier'}
+                                      {fac.suspended && (
+                                        <span className="text-[8px] font-technical uppercase text-red-400 bg-red-950/20 border border-red-500/20 px-1.5 ml-2 leading-none">Suspended</span>
+                                      )}
+                                    </h4>
+                                    <span className="text-[10px] text-white/30 truncate font-mono">{fac.email}</span>
+                                  </div>
+                                </div>
+
+                                {/* Verification Scope */}
+                                <div className="w-full md:w-5/12 text-xs font-light text-white/45 flex flex-col gap-0.5">
+                                  {scopeIds.length === 0 ? (
+                                    <span className="text-red-400/80 font-technical uppercase">NO ACTIVE FACULTY COVERAGE</span>
+                                  ) : (
+                                    <span className="font-technical uppercase text-accent truncate" title={scopeNames.join(', ')}>
+                                      {scopeNames.join(' · ')}
+                                    </span>
+                                  )}
+                                  <span className="text-[10px] text-white/20 uppercase tracking-wider">
+                                    {scopeIds.length} Club{scopeIds.length !== 1 ? 's' : ''} Selected
+                                  </span>
+                                </div>
+
+                                {/* Actions */}
+                                <div className="w-full md:w-1/4 flex gap-4 justify-start md:justify-end items-center">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedFacultyForEdit(fac);
+                                      setFacultyScopeClubs(fac.assignedClubIds || []);
+                                      setFacultyScopeModalOpen(true);
+                                    }}
+                                    className="text-[10px] font-technical uppercase tracking-wider text-accent hover:text-accent/80 transition-colors flex items-center gap-1.5 focus:outline-none"
+                                    title="Edit club verification scope"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                    <span>Edit Scope</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleRevokeFacultyRole(fac.uid)}
+                                    className="text-[10px] font-technical uppercase tracking-wider text-red-400/80 hover:text-red-400 transition-colors flex items-center gap-1.5 focus:outline-none"
+                                    title="Revoke faculty privileges and demote back to student"
+                                  >
+                                    <UserMinus className="w-3.5 h-3.5" />
+                                    <span>Revoke</span>
+                                  </button>
+                                </div>
+
+                              </div>
+                            );
+                          })
+                        )}
+
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1427,6 +1721,224 @@ export const AdminConsole = () => {
                 </motion.div>
               </div>
             )}
+          </AnimatePresence>
+
+          {/* FACULTY ACTIVATION / SCOPE EDIT MODAL */}
+          <AnimatePresence>
+            {facultyScopeModalOpen && (() => {
+              const activeClubsList = clubs.filter(c => c.status === 'active');
+              
+              return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setFacultyScopeModalOpen(false)}
+                    className="absolute inset-0 bg-[#090909]/80 backdrop-blur-md"
+                  />
+
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.96, y: 16, filter: 'blur(8px)' }}
+                    animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
+                    exit={{ opacity: 0, scale: 0.96, y: 16, filter: 'blur(8px)' }}
+                    transition={{ duration: 0.35, ease: EASE }}
+                    className="bg-[#141414]/90 border border-white/10 backdrop-blur-2xl w-full max-w-xl p-6 z-10 flex flex-col gap-6 rounded-none shadow-[0_32px_60px_-16px_rgba(0,0,0,0.8)] relative font-ui text-left max-h-[85vh] overflow-y-auto"
+                  >
+                    {/* Grain */}
+                    <div
+                      className="absolute inset-0 opacity-[0.02] mix-blend-overlay pointer-events-none"
+                      style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")` }}
+                    />
+
+                    {/* Header */}
+                    <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                      <div className="flex flex-col">
+                        <span className="text-[0.55rem] font-technical uppercase tracking-[0.2em] text-accent">Gate Registry // Faculty Scope</span>
+                        <h3 className="text-body-l font-light text-primary mt-0.5">
+                          {selectedFacultyForEdit && (users.find(u => u.uid === selectedFacultyForEdit.uid)?.role === 'faculty') ? 'Configure Faculty Scope' : 'Activate Faculty Verifier'}
+                        </h3>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setFacultyScopeModalOpen(false)}
+                        className="p-1 text-white/40 hover:text-white transition-colors focus:outline-none"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    {/* Step 1: Select Student User (if new activation) */}
+                    {!selectedFacultyForEdit ? (
+                      <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-2">
+                          <label className="text-micro text-primary">Search Student to Activate</label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20">
+                              <Search className="w-4 h-4" />
+                            </span>
+                            <input
+                              type="text"
+                              value={activateSearchQuery}
+                              onChange={(e) => setActivateSearchQuery(e.target.value)}
+                              placeholder="Type name or email of the student..."
+                              className="w-full bg-[#111] border border-white/10 pl-9 pr-4 py-2 text-xs text-white/80 focus:outline-none focus:border-accent"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Search Results */}
+                        <div className="flex flex-col border border-white/5 divide-y divide-white/5 max-h-[160px] overflow-y-auto bg-black/20">
+                          {availableStudentsForFaculty.length === 0 ? (
+                            <div className="py-6 text-center text-white/30 text-xs font-technical uppercase">
+                              {activateSearchQuery ? "No matching students found." : "Type search terms to find student accounts."}
+                            </div>
+                          ) : (
+                            availableStudentsForFaculty.map((stu) => {
+                              return (
+                                <div
+                                  key={stu.uid}
+                                  onClick={() => setSelectedFacultyForEdit(stu)}
+                                  className="p-3 flex items-center justify-between hover:bg-white/5 cursor-pointer transition-colors"
+                                >
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="text-xs font-light text-primary truncate">{stu.displayName || 'Unnamed Student'}</span>
+                                    <span className="text-[10px] text-white/30 truncate">{stu.email}</span>
+                                  </div>
+                                  <span className="text-[9px] font-technical uppercase tracking-wider text-accent border border-accent/20 px-1.5 py-0.5 bg-accent/5">
+                                    Select User
+                                  </span>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      // Show selected user detail
+                      <div className="p-4 border border-white/5 bg-white/[0.01] flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-[#1c1c1c] border border-white/10 flex items-center justify-center font-display text-xs uppercase text-primary shrink-0">
+                          {selectedFacultyForEdit.avatar ? (
+                            <img src={selectedFacultyForEdit.avatar} alt={selectedFacultyForEdit.displayName} className="w-full h-full object-cover" />
+                          ) : (
+                            selectedFacultyForEdit.displayName?.[0] || 'U'
+                          )}
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-xs font-technical uppercase text-accent font-semibold">Selected Verifier</span>
+                          <h4 className="text-sm font-light text-primary truncate">{selectedFacultyForEdit.displayName}</h4>
+                          <span className="text-[10px] text-white/30 truncate font-mono">{selectedFacultyForEdit.email}</span>
+                        </div>
+                        {/* Clear selection option only if activating (i.e. not editing pre-existing faculty) */}
+                        {!(users.find(u => u.uid === selectedFacultyForEdit.uid)?.role === 'faculty') && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedFacultyForEdit(null);
+                              setFacultyScopeClubs([]);
+                            }}
+                            className="ml-auto text-[9px] font-technical uppercase tracking-wider text-white/30 hover:text-white transition-colors border border-white/10 px-2 py-1"
+                          >
+                            Change
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Step 2: Choose Scope (only visible if user is selected/loaded) */}
+                    {selectedFacultyForEdit && (
+                      <div className="flex flex-col gap-4 border-t border-white/5 pt-4">
+                        <div className="flex justify-between items-center select-none">
+                          <label className="text-micro text-primary uppercase tracking-wider">Assigned Club Verification Scope</label>
+                          <div className="flex gap-3 text-[10px] font-technical uppercase">
+                            <button
+                              type="button"
+                              onClick={() => setFacultyScopeClubs(activeClubsList.map(c => c.clubId))}
+                              className="text-accent hover:text-accent/80 transition-colors"
+                            >
+                              Select All
+                            </button>
+                            <span className="text-white/10">|</span>
+                            <button
+                              type="button"
+                              onClick={() => setFacultyScopeClubs([])}
+                              className="text-white/40 hover:text-white transition-colors"
+                            >
+                              Clear All
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Clubs Checklist Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[220px] overflow-y-auto pr-1">
+                          {activeClubsList.length === 0 ? (
+                            <span className="text-xs text-white/30 font-technical uppercase py-4 text-center col-span-2">
+                              No active clubs are available for assignment.
+                            </span>
+                          ) : (
+                            activeClubsList.map((c) => {
+                              const isChecked = facultyScopeClubs.includes(c.clubId);
+                              
+                              return (
+                                <label
+                                  key={c.clubId}
+                                  className={cn(
+                                    "flex items-center gap-3 p-3 border cursor-pointer select-none transition-colors",
+                                    isChecked 
+                                      ? "border-accent/30 bg-accent/5 text-primary" 
+                                      : "border-white/5 hover:border-white/10 text-secondary"
+                                  )}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setFacultyScopeClubs(prev => [...prev, c.clubId]);
+                                      } else {
+                                        setFacultyScopeClubs(prev => prev.filter(id => id !== c.clubId));
+                                      }
+                                    }}
+                                    className="accent-accent w-3.5 h-3.5"
+                                  />
+                                  <div className="flex flex-col min-w-0 text-left">
+                                    <span className="text-xs font-technical font-semibold uppercase truncate">{c.shortName || c.name}</span>
+                                    <span className="text-[10px] text-white/30 truncate">{c.name}</span>
+                                  </div>
+                                </label>
+                              );
+                            })
+                          )}
+                        </div>
+
+                        <span className="text-[10px] text-white/30 font-technical uppercase block mt-1 select-none">
+                          {facultyScopeClubs.length} Club{facultyScopeClubs.length !== 1 ? 's' : ''} Selected for Assignment
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Footer Buttons */}
+                    <div className="border-t border-white/5 pt-4 flex justify-end gap-3 select-none">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setFacultyScopeModalOpen(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={!selectedFacultyForEdit || facultyScopeClubs.length === 0}
+                        onClick={() => handleSaveFacultyScope(selectedFacultyForEdit.uid, facultyScopeClubs)}
+                      >
+                        {users.find(u => u.uid === selectedFacultyForEdit?.uid)?.role === 'faculty' ? 'Update Scope' : 'Activate Faculty'}
+                      </Button>
+                    </div>
+
+                  </motion.div>
+                </div>
+              );
+            })()}
           </AnimatePresence>
 
           {/* USER PROFILE DETAIL MODAL */}

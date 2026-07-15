@@ -6,13 +6,13 @@ import { updateUser } from '../../services/userService';
 import { getUserRegistrations } from '../../services/registrationService';
 import { getAllEvents } from '../../services/eventService';
 import { getUserActivities } from '../../services/notificationService';
+import { subscribeToStudentClubHours } from '../../services/clubHoursService';
 import { PageTransition } from '../../components/layout/PageTransition';
 import { PageContainer } from '../../components/layout/PageContainer';
 import { SectionWrapper } from '../../components/layout/SectionWrapper';
-import { AxisMarker } from '../../components/layout/AxisMarker';
 import { Button } from '../../components/ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Edit3, MapPin, Calendar, Clock, ChevronRight, X, User } from 'lucide-react';
+import { Edit3, MapPin, ChevronRight, X } from 'lucide-react';
 import { FaGithub, FaLinkedin, FaGlobe } from 'react-icons/fa';
 import { cn } from '../../utils/cn';
 
@@ -63,6 +63,21 @@ export const Profile = () => {
   const [activities, setActivities] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+
+  const [totalClubHours, setTotalClubHours] = useState(0);
+  const [verifiedRecordCount, setVerifiedRecordCount] = useState(0);
+
+  // Real-time subscription to student's club hours record
+  useEffect(() => {
+    if (!user?.uid) return;
+    
+    const unsub = subscribeToStudentClubHours(user.uid, (summary) => {
+      setTotalClubHours(summary.totalApprovedHours);
+      setVerifiedRecordCount(summary.approvedRecordCount);
+    });
+
+    return () => unsub();
+  }, [user?.uid]);
   
   // Edit Profile Form State
   const [editForm, setEditForm] = useState({
@@ -299,6 +314,32 @@ export const Profile = () => {
               </span>
             </div>
           </div>
+
+          {/* CLUB HOURS SUMMARY CARD */}
+          {user && (
+            <div className="p-6 border border-white/5 bg-[#111]/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-ui text-left relative z-10 select-none">
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[0.65rem] font-technical uppercase tracking-[0.2em] text-accent">Club Hours Record</span>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-display-md font-light text-primary">
+                    <CountingNumber value={totalClubHours} />
+                  </span>
+                  <span className="text-xs text-secondary font-technical uppercase">Faculty Verified Hours</span>
+                </div>
+                <span className="text-micro text-white/30 uppercase tracking-wider">
+                  {verifiedRecordCount} Verified {verifiedRecordCount === 1 ? 'Record' : 'Records'}
+                </span>
+              </div>
+              <Button
+                onClick={() => navigate('/club-hours')}
+                variant="secondary"
+                size="sm"
+                className="font-technical uppercase tracking-widest text-[9px] min-w-[150px] shrink-0"
+              >
+                View Credit Record →
+              </Button>
+            </div>
+          )}
 
           {/* STATISTICS ROW: Pure typographic horizontal columns */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 py-8 border-y border-white/5 text-left font-ui">

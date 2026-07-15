@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { resolveEventImage } from '../../utils/eventImage';
+import { getParticipationHours } from '../../utils/clubHours';
 
 const easeOutExpo = [0.16, 1, 0.3, 1];
 
@@ -11,7 +12,7 @@ const formatDate = (dateStr) => {
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return dateStr;
     return d.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
-  } catch (err) {
+  } catch {
     return dateStr;
   }
 };
@@ -65,12 +66,13 @@ export const FeaturedEventCard = ({ event, loading }) => {
 
   // StrictMode rescue: no-dep effect runs after every render.
   // Corrects isLoaded=false if StrictMode re-ran useEffect([event]) after onLoad fired.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const img = imgRef.current;
     if (img && img.complete && img.naturalWidth > 0 && !imgState.isLoaded) {
       setImgState((prev) => ({ ...prev, isLoaded: true }));
     }
-  }); // intentionally no deps
+  });
 
   const { currentImage, isLoaded } = imgState;
 
@@ -79,7 +81,7 @@ export const FeaturedEventCard = ({ event, loading }) => {
   const dateText = event?.date ? formatDate(event.date) : "Oct 14, 2026";
   const isOpen = event ? (event.status?.toLowerCase() === "open") : true;
 
-  const [progress, setProgress] = useState(0);
+  const [_progress, setProgress] = useState(0);
 
 
   // Cursor tracking (normalized 0-1)
@@ -257,7 +259,7 @@ export const FeaturedEventCard = ({ event, loading }) => {
           {/* Top badge */}
           <motion.div
             variants={itemVariants}
-            className="flex items-center gap-2 mb-auto mt-7"
+            className="flex items-center gap-4 mb-auto mt-7"
           >
             <span
               className="inline-flex items-center gap-2 text-micro"
@@ -272,6 +274,14 @@ export const FeaturedEventCard = ({ event, loading }) => {
               />
               {category}
             </span>
+            {getParticipationHours(event) > 0 && (
+              <>
+                <span className="w-4 h-[1px] bg-white/20" />
+                <span className="text-micro text-accent font-technical uppercase tracking-wider">
+                  {getParticipationHours(event)} HRS // CLUB CREDIT
+                </span>
+              </>
+            )}
           </motion.div>
 
           {/* Bottom content block */}

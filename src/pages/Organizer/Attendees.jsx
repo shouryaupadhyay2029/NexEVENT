@@ -10,6 +10,12 @@ import {
   checkInByPassToken
 } from '../../services/registrationService';
 import { trackEvent } from '../../services/analyticsService';
+import { 
+  saveDraftSubmissions, 
+  submitForFacultyVerification, 
+  subscribeToSubmissionAndAllocations 
+} from '../../services/clubHoursService';
+import { validateClubHours } from '../../utils/clubHours';
 import { PageTransition } from '../../components/layout/PageTransition';
 import { PageContainer } from '../../components/layout/PageContainer';
 import { SectionWrapper } from '../../components/layout/SectionWrapper';
@@ -35,9 +41,23 @@ export const Attendees = () => {
   // Main State
   const [event, setEvent] = useState(null);
   const [attendees, setAttendees] = useState([]);
+  const [authorized, setAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
-  const [authorized, setAuthorized] = useState(false);
+
+  // Club Hours States
+  const [submission, setSubmission] = useState(null);
+  const [allocations, setAllocations] = useState([]);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [submittingVerification, setSubmittingVerification] = useState(false);
+
+  // Custom Override Modal States
+  const [overrideModalOpen, setOverrideModalOpen] = useState(false);
+  const [overrideStudent, setOverrideStudent] = useState(null);
+  const [overrideHours, setOverrideHours] = useState('');
+  const [overrideReason, setOverrideReason] = useState('');
+  const [overrideError, setOverrideError] = useState('');
+  const [savingOverride, setSavingOverride] = useState(false);
 
   // Filters & Pagination State
   const [searchQuery, setSearchQuery] = useState('');
@@ -299,12 +319,21 @@ export const Attendees = () => {
         setAuthorized(true);
 
         // Subscribe to registrations
-        const unsubscribe = subscribeToEventRegistrations(eventId, (list) => {
+        const unsubscribeReg = subscribeToEventRegistrations(eventId, (list) => {
           setAttendees(list);
           setLoading(false);
         });
 
-        return () => unsubscribe();
+        // Subscribe to submissions & allocations
+        const unsubscribeSub = subscribeToSubmissionAndAllocations(eventId, ({ submission: subDoc, allocations: allocList }) => {
+          setSubmission(subDoc);
+          setAllocations(allocList);
+        });
+
+        return () => {
+          unsubscribeReg();
+          unsubscribeSub();
+        };
       } catch (err) {
         console.error("Access verification error:", err);
         setAuthorized(false);
@@ -375,6 +404,194 @@ export const Attendees = () => {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, statusFilter, sortOrder]);
+
+  // Club Hours Helpers
+  const isClubHoursEnabled = event?.clubHours?.enabled === true && (Number(event.clubHours.participationHours) || 0) > 0;
+
+  const allocationsMap = useMemo(() => {
+    const map = {};
+    allocations.forEach(alloc => {
+      map[alloc.registrationId] = alloc;
+    });
+    return map;
+  }, [allocations]);
+
+  const handleSelectAllEligible = () => {
+    const eligiblePresent = attendees.filter(a => a.checkedIn);
+    setSelectedIds(new Set(eligiblePresent.map(a => a.userId)));
+  };
+
+  const handleApplyStandardCredit = async () => {
+    if (selectedIds.size === 0) {
+      triggerToast("error", "No students selected.");
+      return;
+    }
+    setSavingDraft(true);
+    try {
+      const listToSave = [...allocations];
+      const standardHours = event.clubHours.participationHours;
+      
+      const selectedEligible = attendees.filter(a => selectedIds.has(a.userId) && a.checkedIn);
+      if (selectedEligible.length === 0) {
+        triggerToast("error", "None of the selected students are verified present.");
+        setSavingDraft(false);
+        return;
+      }
+
+      selectedEligible.forEach(att => {
+        const regId = `${att.userId}_${eventId}`;
+        const existingIdx = listToSave.findIndex(a => a.registrationId === regId);
+        const newAlloc = {
+          registrationId: regId,
+          studentId: att.userId,
+          studentName: att.studentName,
+          proposedHours: standardHours,
+          allocationType: "standard",
+          overrideReason: ""
+        };
+        if (existingIdx >= 0) {
+          listToSave[existingIdx] = newAlloc;
+        } else {
+          listToSave.push(newAlloc);
+        }
+      });
+
+      await saveDraftSubmissions(eventId, listToSave, event);
+      setSelectedIds(new Set());
+      triggerToast("success", `Standard credit applied to ${selectedEligible.length} students.`);
+    } catch (err) {
+      console.error("Failed to save draft standard credit:", err);
+      triggerToast("error", err.message || "Failed to save draft.");
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
+  const handleOpenOverrideModal = (attendee) => {
+    const regId = `${attendee.userId}_${eventId}`;
+    const existingAlloc = allocationsMap[regId];
+    setOverrideStudent(attendee);
+    setOverrideHours(existingAlloc ? String(existingAlloc.proposedHours) : String(event.clubHours.participationHours));
+    setOverrideReason(existingAlloc ? (existingAlloc.overrideReason || '') : '');
+    setOverrideError('');
+    setOverrideModalOpen(true);
+  };
+
+  const handleSaveOverride = async (e) => {
+    if (e) e.preventDefault();
+    setSavingOverride(true);
+    setOverrideError("");
+
+    const proposed = Number(overrideHours);
+    const standardHours = event.clubHours.participationHours;
+    const isCustom = proposed !== standardHours;
+    const reason = overrideReason.trim();
+
+    const valResult = validateClubHours({
+      enabled: true,
+      participationHours: proposed,
+      organizerHours: 0
+    });
+    if (!valResult.valid) {
+      setOverrideError(valResult.error);
+      setSavingOverride(false);
+      return;
+    }
+
+    if (isCustom && reason.length < 10) {
+      setOverrideError("Override reason must be at least 10 characters long.");
+      setSavingOverride(false);
+      return;
+    }
+    if (isCustom && reason.length > 500) {
+      setOverrideError("Override reason cannot exceed 500 characters.");
+      setSavingOverride(false);
+      return;
+    }
+
+    try {
+      const listToSave = [...allocations];
+      const regId = `${overrideStudent.userId}_${eventId}`;
+      const existingIdx = listToSave.findIndex(a => a.registrationId === regId);
+      const newAlloc = {
+        registrationId: regId,
+        studentId: overrideStudent.userId,
+        studentName: overrideStudent.studentName,
+        proposedHours: proposed,
+        allocationType: isCustom ? "custom" : "standard",
+        overrideReason: isCustom ? reason : ""
+      };
+
+      if (existingIdx >= 0) {
+        listToSave[existingIdx] = newAlloc;
+      } else {
+        listToSave.push(newAlloc);
+      }
+
+      await saveDraftSubmissions(eventId, listToSave, event);
+      setOverrideModalOpen(false);
+      triggerToast("success", `Custom hours applied for ${overrideStudent.studentName}.`);
+    } catch (err) {
+      console.error("Failed to save custom override draft:", err);
+      setOverrideError(err.message || "Failed to update allocation.");
+    } finally {
+      setSavingOverride(false);
+    }
+  };
+
+  const handleRemoveAllocation = async () => {
+    setSavingOverride(true);
+    try {
+      const regId = `${overrideStudent.userId}_${eventId}`;
+      const listToSave = allocations.filter(a => a.registrationId !== regId);
+      await saveDraftSubmissions(eventId, listToSave, event);
+      setOverrideModalOpen(false);
+      triggerToast("success", `Allocation removed for ${overrideStudent.studentName}.`);
+    } catch (err) {
+      console.error("Failed to delete allocation draft:", err);
+      setOverrideError(err.message || "Failed to delete allocation.");
+    } finally {
+      setSavingOverride(false);
+    }
+  };
+
+  const handleSubmitVerification = async () => {
+    if (allocations.length === 0) {
+      triggerToast("error", "No allocations proposed. Please configure at least one student allocation.");
+      return;
+    }
+    
+    // Local verification check: check if any student in allocations is no longer checkedIn in local attendees registry
+    const presentUserIds = new Set(attendees.filter(a => a.checkedIn).map(a => a.userId));
+    const invalidAllocations = allocations.filter(a => !presentUserIds.has(a.studentId));
+
+    if (invalidAllocations.length > 0) {
+      const names = invalidAllocations.map(a => `"${a.studentName}"`).join(", ");
+      triggerToast("error", `${invalidAllocations.length} allocation(s) are no longer attendance eligible: ${names}. Review the highlighted attendee before submitting.`);
+      return;
+    }
+
+    setSubmittingVerification(true);
+    try {
+      const result = await submitForFacultyVerification(eventId);
+      if (result?.alreadySubmitted) {
+        triggerToast("success", "Allocations have already been submitted successfully.");
+      } else {
+        triggerToast("success", "Allocations submitted for faculty verification.");
+        trackEvent("club_hours_submitted", {
+          event_id: eventId,
+          actor_role: "organizer",
+          allocation_count: allocations.length,
+          standard_hours: event.clubHours.participationHours
+        });
+      }
+    } catch (err) {
+      console.error("Verification submission failed:", err);
+      triggerToast("error", err.message || "Failed to submit for verification.");
+    } finally {
+      setSubmittingVerification(false);
+    }
+  };
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -593,6 +810,116 @@ export const Attendees = () => {
             </div>
           </div>
 
+          {/* CLUB HOURS ALLOCATION PANEL */}
+          {isClubHoursEnabled && (
+            <div className="flex flex-col gap-6 p-6 border border-white/5 bg-[#111]/10 relative rounded-none font-ui">
+              {/* Grain layer */}
+              <div
+                className="absolute inset-0 opacity-[0.015] mix-blend-overlay pointer-events-none"
+                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")` }}
+              />
+
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+                <div className="flex flex-col gap-1.5 text-left">
+                  <span className="text-[0.6rem] font-technical uppercase tracking-[0.2em] text-accent">
+                    Allocation Pipeline // Operations
+                  </span>
+                  <h2 className="text-body-l font-light text-primary mt-1">Club Hours Allocation</h2>
+                  <p className="text-[0.7rem] text-secondary max-w-xl font-light leading-relaxed">
+                    Select verified present attendees and configure credit hours. Submitting to faculty locks organizer modification authority.
+                  </p>
+                </div>
+
+                {/* Submission status label */}
+                <div className="flex flex-col items-end gap-1 shrink-0 select-none">
+                  <span className="text-[0.65rem] text-white/30 font-technical uppercase tracking-widest">Submission Status</span>
+                  <span className={cn(
+                    "text-micro font-technical uppercase tracking-wider px-2.5 py-1 border leading-none font-semibold",
+                    submission?.status === "pending_faculty" 
+                      ? "border-orange-500/20 bg-orange-950/20 text-orange-400"
+                      : submission?.status === "returned"
+                        ? "border-red-500/20 bg-red-950/20 text-red-400"
+                        : "border-white/10 bg-white/5 text-white/50"
+                  )}>
+                    {submission ? (
+                      submission.status === "pending_faculty" 
+                        ? "Pending Faculty Verification" 
+                        : submission.status === "returned" 
+                          ? `Returned // Needs Changes`
+                          : submission.status.toUpperCase()
+                    ) : "DRAFT"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Grid Metrics */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 py-4 border-t border-b border-white/5 relative z-10">
+                <div className="flex flex-col gap-0.5 text-left">
+                  <span className="text-[0.55rem] text-white/30 font-technical uppercase tracking-wider">Standard Credit</span>
+                  <span className="text-body-l font-light text-primary">{event.clubHours.participationHours} HRS</span>
+                </div>
+                <div className="flex flex-col gap-0.5 text-left">
+                  <span className="text-[0.55rem] text-white/30 font-technical uppercase tracking-wider">Eligible Attendees</span>
+                  <span className="text-body-l font-light text-green-400">{stats.checkedIn} PRESENT</span>
+                </div>
+                <div className="flex flex-col gap-0.5 text-left">
+                  <span className="text-[0.55rem] text-white/30 font-technical uppercase tracking-wider">Proposed Allocations</span>
+                  <span className="text-body-l font-light text-accent">{allocations.length} SAVED</span>
+                </div>
+                <div className="flex flex-col gap-0.5 text-left">
+                  <span className="text-[0.55rem] text-white/30 font-technical uppercase tracking-wider">Custom Overrides</span>
+                  <span className="text-body-l font-light text-primary">
+                    {allocations.filter(a => a.allocationType === "custom").length} STUDENT(S)
+                  </span>
+                </div>
+              </div>
+
+              {/* Actions row */}
+              <div className="flex flex-wrap justify-between items-center gap-4 relative z-10">
+                {/* Selection controls */}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={submission?.status === "pending_faculty"}
+                    onClick={handleSelectAllEligible}
+                    className="px-3 py-1.5 bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/20 text-white/70 hover:text-white font-technical uppercase text-[9px] tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    Select All Eligible
+                  </button>
+                  <button
+                    type="button"
+                    disabled={submission?.status === "pending_faculty"}
+                    onClick={() => setSelectedIds(new Set())}
+                    className="px-3 py-1.5 bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/20 text-white/70 hover:text-white font-technical uppercase text-[9px] tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    Clear Selection
+                  </button>
+                </div>
+
+                {/* Operations controls */}
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={savingDraft || submission?.status === "pending_faculty" || selectedIds.size === 0}
+                    onClick={handleApplyStandardCredit}
+                    className="text-[10px] tracking-wider uppercase font-technical min-w-[150px]"
+                  >
+                    {savingDraft ? "Applying..." : "Apply Standard Credit"}
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={submittingVerification || submission?.status === "pending_faculty" || allocations.length === 0}
+                    onClick={handleSubmitVerification}
+                    className="text-[10px] tracking-wider uppercase font-technical border border-accent/20 bg-accent/10 hover:bg-accent/25 text-accent min-w-[180px]"
+                  >
+                    {submittingVerification ? "Submitting..." : "Submit to Faculty"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* SEARCH & FILTERS CONTROLS */}
           <div className="flex flex-col xl:flex-row gap-6 items-stretch xl:items-center justify-between pb-2">
             
@@ -712,8 +1039,9 @@ export const Attendees = () => {
                       <input 
                         type="checkbox"
                         checked={isSelected}
+                        disabled={isClubHoursEnabled && !att.checkedIn}
                         onChange={() => handleSelectRow(att.userId)}
-                        className="rounded-none border-white/20 bg-[#111] focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                        className="rounded-none border-white/20 bg-[#111] focus:ring-0 focus:ring-offset-0 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                       />
                     </div>
 
@@ -724,6 +1052,41 @@ export const Attendees = () => {
                       </div>
                       <div className="flex flex-col min-w-0">
                         <span className="text-body-s text-primary font-light truncate">{att.studentName}</span>
+                        {isClubHoursEnabled && (
+                          <div className="flex items-center gap-2 mt-0.5 select-none">
+                            {att.checkedIn ? (
+                              <>
+                                <span className="text-[9px] font-technical uppercase text-accent font-semibold tracking-wider">
+                                  {(() => {
+                                    const regId = `${att.userId}_${eventId}`;
+                                    const alloc = allocationsMap[regId];
+                                    if (alloc) {
+                                      return alloc.allocationType === "custom"
+                                        ? `Custom: ${alloc.proposedHours} Hrs`
+                                        : `Standard: ${alloc.proposedHours} Hrs`;
+                                    }
+                                    return `Eligible: ${event.clubHours.participationHours} Hrs pending`;
+                                  })()}
+                                </span>
+                                {(!submission || submission.status !== "pending_faculty") && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenOverrideModal(att);
+                                    }}
+                                    className="text-[8px] font-technical uppercase text-white/40 hover:text-white border border-white/10 hover:border-white/20 bg-white/[0.02] px-1.5 py-0.5 leading-none transition-colors"
+                                  >
+                                    Override
+                                  </button>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-[9px] font-technical uppercase text-white/25">
+                                Not Verified // Ineligible
+                              </span>
+                            )}
+                          </div>
+                        )}
                         <span className="text-[8px] text-white/25 font-mono truncate lg:hidden">{att.userId}_{eventId}</span>
                       </div>
                     </div>
@@ -975,6 +1338,151 @@ export const Attendees = () => {
                 </div>
               );
             })()}
+          </AnimatePresence>
+
+          {/* CUSTOM HOUR OVERRIDE MODAL */}
+          <AnimatePresence>
+            {overrideModalOpen && overrideStudent && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                {/* Backdrop */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => !savingOverride && setOverrideModalOpen(false)}
+                  className="absolute inset-0 bg-[#090909]/85 backdrop-blur-md"
+                />
+
+                {/* Modal Container */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.96, y: 16, filter: 'blur(8px)' }}
+                  animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, scale: 0.96, y: 16, filter: 'blur(8px)' }}
+                  transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                  className="bg-[#141414]/95 border border-white/10 w-full max-w-md p-6 z-10 flex flex-col gap-6 rounded-none shadow-[0_32px_60px_-16px_rgba(0,0,0,0.8)] relative font-ui text-left"
+                >
+                  {/* Grain Layer */}
+                  <div
+                    className="absolute inset-0 opacity-[0.02] mix-blend-overlay pointer-events-none"
+                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")` }}
+                  />
+
+                  {/* Header */}
+                  <div className="flex justify-between items-center relative z-10 border-b border-white/5 pb-4">
+                    <div className="flex flex-col">
+                      <span className="text-[0.55rem] font-technical uppercase tracking-[0.2em] text-accent">Config // Credit Override</span>
+                      <h3 className="text-body-l font-light text-primary mt-0.5">Custom Hours Allocation</h3>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={savingOverride}
+                      onClick={() => setOverrideModalOpen(false)}
+                      className="p-1 text-white/40 hover:text-white transition-colors focus:outline-none"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {overrideError && (
+                    <div className="text-[0.65rem] text-red-400 font-technical uppercase border border-red-500/20 bg-red-950/20 px-3 py-2 z-10">
+                      {overrideError}
+                    </div>
+                  )}
+
+                  {/* Body Form */}
+                  <form onSubmit={handleSaveOverride} className="flex flex-col gap-5 relative z-10">
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[0.55rem] text-white/30 font-technical uppercase tracking-wider">Attendee</span>
+                      <span className="text-body-s font-light text-primary">{overrideStudent.studentName}</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex flex-col gap-1.5">
+                        <span className="text-[0.55rem] text-white/30 font-technical uppercase tracking-wider">Standard Credit</span>
+                        <span className="text-body-s font-light text-secondary">{event.clubHours.participationHours} HRS</span>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <span className="text-[0.55rem] text-white/30 font-technical uppercase tracking-wider">Allocation Type</span>
+                        <span className="text-body-s font-light text-accent">
+                          {Number(overrideHours) === event.clubHours.participationHours ? "STANDARD" : "CUSTOM OVERRIDE"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <label className="text-micro text-primary">Proposed Hours</label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0"
+                        max="100"
+                        value={overrideHours}
+                        onChange={(e) => setOverrideHours(e.target.value)}
+                        placeholder="e.g. 4"
+                        className="w-full bg-[#111] border border-white/10 px-4 py-2.5 text-sm text-white/80 focus:outline-none focus:border-accent rounded-none transition-colors"
+                        required
+                        disabled={savingOverride}
+                      />
+                    </div>
+
+                    {Number(overrideHours) !== event.clubHours.participationHours && (
+                      <div className="flex flex-col gap-2">
+                        <label className="text-micro text-primary">Override Reason</label>
+                        <textarea
+                          rows={3}
+                          value={overrideReason}
+                          onChange={(e) => setOverrideReason(e.target.value)}
+                          placeholder="Provide a justification for this custom hour override (minimum 10 characters)..."
+                          className="w-full bg-[#111] border border-white/10 px-4 py-2.5 text-sm text-white/80 focus:outline-none focus:border-accent rounded-none transition-colors resize-none"
+                          required
+                          disabled={savingOverride}
+                        />
+                        <span className="text-[9px] text-white/30 font-technical">
+                          Characters: {overrideReason.trim().length} (min 10, max 500)
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between gap-3 border-t border-white/5 pt-4 mt-2">
+                      {/* Left: Remove allocation if it exists */}
+                      {allocationsMap[`${overrideStudent.userId}_${eventId}`] ? (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={handleRemoveAllocation}
+                          disabled={savingOverride}
+                          className="border-red-500/20 bg-red-950/5 hover:bg-red-950/20 text-red-400 px-4"
+                          size="sm"
+                        >
+                          Clear Allocation
+                        </Button>
+                      ) : (
+                        <div />
+                      )}
+
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => setOverrideModalOpen(false)}
+                          disabled={savingOverride}
+                          size="sm"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="submit"
+                          disabled={savingOverride}
+                          size="sm"
+                        >
+                          {savingOverride ? "Saving..." : "Apply Credit"}
+                        </Button>
+                      </div>
+                    </div>
+                  </form>
+                </motion.div>
+              </div>
+            )}
           </AnimatePresence>
 
         </SectionWrapper>

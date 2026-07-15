@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button } from '../../../components/ui/Button';
 import { EventInfoGrid } from './EventInfoGrid';
+import { getParticipationHours } from '../../../utils/clubHours';
 
 export const RegistrationPanel = ({ event, isRegistered, onRegister, isRegistering }) => {
   const isOpen = event.status?.toLowerCase() === "open";
@@ -27,6 +28,23 @@ export const RegistrationPanel = ({ event, isRegistered, onRegister, isRegisteri
       </h3>
       
       <EventInfoGrid event={event} />
+      
+      {getParticipationHours(event) > 0 && (
+        <div className="flex flex-col gap-2.5 pt-4 border-t border-white/5 text-left">
+          <span className="text-[0.6rem] text-white/30 font-technical uppercase tracking-[0.2em]">
+            Club Hours // Credit
+          </span>
+          <div className="flex items-baseline gap-2 mt-0.5">
+            <span className="text-display-m font-light text-accent">
+              {getParticipationHours(event)}
+            </span>
+            <span className="text-xs font-light text-primary">HRS Participation Credit</span>
+          </div>
+          <p className="text-[0.62rem] text-white/40 leading-normal font-light">
+            Eligible after verified event attendance and faculty approval.
+          </p>
+        </div>
+      )}
 
       <Button
         variant="primary"

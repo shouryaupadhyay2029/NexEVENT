@@ -21,12 +21,12 @@ export const EventDetails = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const trackedIdRef = useRef(null);
-  
+
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isRegistered, setIsRegistered] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
-  
+
   const [toast, setToast] = useState(null); // { type: 'success' | 'error', message: '' }
 
   const triggerToast = (type, message) => {
@@ -41,7 +41,7 @@ export const EventDetails = () => {
       try {
         const data = await getEvent(eventId);
         setEvent(data);
-        
+
         if (data && trackedIdRef.current !== data.id) {
           trackedIdRef.current = data.id;
           trackEvent("event_view", {
@@ -50,7 +50,7 @@ export const EventDetails = () => {
             event_status: data.status || "Published"
           });
         }
-        
+
         if (user && data) {
           const registered = await checkUserRegistration(user.uid, eventId);
           setIsRegistered(registered);
@@ -74,7 +74,7 @@ export const EventDetails = () => {
     setIsRegistering(true);
     try {
       const result = await registerForEvent(user.uid, event.id);
-      
+
       // Update local states reactively
       setIsRegistered(true);
       setEvent((prev) => {
@@ -145,11 +145,10 @@ export const EventDetails = () => {
                 initial={{ opacity: 0, y: -20, filter: "blur(4px)" }}
                 animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
                 exit={{ opacity: 0, y: -20, filter: "blur(4px)" }}
-                className={`fixed top-6 right-6 z-50 px-6 py-4 border backdrop-blur-md flex items-center gap-4 shadow-lg min-w-[300px] ${
-                  toast.type === 'success' 
-                    ? 'border-green-500/20 bg-green-950/80 text-green-200' 
+                className={`fixed top-6 right-6 z-50 px-6 py-4 border backdrop-blur-md flex items-center gap-4 shadow-lg min-w-[300px] ${toast.type === 'success'
+                    ? 'border-green-500/20 bg-green-950/80 text-green-200'
                     : 'border-red-500/20 bg-red-950/80 text-red-200'
-                }`}
+                  }`}
               >
                 <span className="text-[0.6rem] font-technical uppercase border border-current px-1.5 py-0.5">
                   {toast.type}
@@ -160,19 +159,19 @@ export const EventDetails = () => {
           </AnimatePresence>
 
           <AxisMarker index="02" label="Event Details" />
-          
+
           <EventHero src={resolveEventImage(event)} alt={event.title} category={event.category} />
 
           <div className="flex flex-col md:flex-row justify-between w-full items-start gap-16 mt-16">
-            <EventDescription 
-              category={event.category} 
-              title={event.title} 
-              description={event.description} 
+            <EventDescription
+              category={event.category}
+              title={event.title}
+              description={event.description}
             />
-            <RegistrationPanel 
-              event={event} 
-              isRegistered={isRegistered} 
-              onRegister={handleRegister} 
+            <RegistrationPanel
+              event={event}
+              isRegistered={isRegistered}
+              onRegister={handleRegister}
               isRegistering={isRegistering}
             />
           </div>

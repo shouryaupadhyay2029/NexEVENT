@@ -78,10 +78,14 @@ export const AuthProvider = ({ children }) => {
         unsubscribeProfile = onSnapshot(userRef, (docSnap) => {
           if (active && docSnap.exists()) {
             const data = docSnap.data();
-            if (data && data.role) {
-              data.role = data.role.toLowerCase().trim();
+            const profileData = {
+              uid: currentUser.uid,
+              ...data
+            };
+            if (profileData.role) {
+              profileData.role = profileData.role.toLowerCase().trim();
             }
-            setProfile(data);
+            setProfile(profileData);
             setLoading(false);
           }
         }, (error) => {

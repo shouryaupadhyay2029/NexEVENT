@@ -4,10 +4,10 @@ import { CategorySelector } from './CategorySelector';
 import { ImageUploader } from './ImageUploader';
 import { DatePicker } from './DatePicker';
 import { CapacityInput } from './CapacityInput';
-import { StatusSelector } from './StatusSelector';
 import { Button } from '../../../components/ui/Button';
 import { createEvent } from '../../../services/eventService';
 import { logFirebaseError } from '../../../firebase/errorLogging';
+import { validateClubHours } from '../../../utils/clubHours';
 
 export const EventForm = () => {
   const [formData, setFormData] = useState({
@@ -25,6 +25,11 @@ export const EventForm = () => {
     tags: '',
     visibility: 'public',
     status: 'published',
+    clubHours: {
+      enabled: false,
+      participationHours: 0,
+      organizerHours: 0
+    }
   });
 
   const [errors, setErrors] = useState({});
@@ -75,6 +80,13 @@ export const EventForm = () => {
       }
     }
 
+    if (formData.clubHours?.enabled) {
+      const hoursValidation = validateClubHours(formData.clubHours);
+      if (!hoursValidation.valid) {
+        newErrors.clubHours = hoursValidation.error;
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -94,8 +106,19 @@ export const EventForm = () => {
     try {
       console.log("Submitting event creation request to Firestore...");
       const finalStatus = submitStatus === 'open' ? 'published' : submitStatus;
+      const normalizedClubHours = formData.clubHours?.enabled ? {
+        enabled: true,
+        participationHours: Number(formData.clubHours.participationHours) || 0,
+        organizerHours: Number(formData.clubHours.organizerHours) || 0
+      } : {
+        enabled: false,
+        participationHours: 0,
+        organizerHours: 0
+      };
+
       await createEvent({
         ...formData,
+        clubHours: normalizedClubHours,
         status: finalStatus
       });
       console.log("Event created successfully.");
@@ -115,6 +138,11 @@ export const EventForm = () => {
         tags: '',
         visibility: 'public',
         status: 'draft',
+        clubHours: {
+          enabled: false,
+          participationHours: 0,
+          organizerHours: 0
+        }
       });
       setErrors({});
     } catch (error) {
@@ -284,6 +312,94 @@ export const EventForm = () => {
             <option value="private">Private (Hidden from Discovery)</option>
           </select>
         </div>
+      </div>
+
+      {/* Row: Club Hours Configuration */}
+      <div className="flex flex-col gap-6 p-6 border border-white/5 bg-[#111]/30 relative rounded-none">
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-1 text-left">
+            <h3 className="text-sm font-light text-primary">Club Hours // Participation Credit</h3>
+            <p className="text-[0.7rem] text-secondary">
+              Configure student participation and organizer credits for this event.
+            </p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={formData.clubHours?.enabled || false}
+              onChange={(e) => setFormData({
+                ...formData,
+                clubHours: {
+                  ...(formData.clubHours || { participationHours: 0, organizerHours: 0 }),
+                  enabled: e.target.checked
+                }
+              })}
+              className="sr-only peer"
+            />
+            <div className="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-none peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white/40 peer-checked:after:bg-accent after:border-none after:h-4 after:w-4 after:transition-all peer-checked:bg-accent/20 border border-white/5 peer-checked:border-accent/40" />
+          </label>
+        </div>
+
+        {formData.clubHours?.enabled && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-white/5 overflow-hidden"
+          >
+            <div className="flex flex-col gap-3">
+              <label className="text-micro text-primary">Participation Credit (HRS)</label>
+              <input
+                type="number"
+                step="0.5"
+                min="0"
+                max="100"
+                value={formData.clubHours.participationHours}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  clubHours: {
+                    ...formData.clubHours,
+                    participationHours: e.target.value === '' ? '' : Number(e.target.value)
+                  }
+                })}
+                placeholder="e.g. 8"
+                className="w-full bg-[#111] border border-white/10 px-4 py-3 text-sm text-white/80 placeholder-white/20 focus:outline-none focus:border-accent font-ui rounded-none transition-colors"
+              />
+              <span className="text-[0.62rem] text-white/30 font-technical lowercase first-letter:uppercase leading-normal">
+                Eligible for club hours after verified attendance and approval.
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <label className="text-micro text-primary">Organizer Credit (HRS)</label>
+              <input
+                type="number"
+                step="0.5"
+                min="0"
+                max="100"
+                value={formData.clubHours.organizerHours}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  clubHours: {
+                    ...formData.clubHours,
+                    organizerHours: e.target.value === '' ? '' : Number(e.target.value)
+                  }
+                })}
+                placeholder="e.g. 16"
+                className="w-full bg-[#111] border border-white/10 px-4 py-3 text-sm text-white/80 placeholder-white/20 focus:outline-none focus:border-accent font-ui rounded-none transition-colors"
+              />
+              <span className="text-[0.62rem] text-white/30 font-technical lowercase first-letter:uppercase leading-normal">
+                Proposed credit for verified event organization. Final approval is handled separately.
+              </span>
+            </div>
+          </motion.div>
+        )}
+
+        {errors.clubHours && (
+          <span className="text-[0.7rem] text-red-400 font-technical uppercase tracking-wide">
+            {errors.clubHours}
+          </span>
+        )}
       </div>
 
       {/* Actions */}

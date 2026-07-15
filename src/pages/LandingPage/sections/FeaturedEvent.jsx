@@ -97,7 +97,7 @@ export const FeaturedEvent = ({ event, loading }) => {
 
         {/* Image — slower reveal */}
         <RevealItem image>
-          <div 
+          <div
             onClick={() => navigate(`/events/${event.id}`)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
@@ -126,8 +126,8 @@ export const FeaturedEvent = ({ event, loading }) => {
               </div>
             )}
             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-700 bg-background/20 backdrop-blur-sm ease-[cubic-bezier(0.16,1,0.3,1)] z-30">
-              <Button 
-                variant="primary" 
+              <Button
+                variant="primary"
                 disabled={!isOpen}
                 className="pointer-events-none transform -translate-y-4 group-hover:translate-y-0 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
               >
@@ -165,15 +165,15 @@ export const FeaturedEvent = ({ event, loading }) => {
                 <span className={cn(
                   "font-medium text-[0.75rem] tracking-normal flex items-center gap-1.5",
                   isLive ? "text-red-500 animate-pulse font-semibold" :
-                  isOpen ? "text-green-400" :
-                  isClosed ? "text-orange-400" :
-                  isCompleted ? "text-white/60" : "text-white/50"
+                    isOpen ? "text-green-400" :
+                      isClosed ? "text-orange-400" :
+                        isCompleted ? "text-white/60" : "text-white/50"
                 )}>
                   {isLive && <span className="w-1.5 h-1.5 rounded-none bg-red-500 animate-pulse" />}
                   {isLive ? "LIVE NOW" :
-                   isOpen ? "Open" :
-                   isClosed ? "Closed" :
-                   isCompleted ? "Completed" : event.status}
+                    isOpen ? "Open" :
+                      isClosed ? "Closed" :
+                        isCompleted ? "Completed" : event.status}
                 </span>
               </div>
             </div>

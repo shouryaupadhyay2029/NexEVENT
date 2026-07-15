@@ -11,9 +11,10 @@ import { AxisMarker } from '../../components/layout/AxisMarker';
 import { Button } from '../../components/ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils/cn';
-import { Calendar, Clock, MapPin, Search, Share2, Eye, X, Users } from 'lucide-react';
+import { Calendar, Clock, MapPin, Search, Share2, Eye, X } from 'lucide-react';
 import { Image } from '../../components/ui/Image';
 import { resolveEventImage } from '../../utils/eventImage';
+import { getParticipationHours } from '../../utils/clubHours';
 
 const CATEGORIES = [
   "Hackathons",
@@ -51,7 +52,7 @@ export const Events = () => {
   const [userRegIds, setUserRegIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
+
   // Toast notifications state
   const [toast, setToast] = useState(null); // { type: 'success' | 'error', message: '' }
 
@@ -175,7 +176,7 @@ export const Events = () => {
     // 1. Text Search Filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
-      list = list.filter(e => 
+      list = list.filter(e =>
         (e.title || '').toLowerCase().includes(q) ||
         (e.organizer || '').toLowerCase().includes(q) ||
         (e.venue || '').toLowerCase().includes(q) ||
@@ -297,7 +298,7 @@ export const Events = () => {
     <PageTransition>
       <PageContainer>
         <SectionWrapper className="max-w-7xl py-12 md:py-20 flex flex-col gap-12 relative">
-          
+
           {/* HEADER */}
           <div className="relative">
             <AxisMarker index="03" label="Discovery Engine" />
@@ -470,8 +471,8 @@ export const Events = () => {
                           </span>
                           <span className={cn(
                             "text-[0.52rem] font-technical uppercase tracking-wider px-2 py-0.5 border",
-                            isClosed 
-                              ? "border-red-500/20 bg-red-950/90 text-red-400" 
+                            isClosed
+                              ? "border-red-500/20 bg-red-950/90 text-red-400"
                               : "border-green-500/20 bg-green-950/90 text-green-400"
                           )}>
                             {isClosed ? "Closed" : "Open"}
@@ -489,16 +490,16 @@ export const Events = () => {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          
+
                           {/* Register Button */}
                           <button
                             onClick={(e) => !registered && !isClosed && handleRegister(event.id, e)}
                             disabled={registered || isClosed}
                             className={cn(
                               "px-4 py-2.5 text-[0.65rem] font-technical uppercase tracking-wider font-semibold transition-all transform hover:-translate-y-0.5",
-                              registered 
-                                ? "bg-green-900/30 border border-green-500/30 text-green-400" 
-                                : isClosed 
+                              registered
+                                ? "bg-green-900/30 border border-green-500/30 text-green-400"
+                                : isClosed
                                   ? "bg-red-950/20 border border-red-500/10 text-red-500 cursor-not-allowed"
                                   : "bg-white text-black hover:bg-white/90"
                             )}
@@ -521,7 +522,7 @@ export const Events = () => {
                       <div className="flex flex-col gap-2 relative">
                         {/* Title and Share */}
                         <div className="flex items-start justify-between">
-                          <h3 
+                          <h3
                             onClick={() => navigate(`/events/${event.id}`)}
                             className="text-body-l font-light text-primary group-hover:text-white cursor-pointer transition-colors duration-200"
                           >
@@ -564,8 +565,13 @@ export const Events = () => {
                                   Capacity Full
                                 </span>
                               )}
+                              {getParticipationHours(event) > 0 && (
+                                <span className="px-2 py-0.5 border border-accent/20 bg-accent/5 text-accent text-[9px] font-technical uppercase leading-tight select-none">
+                                  {getParticipationHours(event)} HRS // CLUB CREDIT
+                                </span>
+                              )}
                             </div>
-                            
+
                             <button
                               type="button"
                               onClick={(e) => {
@@ -667,7 +673,7 @@ export const Events = () => {
 
                       {/* Title */}
                       <h2 className="text-body-xl font-light text-primary">{previewEvent.title}</h2>
-                      
+
                       {/* Meta list */}
                       <div className="flex flex-col gap-2.5 text-micro text-white/40">
                         <span className="flex items-center gap-2">

@@ -68,6 +68,7 @@ export const Navbar = () => {
 
   const role = (profile?.role || "student").toLowerCase().trim();
   const showStudio = role === "organizer" || role === "admin";
+  const showFaculty = role === "faculty" || role === "admin";
   const showAdmin = role === "admin";
 
   return (
@@ -297,6 +298,20 @@ export const Navbar = () => {
                       {location.pathname === "/my-events" && <span className="w-1.5 h-1.5 bg-accent" />}
                     </button>
 
+                    {/* Club Hours */}
+                    <button
+                      onClick={() => { setIsMobileMenuOpen(false); navigate("/club-hours"); }}
+                      className={cn(
+                        "flex items-center justify-between p-3.5 border transition-all duration-300",
+                        location.pathname === "/club-hours"
+                          ? "border-accent/20 bg-accent/5 text-accent font-medium"
+                          : "border-white/5 bg-white/[0.01] text-white/60 hover:text-white"
+                      )}
+                    >
+                      <span>My Club Hours</span>
+                      {location.pathname === "/club-hours" && <span className="w-1.5 h-1.5 bg-accent" />}
+                    </button>
+
                     {/* Organizer Studio */}
                     {showStudio && (
                       <button
@@ -310,6 +325,22 @@ export const Navbar = () => {
                       >
                         <span>Organizer Studio</span>
                         {location.pathname.startsWith("/organizer") && <span className="w-1.5 h-1.5 bg-accent" />}
+                      </button>
+                    )}
+
+                    {/* Faculty Desk */}
+                    {showFaculty && (
+                      <button
+                        onClick={() => { setIsMobileMenuOpen(false); navigate("/faculty"); }}
+                        className={cn(
+                          "flex items-center justify-between p-3.5 border transition-all duration-300",
+                          location.pathname.startsWith("/faculty")
+                            ? "border-accent/20 bg-accent/5 text-accent font-medium"
+                            : "border-white/5 bg-white/[0.01] text-white/60 hover:text-white"
+                        )}
+                      >
+                        <span>Faculty Desk</span>
+                        {location.pathname.startsWith("/faculty") && <span className="w-1.5 h-1.5 bg-accent" />}
                       </button>
                     )}
 

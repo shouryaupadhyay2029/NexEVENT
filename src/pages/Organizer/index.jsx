@@ -10,6 +10,11 @@ import {
   duplicateEvent 
 } from '../../services/eventService';
 import { isValidStatusTransition } from '../../utils/eventLifecycle';
+import { 
+  normalizeClubHours, 
+  validateClubHours, 
+  isClubHoursLocked 
+} from '../../utils/clubHours';
 import { PageTransition } from '../../components/layout/PageTransition';
 import { PageContainer } from '../../components/layout/PageContainer';
 import { SectionWrapper } from '../../components/layout/SectionWrapper';
@@ -224,7 +229,8 @@ export const OrganizerStudio = () => {
       registrationDeadline: event.registrationDeadline || '',
       image: event.image || '',
       tags: Array.isArray(event.tags) ? event.tags.join(', ') : (event.tags || ''),
-      visibility: event.visibility || 'public'
+      visibility: event.visibility || 'public',
+      clubHours: normalizeClubHours(event)
     });
     setFormError('');
   };
@@ -245,14 +251,55 @@ export const OrganizerStudio = () => {
       return;
     }
 
+    const originalLocked = isClubHoursLocked(editingEvent);
+    const newClubHours = editForm.clubHours;
+
+    if (newClubHours?.enabled) {
+      const hoursValidation = validateClubHours(newClubHours);
+      if (!hoursValidation.valid) {
+        setFormError(hoursValidation.error);
+        return;
+      }
+    }
+
+    // Enforce lock check on save
+    let normalizedClubHours = undefined;
+    if (newClubHours) {
+      normalizedClubHours = newClubHours.enabled ? {
+        enabled: true,
+        participationHours: Number(newClubHours.participationHours) || 0,
+        organizerHours: Number(newClubHours.organizerHours) || 0
+      } : {
+        enabled: false,
+        participationHours: 0,
+        organizerHours: 0
+      };
+
+      if (originalLocked) {
+        const oldClubHours = normalizeClubHours(editingEvent);
+        if (
+          normalizedClubHours.enabled !== oldClubHours.enabled ||
+          normalizedClubHours.participationHours !== oldClubHours.participationHours ||
+          normalizedClubHours.organizerHours !== oldClubHours.organizerHours
+        ) {
+          setFormError("Club hour values are locked because registrations have started.");
+          return;
+        }
+      }
+    }
+
     setFormSaving(true);
     setFormError('');
     try {
-      await updateEvent(editingEvent.id, {
+      const updatePayload = {
         ...editForm,
         capacity: Number(editForm.capacity),
         tags: editForm.tags.split(',').map(t => t.trim()).filter(Boolean)
-      });
+      };
+      if (normalizedClubHours) {
+        updatePayload.clubHours = normalizedClubHours;
+      }
+      await updateEvent(editingEvent.id, updatePayload);
       triggerToast('success', "Event successfully updated.");
       setEditingEvent(null);
     } catch (err) {
@@ -709,7 +756,6 @@ export const OrganizerStudio = () => {
                 {filteredEvents.map((event) => {
                   const capacity = parseInt(event.capacity) || 0;
                   const currentReg = parseInt(event.registeredCount) || 0;
-                  const seatsRemaining = Math.max(capacity - currentReg, 0);
                   const isSelected = selectedIds.has(event.id);
                   
                   // Fill % analytics
@@ -1138,6 +1184,86 @@ export const OrganizerStudio = () => {
                           <option value="private">Private</option>
                         </select>
                       </div>
+                     </div>
+
+                    {/* Club Hours Section inside Edit Modal */}
+                    <div className="flex flex-col gap-4 p-4 border border-white/5 bg-[#111]/30 relative rounded-none mt-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-1 text-left">
+                          <h3 className="text-sm font-light text-primary">Club Hours // Participation Credit</h3>
+                          <p className="text-[0.65rem] text-secondary">
+                            Verify or propose student credit configurations.
+                          </p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={editForm.clubHours?.enabled || false}
+                            disabled={formSaving || isClubHoursLocked(editingEvent)}
+                            onChange={(e) => setEditForm({
+                              ...editForm,
+                              clubHours: {
+                                ...(editForm.clubHours || { participationHours: 0, organizerHours: 0 }),
+                                enabled: e.target.checked
+                              }
+                            })}
+                            className="sr-only peer"
+                          />
+                          <div className="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-none peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white/40 peer-checked:after:bg-accent after:border-none after:h-4 after:w-4 after:transition-all peer-checked:bg-accent/20 border border-white/5 peer-checked:border-accent/40 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed" />
+                        </label>
+                      </div>
+
+                      {isClubHoursLocked(editingEvent) && (
+                        <div className="text-[0.65rem] text-accent/80 font-technical uppercase border border-accent/20 bg-accent/5 px-3 py-1.5 mt-1">
+                          CREDIT VALUE LOCKED // "Club hour values are locked because registrations have started."
+                        </div>
+                      )}
+
+                      {editForm.clubHours?.enabled && (
+                        <div className="grid grid-cols-2 gap-4 pt-3 border-t border-white/5">
+                          <div className="flex flex-col gap-2">
+                            <label className="text-micro text-primary">Participation Credit (HRS)</label>
+                            <input
+                              type="number"
+                              step="0.5"
+                              min="0"
+                              max="100"
+                              value={editForm.clubHours.participationHours}
+                              disabled={formSaving || isClubHoursLocked(editingEvent)}
+                              onChange={(e) => setEditForm({
+                                ...editForm,
+                                clubHours: {
+                                  ...editForm.clubHours,
+                                  participationHours: e.target.value === '' ? '' : Number(e.target.value)
+                                }
+                              })}
+                              placeholder="e.g. 8"
+                              className="w-full bg-[#111] border border-white/10 px-3 py-2 text-sm text-white/80 placeholder-white/20 focus:outline-none focus:border-accent font-ui rounded-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            />
+                          </div>
+
+                          <div className="flex flex-col gap-2">
+                            <label className="text-micro text-primary">Organizer Credit (HRS)</label>
+                            <input
+                              type="number"
+                              step="0.5"
+                              min="0"
+                              max="100"
+                              value={editForm.clubHours.organizerHours}
+                              disabled={formSaving || isClubHoursLocked(editingEvent)}
+                              onChange={(e) => setEditForm({
+                                ...editForm,
+                                clubHours: {
+                                  ...editForm.clubHours,
+                                  organizerHours: e.target.value === '' ? '' : Number(e.target.value)
+                                }
+                              })}
+                              placeholder="e.g. 16"
+                              className="w-full bg-[#111] border border-white/10 px-3 py-2 text-sm text-white/80 placeholder-white/20 focus:outline-none focus:border-accent font-ui rounded-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Actions */}

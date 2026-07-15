@@ -5,6 +5,7 @@ import { EditorialImage } from './EditorialImage';
 import { useAmbientLight } from '../../hooks/useMagnet';
 import { cn } from '../../utils/cn';
 import { resolveEventImage } from '../../utils/eventImage';
+import { getParticipationHours } from '../../utils/clubHours';
 
 /**
  * EventCard — individual upcoming event card with ambient light shift on cursor movement.
@@ -109,6 +110,14 @@ export const EventCard = ({ event, index, className }) => {
               {resolveCountdown(event)}
             </span>
           </div>
+          {getParticipationHours(event) > 0 && (
+            <>
+              <span className="w-4 h-[1px] bg-border" />
+              <span className="text-micro text-accent font-technical uppercase tracking-wider">
+                {getParticipationHours(event)} HRS // CLUB CREDIT
+              </span>
+            </>
+          )}
         </div>
 
         {/* Heading with brightness response */}

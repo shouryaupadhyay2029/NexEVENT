@@ -53,6 +53,19 @@ export const createEvent = async (eventData) => {
       : (eventData.tags ? eventData.tags.split(',').map(t => t.trim()).filter(Boolean) : []),
     visibility: eventData.visibility || "public",
     
+    // Club Hours configuration
+    clubHours: eventData.clubHours ? {
+      enabled: !!eventData.clubHours.enabled,
+      participationHours: Number(eventData.clubHours.participationHours) || 0,
+      organizerHours: Number(eventData.clubHours.organizerHours) || 0
+    } : {
+      enabled: false,
+      participationHours: 0,
+      organizerHours: 0
+    },
+    clubHoursLocked: eventData.clubHoursLocked || false,
+    clubHoursLockedAt: eventData.clubHoursLockedAt || null,
+    
     // Lifecycle Status Parameters
     status: initialStatus,
     publishedAt: initialStatus !== "draft" ? nowStr : null,

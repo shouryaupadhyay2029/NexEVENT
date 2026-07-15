@@ -21,11 +21,14 @@ const Attendees = React.lazy(() => import('./pages/Organizer/Attendees').then(m 
 const AccessRequired = React.lazy(() => import('./pages/AccessRequired').then(m => ({ default: m.AccessRequired })));
 const ActivateOrganizer = React.lazy(() => import('./pages/ActivateOrganizer').then(m => ({ default: m.ActivateOrganizer })));
 const AdminConsole = React.lazy(() => import('./pages/Admin').then(m => ({ default: m.AdminConsole })));
+const FacultyVerificationDesk = React.lazy(() => import('./pages/Faculty/VerificationDesk').then(m => ({ default: m.FacultyVerificationDesk })));
+const ClubHours = React.lazy(() => import('./pages/ClubHours').then(m => ({ default: m.ClubHours })));
 const ErrorPage = React.lazy(() => import('./pages/Error').then(m => ({ default: m.ErrorPage })));
 const About = React.lazy(() => import('./pages/About').then(m => ({ default: m.About })));
 
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { OrganizerRoute } from './routes/OrganizerRoute';
+import { FacultyRoute } from './routes/FacultyRoute';
 import { AdminRoute } from './routes/AdminRoute';
 
 const DummyPage = ({ title, desc }) => (
@@ -126,6 +129,16 @@ const AnimatedRoutes = () => {
           <AdminRoute>
             <AdminConsole />
           </AdminRoute>
+        } />
+        <Route path="/faculty" element={
+          <FacultyRoute>
+            <FacultyVerificationDesk />
+          </FacultyRoute>
+        } />
+        <Route path="/club-hours" element={
+          <ProtectedRoute>
+            <ClubHours />
+          </ProtectedRoute>
         } />
 
         {/* Existing Routes */}
