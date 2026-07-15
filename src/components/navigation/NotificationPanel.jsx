@@ -302,7 +302,7 @@ export const NotificationPanel = ({ isOpen, onClose, notifications, userId }) =>
             initial="closed"
             animate="open"
             exit="closed"
-            className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md bg-[#0e0e0e] border-l border-white/10 flex flex-col relative overflow-hidden"
+            className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md bg-[#0e0e0e] border-l border-white/10 flex flex-col overflow-hidden"
           >
             {/* Architectural blueprint grid background */}
             <div 
