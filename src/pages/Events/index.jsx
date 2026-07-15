@@ -590,6 +590,14 @@ export const Events = () => {
       .reduce((acc, e) => acc + (getParticipationHours(e) * (parseInt(e.registeredCount) || 0)), 0);
   }, [events]);
 
+  const totalRegistrations = useMemo(() => {
+    return events.reduce((acc, e) => acc + (parseInt(e.registeredCount) || 0), 0);
+  }, [events]);
+
+  const participatingClubsCount = useMemo(() => {
+    return new Set(events.map(e => e.organizer).filter(Boolean)).size;
+  }, [events]);
+
   const groupedEvents = useMemo(() => {
     const groups = {};
     processedEvents.forEach(event => {
@@ -980,10 +988,39 @@ export const Events = () => {
             </div>
           </div>
 
-          {/* â”€â”€ DISCOVERY CONSOLE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {/* ── ARCHIVE STATISTICS STRIP ── */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-0 border border-white/[0.05] bg-[#090909] select-none -mt-4">
+            {[
+              { label: 'Total Archived Events', value: loading ? '—' : publishedCount },
+              { label: 'Total Registrations', value: loading ? '—' : totalRegistrations },
+              { label: 'Verified Club Hours', value: loading ? '—' : `${verifiedClubHours}h` },
+              { label: 'Participating Clubs', value: loading ? '—' : participatingClubsCount },
+              { label: 'Completed Projects', value: loading ? '—' : completedCount },
+            ].map((stat, idx) => (
+              <div
+                key={idx}
+                className={cn(
+                  "flex flex-col gap-3 p-6 sm:p-8 group transition-colors duration-200 border-white/[0.05]",
+                  idx < 4 ? "border-b md:border-b-0" : "",
+                  idx % 2 === 0 ? "border-r" : "sm:border-r-0 md:border-r",
+                  idx === 4 ? "md:border-r-0" : ""
+                )}
+              >
+                <span className="text-[0.44rem] font-technical uppercase tracking-[0.16em] text-white/20 group-hover:text-accent transition-colors duration-200">
+                  {stat.label}
+                </span>
+                
+                <span className="text-display-md font-light text-white/55 group-hover:text-white/95 transition-colors duration-200 tabular-nums leading-none">
+                  {stat.value}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* ── DISCOVERY CONSOLE ──────────────────────────────────────────── */}
           <div className="flex flex-col border border-white/[0.06] bg-[#0c0c0c] font-ui">
 
-            {/* â”€â”€ Console system bar â”€â”€â”€â”€ */}
+            {/* ── Console system bar ── */}
             <div className="flex items-start justify-between px-5 py-3 border-b border-white/[0.05] select-none">
               {/* Left: label + metadata */}
               <div className="flex flex-col gap-1.5">
