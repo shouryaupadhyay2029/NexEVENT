@@ -39,6 +39,8 @@ export const EventCard = ({ event, index, className }) => {
   const tiltX = shouldReduceMotion ? 0 : rawTiltX;
   const tiltY = shouldReduceMotion ? 0 : rawTiltY;
 
+  const hours = getParticipationHours(event);
+
   const resolveCountdown = (eVal) => {
     const status = (eVal.status || 'open').toLowerCase();
     if (status === 'draft') return 'Draft';
@@ -135,82 +137,127 @@ export const EventCard = ({ event, index, className }) => {
       </motion.div>
 
       {/* Text content with Parallax offsets */}
-      <motion.div style={{ x: textParallaxX, y: textParallaxY }} className="flex flex-col z-10">
-        <div className="flex items-center gap-4 mb-6">
-          {/* Category label orange becomes slightly brighter */}
-          <motion.span
-            animate={{ color: isHovered ? '#E07A35' : '#C96A2B' }}
-            transition={{ duration: 0.25 }}
-            className="text-micro font-medium"
-          >
-            {event.category}
-          </motion.span>
-          <span className="w-4 h-[1px] bg-border" />
-          <div className="flex items-center gap-2">
-            {event.status?.toLowerCase() === "live" && <span className="w-1 h-1 rounded-none bg-red-500 animate-pulse" />}
-            {/* Status Badges scale-up on load and brighten on hover */}
-            <motion.span 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              whileHover={{ filter: "brightness(1.2)" }}
-              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className={cn(
-                "text-micro font-technical uppercase tracking-wider",
-                event.status?.toLowerCase() === "live" ? "text-red-400" :
-                event.status?.toLowerCase() === "open" ? "text-green-400" :
-                event.status?.toLowerCase() === "closed" ? "text-orange-400" :
-                event.status?.toLowerCase() === "completed" ? "text-white/40" :
-                "text-white/30"
-              )}
+      <motion.div style={{ x: textParallaxX, y: textParallaxY }} className="flex flex-col z-10 flex-grow justify-between">
+        <div>
+          <div className="flex items-center gap-4 mb-6">
+            {/* Category label orange becomes slightly brighter */}
+            <motion.span
+              animate={{ color: isHovered ? '#E07A35' : '#C96A2B' }}
+              transition={{ duration: 0.25 }}
+              className="text-micro font-medium"
             >
-              {resolveCountdown(event)}
+              {event.category}
             </motion.span>
+            <span className="w-4 h-[1px] bg-border" />
+            <div className="flex items-center gap-2">
+              {event.status?.toLowerCase() === "live" && <span className="w-1 h-1 rounded-none bg-red-500 animate-pulse" />}
+              {/* Status Badges scale-up on load and brighten on hover */}
+              <motion.span 
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                whileHover={{ filter: "brightness(1.2)" }}
+                transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                className={cn(
+                  "text-micro font-technical uppercase tracking-wider",
+                  event.status?.toLowerCase() === "live" ? "text-red-400" :
+                  event.status?.toLowerCase() === "open" ? "text-green-400" :
+                  event.status?.toLowerCase() === "closed" ? "text-orange-400" :
+                  event.status?.toLowerCase() === "completed" ? "text-white/40" :
+                  "text-white/30"
+                )}
+              >
+                {resolveCountdown(event)}
+              </motion.span>
+            </div>
           </div>
-          {getParticipationHours(event) > 0 && (
-            <>
-              <span className="w-4 h-[1px] bg-border" />
-              <span className="text-micro text-accent font-technical uppercase tracking-wider">
-                {getParticipationHours(event)} HRS // CLUB CREDIT
-              </span>
-            </>
-          )}
+
+          {/* Heading with 2px upward translate response */}
+          <motion.h3
+            animate={{
+              y: isHovered ? -2 : 0,
+              color: isHovered ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.88)',
+            }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            className="text-display-m mb-6 font-light"
+          >
+            {event.title}
+          </motion.h3>
         </div>
 
-        {/* Heading with 2px upward translate response */}
-        <motion.h3
-          animate={{
-            y: isHovered ? -2 : 0,
-            color: isHovered ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.88)',
-          }}
-          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="text-display-m mb-8 font-light"
-        >
-          {event.title}
-        </motion.h3>
+        <div>
+          {/* DATA METADATA BLOCKS */}
+          <div className="grid grid-cols-2 gap-y-4 gap-x-2 border-t border-white/[0.06] pt-4 mt-2">
+            <div className="flex flex-col gap-1 text-left">
+              <span className="text-[0.44rem] font-technical uppercase tracking-[0.14em] text-white/22">Seats</span>
+              <span className="text-[0.82rem] font-light text-white/60 leading-none tabular-nums">
+                {event.capacity || '80'}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1 text-right">
+              <span className="text-[0.44rem] font-technical uppercase tracking-[0.14em] text-white/22">Registered</span>
+              <span className="text-[0.82rem] font-light text-white/60 leading-none tabular-nums">
+                {event.registeredCount || 0}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1 text-left">
+              <span className="text-[0.44rem] font-technical uppercase tracking-[0.14em] text-white/22">Deadline</span>
+              <span className="text-[0.62rem] font-light text-white/45 leading-none tabular-nums truncate max-w-full">
+                {event.registrationDeadline ? (() => {
+                  try {
+                    const d = new Date(event.registrationDeadline);
+                    if (isNaN(d.getTime())) return event.registrationDeadline;
+                    return d.toLocaleDateString("en-US", { month: "short", day: "2-digit" });
+                  } catch {
+                    return event.registrationDeadline;
+                  }
+                })() : 'TBA'}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1 text-right">
+              <span className="text-[0.44rem] font-technical uppercase tracking-[0.14em] text-white/22">Club Hours</span>
+              <div className="flex flex-col items-end gap-0.5">
+                {hours > 0 ? (
+                  <span className="text-[0.78rem] font-technical uppercase tracking-wider text-accent leading-none font-semibold">
+                    +{hours} HRS
+                  </span>
+                ) : (
+                  <span className="text-[0.62rem] font-light text-white/30 leading-none">
+                    NOT ELIGIBLE
+                  </span>
+                )}
+                {hours > 0 && (event.facultyVerified || event.clubHours?.facultyVerified || event.clubHours?.verifiedCredit) && (
+                  <span className="text-[0.48rem] text-white/40 tracking-wider uppercase font-technical leading-none">
+                    Verified Credit
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
 
-        {/* Metadata opacity increases */}
-        <motion.div
-          animate={{ 
-            color: isHovered ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.35)',
-            borderTopColor: isHovered ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)'
-          }}
-          transition={{ duration: 0.25 }}
-          className="flex justify-between items-center text-micro border-t pt-6"
-        >
-          <span>
-            {(() => {
-              if (!event.date) return "";
-              try {
-                const d = new Date(event.date);
-                if (isNaN(d.getTime())) return event.date;
-                return d.toLocaleDateString("en-US", { month: "short", day: "2-digit" });
-              } catch {
-                return event.date;
-              }
-            })()}
-          </span>
-          <span>{event.venue}</span>
-        </motion.div>
+          {/* Metadata opacity increases */}
+          <motion.div
+            animate={{ 
+              color: isHovered ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.35)',
+              borderTopColor: isHovered ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)'
+            }}
+            transition={{ duration: 0.25 }}
+            className="flex justify-between items-center text-micro border-t pt-4 mt-4"
+          >
+            <span>
+              {(() => {
+                if (!event.date) return "";
+                try {
+                  const d = new Date(event.date);
+                  if (isNaN(d.getTime())) return event.date;
+                  return d.toLocaleDateString("en-US", { month: "short", day: "2-digit" });
+                } catch {
+                  return event.date;
+                }
+              })()}
+            </span>
+            <span>{event.venue}</span>
+          </motion.div>
+        </div>
       </motion.div>
     </motion.div>
   );

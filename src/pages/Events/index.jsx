@@ -38,7 +38,7 @@ const DirectoryEventCard = ({
   event,
   registered,
   isClosed,
-  seatsRemaining,
+  _seatsRemaining,
   currentReg,
   formatDate,
   getParticipationHours,
@@ -297,7 +297,7 @@ const DirectoryEventCard = ({
 
         <div>
           {/* DATA METADATA BLOCKS */}
-          <div className="grid grid-cols-3 gap-2 border-t border-white/[0.05] pt-4 mt-6">
+          <div className="grid grid-cols-2 gap-y-4 gap-x-2 border-t border-white/[0.05] pt-4 mt-6">
             <div className="flex flex-col gap-1 text-left">
               <span className="text-[0.44rem] font-technical uppercase tracking-[0.14em] text-white/22">Seats</span>
               <motion.span
@@ -307,7 +307,7 @@ const DirectoryEventCard = ({
                 {event.capacity || '80'}
               </motion.span>
             </div>
-            <div className="flex flex-col gap-1 items-center">
+            <div className="flex flex-col gap-1 text-right">
               <span className="text-[0.44rem] font-technical uppercase tracking-[0.14em] text-white/22">Registered</span>
               <motion.span
                 animate={{ color: isHovered ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.55)' }}
@@ -316,30 +316,32 @@ const DirectoryEventCard = ({
                 {currentReg}
               </motion.span>
             </div>
-            <div className="flex flex-col gap-1 items-end text-right">
+            <div className="flex flex-col gap-1 text-left">
               <span className="text-[0.44rem] font-technical uppercase tracking-[0.14em] text-white/22">Deadline</span>
               <span className="text-[0.62rem] font-light text-white/45 leading-none tabular-nums truncate max-w-full">
                 {event.registrationDeadline ? formatDate(event.registrationDeadline) : 'TBA'}
               </span>
             </div>
-          </div>
-
-          {/* Micro hours badge */}
-          {hours > 0 && (
-            <div className="flex flex-wrap gap-2 mt-4">
-              <motion.span
-                ref={creditBadgeRef}
-                animate={creditPulsed ? {
-                  borderColor: ['rgba(201,106,43,0.3)', 'rgba(201,106,43,0.6)', 'rgba(201,106,43,0.2)'],
-                  backgroundColor: ['rgba(201,106,43,0.03)', 'rgba(201,106,43,0.08)', 'rgba(201,106,43,0.03)'],
-                } : {}}
-                transition={{ duration: 0.85 }}
-                className="px-2 py-0.5 border border-accent/22 bg-accent/[0.04] text-accent text-[0.44rem] font-technical uppercase tracking-wider leading-none rounded-[3px]"
-              >
-                {hours}h Credit
-              </motion.span>
+            <div className="flex flex-col gap-1 text-right">
+              <span className="text-[0.44rem] font-technical uppercase tracking-[0.14em] text-white/22">Club Hours</span>
+              <div className="flex flex-col items-end gap-0.5">
+                {hours > 0 ? (
+                  <span className="text-[0.78rem] font-technical uppercase tracking-wider text-accent leading-none font-semibold">
+                    +{hours} HRS
+                  </span>
+                ) : (
+                  <span className="text-[0.62rem] font-light text-white/30 leading-none">
+                    NOT ELIGIBLE
+                  </span>
+                )}
+                {hours > 0 && (event.facultyVerified || event.clubHours?.facultyVerified || event.clubHours?.verifiedCredit) && (
+                  <span className="text-[0.48rem] text-white/40 tracking-wider uppercase font-technical leading-none">
+                    Verified Credit
+                  </span>
+                )}
+              </div>
             </div>
-          )}
+          </div>
 
           {/* PRIMARY BUTTON CTA */}
           <motion.button

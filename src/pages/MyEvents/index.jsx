@@ -327,35 +327,6 @@ export const MyEvents = () => {
                     ledgerEntry: eventLedger
                   });
 
-                  const creditBadge = (() => {
-                    if (!event.clubHours?.enabled) return null;
-                    
-                    switch (creditState) {
-                      case 'verified':
-                        return {
-                          label: `+${eventLedger?.hours || 0} HRS // VERIFIED`,
-                          className: "border-green-500/20 bg-green-950/20 text-green-400 font-semibold"
-                        };
-                      case 'organizer_review':
-                        return {
-                          label: "CREDIT UNDER ORGANIZER REVIEW",
-                          className: "border-orange-500/20 bg-orange-950/20 text-orange-400"
-                        };
-                      case 'pending_faculty':
-                        return {
-                          label: `${eventStatus?.proposedHours || event.clubHours.participationHours} HRS // PENDING FACULTY`,
-                          className: "border-accent/20 bg-accent/5 text-accent"
-                        };
-                      case 'draft_allocation':
-                      case 'eligible':
-                      case 'attendance_pending':
-                      default:
-                        return {
-                          label: `${event.clubHours.participationHours} HRS // CLUB CREDIT`,
-                          className: "border-white/10 bg-white/5 text-white/50"
-                        };
-                    }
-                  })();
 
                   return (
                     <div
@@ -387,14 +358,6 @@ export const MyEvents = () => {
                             )}>
                               {reg.status === 'cancelled' ? "Cancelled" : reg.checkedIn ? "Checked In" : "Confirmed"}
                             </span>
-                            {creditBadge && (
-                              <span className={cn(
-                                "text-[0.55rem] font-technical uppercase px-2 py-0.5 border leading-tight",
-                                creditBadge.className
-                              )}>
-                                {creditBadge.label}
-                              </span>
-                            )}
                           </div>
 
                           {/* Event Title */}
@@ -424,6 +387,40 @@ export const MyEvents = () => {
                               Ticket ID: <span className="text-white/60 select-all font-bold">{reg.ticketId}</span>
                             </span>
                           )}
+
+                          {/* Club Credit Metadata Row */}
+                          <div className="flex flex-wrap items-center gap-2.5 mt-2 pt-2 border-t border-white/[0.04]">
+                            <span className="text-micro text-white/20 uppercase tracking-[0.14em]">Club Credit:</span>
+                            <span className={cn(
+                              "text-xs font-technical uppercase font-medium tracking-wider",
+                              event.clubHours?.enabled ? (
+                                creditState === 'verified' ? "text-green-400" :
+                                creditState === 'organizer_review' ? "text-orange-400" :
+                                creditState === 'pending_faculty' ? "text-accent" :
+                                "text-accent"
+                              ) : "text-white/22"
+                            )}>
+                              {event.clubHours?.enabled ? (
+                                creditState === 'verified' ? `+${eventLedger?.hours || event.clubHours.participationHours} HRS` :
+                                creditState === 'organizer_review' ? "IN REVIEW" :
+                                creditState === 'pending_faculty' ? `+${eventStatus?.proposedHours || event.clubHours.participationHours} HRS` :
+                                `+${event.clubHours.participationHours} HRS`
+                              ) : "NOT ELIGIBLE"}
+                            </span>
+                            {event.clubHours?.enabled && (
+                              <span className={cn(
+                                "text-[0.48rem] font-technical uppercase tracking-widest px-1.5 py-0.5 border rounded-[3px] leading-tight select-none",
+                                creditState === 'verified' ? "border-green-500/22 bg-green-950/20 text-green-400 font-semibold" :
+                                creditState === 'organizer_review' ? "border-orange-500/22 bg-orange-950/20 text-orange-400" :
+                                creditState === 'pending_faculty' ? "border-accent/22 bg-accent/5 text-accent" :
+                                "border-white/10 bg-white/5 text-white/40"
+                              )}>
+                                {creditState === 'verified' ? "Faculty Verified" : 
+                                 creditState === 'organizer_review' ? "Organizer Review" :
+                                 creditState === 'pending_faculty' ? "Pending Faculty" : "Eligible Credit"}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
 
@@ -478,35 +475,6 @@ export const MyEvents = () => {
                 ledgerEntry: eventLedger
               });
 
-              const modalCreditBadge = (() => {
-                if (!eventItem.clubHours?.enabled) return null;
-                
-                switch (creditState) {
-                  case 'verified':
-                    return {
-                      label: `+${eventLedger?.hours || 0} HRS // VERIFIED`,
-                      className: "border-green-500/20 bg-green-950/20 text-green-400 font-semibold"
-                    };
-                  case 'organizer_review':
-                    return {
-                      label: "CREDIT UNDER ORGANIZER REVIEW",
-                      className: "border-orange-500/20 bg-orange-950/20 text-orange-400"
-                    };
-                  case 'pending_faculty':
-                    return {
-                      label: `${eventStatus?.proposedHours || eventItem.clubHours.participationHours} HRS // PENDING FACULTY`,
-                      className: "border-accent/20 bg-accent/5 text-accent"
-                    };
-                  case 'draft_allocation':
-                  case 'eligible':
-                  case 'attendance_pending':
-                  default:
-                    return {
-                      label: `${eventItem.clubHours.participationHours} HRS // CLUB CREDIT`,
-                      className: "border-white/10 bg-white/5 text-white/50"
-                    };
-                }
-              })();
 
               const qrPayload = regDoc.passToken
                 ? JSON.stringify({ v: 1, type: 'nexevent_pass', token: regDoc.passToken })
@@ -623,18 +591,29 @@ export const MyEvents = () => {
                           </span>
                         </div>
 
-                        {/* Club Credit Badge */}
-                        {modalCreditBadge && (
-                          <div className="flex flex-col items-center gap-1 border-t border-white/5 pt-4 mt-1 w-full">
-                            <span className="text-micro text-white/30 uppercase tracking-widest">Club Credit</span>
+                        {/* Club Credit Section */}
+                        <div className="flex flex-col items-center gap-1 border-t border-white/5 pt-4 mt-1 w-full">
+                          <span className="text-micro text-white/30 uppercase tracking-[0.14em]">Club Credit</span>
+                          <span className={cn(
+                            "text-body font-technical font-medium mt-0.5 tracking-wider",
+                            eventItem.clubHours?.enabled ? "text-accent animate-fadeIn" : "text-white/20"
+                          )}>
+                            {eventItem.clubHours?.enabled ? `+${eventItem.clubHours.participationHours} HRS` : "NOT ELIGIBLE"}
+                          </span>
+                          {eventItem.clubHours?.enabled && (
                             <span className={cn(
-                              "text-micro font-technical uppercase tracking-widest px-2.5 py-0.5 border leading-tight",
-                              modalCreditBadge.className
+                              "text-[0.48rem] font-technical uppercase tracking-widest px-2 py-0.5 border rounded-[3px] mt-1 leading-tight select-none",
+                              creditState === 'verified' ? "border-green-500/22 bg-green-950/20 text-green-400 font-semibold" :
+                              creditState === 'organizer_review' ? "border-orange-500/22 bg-orange-950/20 text-orange-400" :
+                              creditState === 'pending_faculty' ? "border-accent/22 bg-accent/5 text-accent" :
+                              "border-white/10 bg-white/5 text-white/50"
                             )}>
-                              {modalCreditBadge.label}
+                              {creditState === 'verified' ? "Faculty Verified" : 
+                               creditState === 'organizer_review' ? "Organizer Review" :
+                               creditState === 'pending_faculty' ? "Pending Faculty" : "Eligible Credit"}
                             </span>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
 
                       <span className="text-[9px] text-white/20 font-mono uppercase tracking-wider pt-6">

@@ -58,6 +58,7 @@ export const FeaturedEventCard = ({ event, loading }) => {
   const imgRef = useRef(null);
   const [isHovered, setIsHovered] = useState(false);
 
+  const hours = getParticipationHours(event);
 
   // Use dynamic event data or clean fallbacks if none published yet
   const title = event?.title || "Stanford Design Symposium '26";
@@ -317,14 +318,6 @@ export const FeaturedEventCard = ({ event, loading }) => {
               />
               {category}
             </span>
-            {getParticipationHours(event) > 0 && (
-              <>
-                <span className="w-4 h-[1px] bg-white/20" />
-                <span className="text-micro text-accent font-technical uppercase tracking-wider">
-                  {getParticipationHours(event)} HRS // CLUB CREDIT
-                </span>
-              </>
-            )}
           </motion.div>
 
           {/* Bottom content block */}
@@ -370,11 +363,11 @@ export const FeaturedEventCard = ({ event, loading }) => {
             </motion.h3>
 
             {/* Date + Location metadata */}
-            <div className="flex items-end justify-between w-full">
+            <div className="grid grid-cols-2 gap-y-4 gap-x-2 w-full mt-4 border-t border-white/[0.06] pt-4">
               <motion.div
                 variants={infoItemVariants(2)}
                 style={{ x: metaParallaxX, y: metaParallaxY }}
-                className="flex flex-col gap-1.5"
+                className="flex flex-col gap-1 text-left"
               >
                 <span
                   className="text-micro"
@@ -395,7 +388,7 @@ export const FeaturedEventCard = ({ event, loading }) => {
               <motion.div
                 variants={infoItemVariants(3)}
                 style={{ x: metaParallaxX, y: metaParallaxY }}
-                className="flex flex-col gap-1.5 text-right"
+                className="flex flex-col gap-1 text-right"
               >
                 <span
                   className="text-micro"
@@ -412,6 +405,55 @@ export const FeaturedEventCard = ({ event, loading }) => {
                 >
                   {venue}
                 </span>
+              </motion.div>
+              <motion.div
+                variants={infoItemVariants(4)}
+                style={{ x: metaParallaxX, y: metaParallaxY }}
+                className="flex flex-col gap-1 text-left"
+              >
+                <span
+                  className="text-micro"
+                  style={{ color: 'rgba(255,255,255,0.47)' }}
+                >
+                  Seats
+                </span>
+                <span
+                  className="text-body-s font-light tabular-nums"
+                  style={{
+                    color: isHovered ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.55)',
+                    transition: 'color 0.5s ease',
+                  }}
+                >
+                  {event?.capacity || '80'}
+                </span>
+              </motion.div>
+              <motion.div
+                variants={infoItemVariants(5)}
+                style={{ x: metaParallaxX, y: metaParallaxY }}
+                className="flex flex-col gap-1 text-right"
+              >
+                <span
+                  className="text-micro"
+                  style={{ color: 'rgba(255,255,255,0.47)' }}
+                >
+                  Club Hours
+                </span>
+                <div className="flex flex-col items-end gap-0.5">
+                  {hours > 0 ? (
+                    <span className="text-body-s font-semibold text-accent uppercase tracking-wider leading-none">
+                      +{hours} HRS
+                    </span>
+                  ) : (
+                    <span className="text-xs font-light text-white/30 leading-none">
+                      NOT ELIGIBLE
+                    </span>
+                  )}
+                  {hours > 0 && (event.facultyVerified || event.clubHours?.facultyVerified || event.clubHours?.verifiedCredit) && (
+                    <span className="text-[0.48rem] text-white/40 tracking-wider uppercase font-technical leading-none">
+                      Verified Credit
+                    </span>
+                  )}
+                </div>
               </motion.div>
             </div>
           </div>

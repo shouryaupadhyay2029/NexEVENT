@@ -34,11 +34,18 @@ export const RegistrationPanel = ({ event, isRegistered, onRegister, isRegisteri
           <span className="text-[0.6rem] text-white/30 font-technical uppercase tracking-[0.2em]">
             Club Hours // Credit
           </span>
-          <div className="flex items-baseline gap-2 mt-0.5">
-            <span className="text-display-m font-light text-accent">
-              {getParticipationHours(event)}
-            </span>
-            <span className="text-xs font-light text-primary">HRS Participation Credit</span>
+          <div className="flex flex-col gap-1.5 text-left">
+            <div className="flex items-baseline gap-2 mt-0.5">
+              <span className="text-display-m font-light text-accent">
+                +{getParticipationHours(event)}
+              </span>
+              <span className="text-xs font-light text-primary">HRS Participation Credit</span>
+            </div>
+            {(event.facultyVerified || event.clubHours?.facultyVerified || event.clubHours?.verifiedCredit) && (
+              <span className="text-[0.55rem] text-green-400 border border-green-500/20 bg-green-950/20 px-2 py-0.5 self-start uppercase font-technical tracking-wider rounded-[3px] leading-tight">
+                Verified Credit
+              </span>
+            )}
           </div>
           <p className="text-[0.62rem] text-white/40 leading-normal font-light">
             Eligible after verified event attendance and faculty approval.
