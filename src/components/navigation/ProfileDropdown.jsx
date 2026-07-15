@@ -80,29 +80,29 @@ export const ProfileDropdown = () => {
   }));
 
   const containerVariants = {
-    hidden: { opacity: 0, y: -6 },
+    hidden: { opacity: 0, y: 8 },
     visible: {
       opacity: 1,
       y: 0,
       transition: {
-        duration: 0.35,
+        duration: 0.25,
         ease: EASE,
         when: "beforeChildren",
-        staggerChildren: 0.03
+        staggerChildren: 0.04
       }
     },
     exit: {
       opacity: 0,
-      y: -6,
+      y: 8,
       transition: {
-        duration: 0.2,
+        duration: 0.18,
         ease: EASE
       }
     }
   };
 
   const itemVariants = {
-    hidden: { opacity: 0, y: 3 },
+    hidden: { opacity: 0, y: 4 },
     visible: { 
       opacity: 1, 
       y: 0,
@@ -124,43 +124,44 @@ export const ProfileDropdown = () => {
         onClick={() => setIsOpen(!isOpen)}
         onMouseEnter={() => setRingActive(true)}
         onMouseLeave={() => setRingActive(false)}
+        animate={{
+          boxShadow: ringActive ? '0 4px 12px rgba(0,0,0,0.5)' : '0 0px 0px rgba(0,0,0,0)'
+        }}
+        transition={{ duration: 0.22, ease: EASE }}
         className="w-9 h-9 rounded-full bg-[#111] border border-white/[0.09] text-white flex items-center justify-center font-display text-base uppercase focus:outline-none relative z-50 will-change-transform"
         aria-label="Open profile menu"
       >
-        {/* Rotating arc */}
+        {/* Thin orange ring fades in */}
         <motion.span
-          className="absolute inset-[-3px] rounded-full"
-          style={{
-            border: '1px solid rgba(255,255,255,0.28)',
-            borderTopColor: 'rgba(255,255,255,0.0)',
-          }}
-          animate={ringActive
-            ? { rotate: 360, opacity: 1 }
-            : { rotate: 360, opacity: 0 }
-          }
-          initial={{ rotate: 0, opacity: 0 }}
-          transition={ringActive
-            ? { rotate: { duration: 0.75, ease: [0.4, 0, 0.2, 1] }, opacity: { duration: 0.2 } }
-            : { opacity: { duration: 0.35, ease: 'easeOut' } }
-          }
+          className="absolute inset-[-3px] rounded-full border border-accent"
+          animate={{ opacity: ringActive ? 0.6 : 0 }}
+          transition={{ duration: 0.22, ease: EASE }}
         />
         {/* Soft inner glow on hover */}
         <motion.span
           className="absolute inset-0 rounded-full"
           animate={{ opacity: ringActive ? 1 : 0 }}
-          transition={{ duration: 0.25, ease: EASE }}
+          transition={{ duration: 0.22, ease: EASE }}
           style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%)' }}
         />
         {avatarUrl ? (
-          <img
+          <motion.img
             src={avatarUrl}
             alt={profile?.displayName || user?.displayName || "User"}
             width={36}
             height={36}
+            animate={{ scale: ringActive ? 1.05 : 1 }}
+            transition={{ duration: 0.22, ease: EASE }}
             className="w-full h-full object-cover rounded-full relative z-10"
           />
         ) : (
-          <span className="relative z-10 text-white/80 group-hover:text-white transition-colors duration-200">{getInitial()}</span>
+          <motion.span 
+            animate={{ scale: ringActive ? 1.05 : 1 }}
+            transition={{ duration: 0.22, ease: EASE }}
+            className="relative z-10 text-white/80 group-hover:text-white transition-colors duration-200"
+          >
+            {getInitial()}
+          </motion.span>
         )}
       </motion.button>
 

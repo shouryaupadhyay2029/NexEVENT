@@ -141,10 +141,21 @@ const AnimatedRoutes = () => {
           </ProtectedRoute>
         } />
 
-        {/* Existing Routes */}
-        <Route path="/events" element={<Events />} />
-        <Route path="/discover" element={<DummyPage title="Discover" desc="Scroll down to see the transparent navigation bar smoothly transition to a blurred state with a hairline bottom border." />} />
-        <Route path="/about" element={<About />} />
+        <Route path="/events" element={
+          <PageTransition>
+            <Events />
+          </PageTransition>
+        } />
+        <Route path="/discover" element={
+          <PageTransition>
+            <DummyPage title="Discover" desc="Scroll down to see the transparent navigation bar smoothly transition to a blurred state with a hairline bottom border." />
+          </PageTransition>
+        } />
+        <Route path="/about" element={
+          <PageTransition>
+            <About />
+          </PageTransition>
+        } />
         <Route path="/support" element={<DummyPage title="Support" desc="Premium architectural foundation complete." />} />
         <Route path="*" element={<ErrorPage type="404" />} />
       </Routes>

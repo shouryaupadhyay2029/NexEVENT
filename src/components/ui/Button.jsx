@@ -43,6 +43,7 @@ export const Button = forwardRef(({
       onClick={onClick}
       style={{ x, y }}
       {...handlers}
+      whileHover={!disabled ? { scale: 1.015, transition: { duration: 0.18, ease: [0.16, 1, 0.3, 1] } } : {}}
       whileTap={!disabled ? { scale: 0.985, transition: { duration: 0.15, ease: [0.16, 1, 0.3, 1] } } : {}}
       className={cn(
         'inline-flex items-center justify-center rounded-none font-ui font-medium tracking-[0.05em] uppercase transition-colors duration-180 ease-out-expo select-none will-change-transform',

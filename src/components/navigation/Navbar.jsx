@@ -42,12 +42,12 @@ export const Navbar = () => {
   });
 
   // Continuous scroll-driven values — no binary state flip
-  // Background opacity: 0 at top → 0.72 after 300px
-  const rawBgOpacity = useTransform(scrollY, [0, 300], [0, 0.72]);
+  // Background opacity: 0 at top → 0.92 after 300px
+  const rawBgOpacity = useTransform(scrollY, [0, 300], [0, 0.92]);
   const bgOpacity = useSpring(rawBgOpacity, { damping: 30, stiffness: 120, mass: 0.5 });
 
-  // Border opacity: 0 → 0.07
-  const borderOpacity = useTransform(scrollY, [0, 250], [0, 0.07]);
+  // Border opacity: 0 → 0.04
+  const borderOpacity = useTransform(scrollY, [0, 250], [0, 0.04]);
 
   // Padding compression: 1.5rem → 0.875rem
   const paddingY = useTransform(scrollY, [0, 200], [1.5, 0.875]);
@@ -81,8 +81,8 @@ export const Navbar = () => {
             bgOpacity,
             (o) => `rgba(9,9,9,${o})`
           ),
-          backdropFilter: scrolled ? "blur(12px) saturate(1.2)" : "blur(0px) saturate(1.0)",
-          WebkitBackdropFilter: scrolled ? "blur(12px) saturate(1.2)" : "blur(0px) saturate(1.0)",
+          backdropFilter: scrolled ? "blur(4px)" : "blur(0px)",
+          WebkitBackdropFilter: scrolled ? "blur(4px)" : "blur(0px)",
           borderBottomColor: useTransform(
             borderOpacity,
             (o) => `rgba(255,255,255,${o})`
@@ -108,9 +108,9 @@ export const Navbar = () => {
 
           {/* Center: Navigation links wrapped in NavGroup for shared layoutId scope */}
           <NavGroup>
-            <NavLink to="/">Discover</NavLink>
-            <NavLink to="/events">Events</NavLink>
-            <NavLink to="/about">Archive</NavLink>
+            <NavLink to="/" index="01">Discover</NavLink>
+            <NavLink to="/events" index="02">Events</NavLink>
+            <NavLink to="/about" index="03">Archive</NavLink>
           </NavGroup>
 
           {/* Right: Auth / Profile */}
@@ -142,7 +142,21 @@ export const Navbar = () => {
                 >
                   <Bell className="w-[18px] h-[18px]" strokeWidth={2} />
                   {notifications.some(n => !n.isRead) && (
-                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-accent rounded-full animate-pulse shadow-[0_0_8px_rgba(255,87,34,0.8)]" />
+                    <div className="absolute top-1.5 right-1.5 flex items-center justify-center pointer-events-none">
+                      <span className="w-1.5 h-1.5 bg-accent rounded-full" />
+                      <motion.span 
+                        className="absolute w-1.5 h-1.5 bg-accent rounded-full"
+                        animate={{
+                          scale: [1, 1.66],
+                          opacity: [0.6, 0.3],
+                        }}
+                        transition={{
+                          repeat: Infinity,
+                          duration: 2,
+                          ease: "easeInOut",
+                        }}
+                      />
+                    </div>
                   )}
                 </button>
                 <div className="hidden md:block">
