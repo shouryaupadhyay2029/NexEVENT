@@ -8,15 +8,15 @@ import { PageTransition } from '../components/layout/PageTransition';
 import { PageContainer } from '../components/layout/PageContainer';
 import { SectionWrapper } from '../components/layout/SectionWrapper';
 import { AxisMarker } from '../components/layout/AxisMarker';
-import { Button } from '../components/ui/Button';
 import { cn } from '../utils/cn';
+import { PremiumEmptyState } from '../components/ui/PremiumEmptyState';
 import { 
   collection, query, where, onSnapshot 
 } from 'firebase/firestore';
 import { db } from '../firebase/firestore';
 import { trackEvent } from '../services/analyticsService';
 import { 
-  ShieldCheck, HelpCircle, ArrowRight
+  ShieldCheck
 } from 'lucide-react';
 
 export const ClubHours = () => {
@@ -211,24 +211,10 @@ export const ClubHours = () => {
 
           {/* EMPTY STATES & CONTENT SWITCH */}
           {!hasVerifiedRecords && !hasPendingRecords ? (
-            <div className="py-24 text-center border border-dashed border-white/5 relative z-10 flex flex-col items-center justify-center gap-5">
-              <HelpCircle className="w-10 h-10 text-white/20" strokeWidth={1.2} />
-              <div className="flex flex-col gap-1.5">
-                <h3 className="text-body-m font-technical uppercase tracking-wider text-primary">No Verified Club Hours Yet</h3>
-                <p className="text-xs text-white/40 max-w-sm mx-auto leading-relaxed font-light">
-                  Verified club credits will appear here after attendance-backed allocations are approved by assigned faculty.
-                </p>
-              </div>
-              <Button
-                onClick={() => navigate('/events')}
-                variant="secondary"
-                size="sm"
-                className="font-technical uppercase tracking-widest text-[10px] gap-2 mt-2"
-              >
-                <span>Explore Events</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Button>
-            </div>
+            <PremiumEmptyState 
+              type="clubHours"
+              action={() => navigate('/events')}
+            />
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 relative z-10 items-start">
               

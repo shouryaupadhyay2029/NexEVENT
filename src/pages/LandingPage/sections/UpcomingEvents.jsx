@@ -95,8 +95,7 @@ export const UpcomingEvents = ({ events, loading }) => {
             </motion.div>
           ) : (
             <PremiumEmptyState 
-              title="NO UPCOMING EVENTS" 
-              subtitle="The campus discovery schedule is currently clear. Initialize a new creative or academic schedule." 
+              type="events"
             />
           )}
         </RevealItem>

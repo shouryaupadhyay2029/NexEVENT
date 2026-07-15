@@ -656,14 +656,28 @@ export const Events = () => {
                 ))}
               </div>
             ) : error ? (
-              <div className="text-body text-red-400 font-technical uppercase tracking-wider text-center py-16 border border-dashed border-white/5">
-                {error}
-              </div>
-            ) : processedEvents.length === 0 ? (
               <PremiumEmptyState 
-                title="NO EVENTS MATCH QUERY" 
-                subtitle="Adjust or reset your discovery filters to locate catalog listings." 
+                type="error"
+                subtitle={error}
+                action={() => window.location.reload()}
               />
+            ) : processedEvents.length === 0 ? (
+              searchQuery.trim() ? (
+                <PremiumEmptyState 
+                  type="search"
+                  action={() => setSearchQuery('')}
+                />
+              ) : (
+                <PremiumEmptyState 
+                  type="events"
+                  action={() => {
+                    setSelectedCategory('All');
+                    setSelectedStatus('All');
+                    setSelectedDate('All');
+                    setSearchQuery('');
+                  }}
+                />
+              )
             ) : (
               // Render Grid of Events with 80ms stagger reveal
               <motion.div

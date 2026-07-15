@@ -22,6 +22,7 @@ import { AxisMarker } from '../../components/layout/AxisMarker';
 import { Button } from '../../components/ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils/cn';
+import { PremiumEmptyState } from '../../components/ui/PremiumEmptyState';
 import { 
   Plus, Edit2, Copy, ToggleRight, Archive, Trash2, 
   Search, X, Users, CheckSquare, Square,
@@ -727,14 +728,27 @@ export const OrganizerStudio = () => {
                 ))}
               </div>
             ) : filteredEvents.length === 0 ? (
-              <div className="flex flex-col py-24 border border-dashed border-white/5 items-center justify-center text-center select-none font-ui">
-                <span className="text-[0.6rem] font-technical text-white/20 uppercase tracking-[0.25em] mb-4">
-                  Studio // Empty Archive
-                </span>
-                <p className="text-body-s text-secondary">
-                  No events found matching your search. Use the "Create Event" floating button to add events.
-                </p>
-              </div>
+              events.length === 0 ? (
+                <PremiumEmptyState 
+                  type="organizer"
+                  action={() => navigate('/create-event')}
+                />
+              ) : searchQuery.trim() ? (
+                <PremiumEmptyState 
+                  type="search"
+                  action={() => setSearchQuery('')}
+                />
+              ) : (
+                <PremiumEmptyState 
+                  type="events"
+                  action={() => {
+                    setSelectedCategory('All');
+                    setSelectedStatus('All');
+                    setSelectedDate('All');
+                    setSearchQuery('');
+                  }}
+                />
+              )
             ) : (
               <div className="flex flex-col border border-white/5 divide-y divide-white/5">
                 {/* Select All row */}

@@ -55,8 +55,7 @@ export const FeaturedEvent = ({ event, loading }) => {
         <RevealSection margin="-5%">
           <RevealItem>
             <PremiumEmptyState 
-              title="NO FEATURED FOCUS" 
-              subtitle="The campus directory does not have a featured showcase. Initialize a new creative or academic focus." 
+              type="featured"
             />
           </RevealItem>
         </RevealSection>

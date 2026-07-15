@@ -13,6 +13,7 @@ import { SectionWrapper } from '../../components/layout/SectionWrapper';
 import { AxisMarker } from '../../components/layout/AxisMarker';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
+import { PremiumEmptyState } from '../../components/ui/PremiumEmptyState';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, AlertTriangle, Info
@@ -333,9 +334,9 @@ export const FacultyVerificationDesk = () => {
               {activeTab === 'pending' ? (
                 <div className="flex flex-col gap-6">
                   {pendingSubmissions.length === 0 ? (
-                    <div className="py-24 text-center border border-dashed border-white/5 text-secondary text-body-s font-light select-none">
-                      No club hour submissions are waiting for review.
-                    </div>
+                    <PremiumEmptyState 
+                      type="faculty"
+                    />
                   ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       {pendingSubmissions.map((sub) => {
@@ -400,9 +401,9 @@ export const FacultyVerificationDesk = () => {
                 // HISTORY TAB
                 <div className="flex flex-col gap-6">
                   {returnedSubmissions.length === 0 && approvedSubmissions.length === 0 ? (
-                    <div className="py-24 text-center border border-dashed border-white/5 text-secondary text-body-s font-light select-none">
-                      No verification logs or returns found in history.
-                    </div>
+                    <PremiumEmptyState 
+                      type="archive"
+                    />
                   ) : (
                     <div className="flex flex-col border border-white/5 divide-y divide-white/5">
                       {/* Header row */}

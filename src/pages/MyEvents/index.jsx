@@ -10,6 +10,7 @@ import { SectionWrapper } from '../../components/layout/SectionWrapper';
 import { AxisMarker } from '../../components/layout/AxisMarker';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
+import { PremiumEmptyState } from '../../components/ui/PremiumEmptyState';
 import { Calendar, Clock, MapPin, ChevronRight, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useConfirm } from '../../context/ConfirmContext';
@@ -282,20 +283,28 @@ export const MyEvents = () => {
                 {error}
               </div>
             ) : displayEvents.length === 0 ? (
-              <div className="flex flex-col py-16 border border-dashed border-white/5 items-center justify-center text-center select-none font-ui">
-                <span className="text-[0.6rem] font-technical text-white/20 uppercase tracking-[0.25em] mb-3">
-                  Archive Status // Empty
-                </span>
-                <p className="text-body-s text-secondary">
-                  No events found in this category.
-                </p>
-                <button
-                  onClick={() => navigate('/events')}
-                  className="text-micro font-technical text-accent uppercase tracking-wider mt-5 hover:text-accent/80 transition-colors"
-                >
-                  Discover Events →
-                </button>
-              </div>
+              <PremiumEmptyState 
+                type="registrations"
+                title={
+                  activeTab === 'upcoming' 
+                    ? 'NO UPCOMING PASSES' 
+                    : activeTab === 'past' 
+                      ? 'NO PAST EVENTS' 
+                      : activeTab === 'cancelled' 
+                        ? 'NO CANCELLED PASSES' 
+                        : 'NO COMPLETED PASSES'
+                }
+                subtitle={
+                  activeTab === 'upcoming' 
+                    ? 'Register for a new campus event to generate your next entry pass.' 
+                    : activeTab === 'past' 
+                      ? 'Completed events you attended will be archived in this registry.' 
+                      : activeTab === 'cancelled' 
+                        ? 'Passes you cancel will appear here for audit history.' 
+                        : 'Completed and verified event records will populate here.'
+                }
+                action={() => navigate('/events')}
+              />
             ) : (
               // Events List Layout
               <div className="flex flex-col border border-white/5 divide-y divide-white/5 rounded-none overflow-hidden font-ui">
