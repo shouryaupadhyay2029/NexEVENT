@@ -196,7 +196,7 @@ export const ConfirmDialog = ({
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="relative w-full max-w-[500px] bg-[#0c0c0c] border border-white/[0.06] flex flex-col relative overflow-hidden select-none font-ui"
+            className="relative w-full max-w-[500px] bg-[#0c0c0c] border border-white/[0.06] flex flex-col overflow-hidden select-none font-ui"
             role="dialog"
             aria-modal="true"
           >
