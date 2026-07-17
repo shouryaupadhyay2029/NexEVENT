@@ -33,7 +33,7 @@ export const Testimonials = () => {
         const clubsSnap = await getDocs(collection(db, "clubs"));
         clubsVal = clubsSnap.size;
       } catch (err) {
-        console.warn("Could not fetch clubs count:", err);
+        console.error("Could not fetch clubs count:", err);
       }
 
       // 2. Fetch Events (Publicly readable)
@@ -47,7 +47,7 @@ export const Testimonials = () => {
         upcomingVal = nonDeleted.filter(e => e.status === "published" && e.date && e.date >= todayStr).length;
         completedVal = nonDeleted.filter(e => e.status === "completed" || (e.date && e.date < todayStr)).length;
       } catch (err) {
-        console.warn("Could not fetch events count:", err);
+        console.error("Could not fetch events count:", err);
       }
 
       // 3. Fetch Users (Requires Authentication)
@@ -59,7 +59,7 @@ export const Testimonials = () => {
         studentsVal = usersList.filter(u => (u.role || "").toLowerCase().trim() === "student").length;
         organizersVal = usersList.filter(u => (u.role || "").toLowerCase().trim() === "organizer").length;
       } catch (err) {
-        console.warn("Could not fetch users count (unauthenticated):", err);
+        console.error("Could not fetch users count (unauthenticated):", err);
       }
 
       // 4. Fetch Registrations (Requires Authentication)
@@ -67,7 +67,7 @@ export const Testimonials = () => {
         const regsSnap = await getDocs(collection(db, "registrations"));
         registrationsVal = regsSnap.size;
       } catch (err) {
-        console.warn("Could not fetch registrations count (unauthenticated):", err);
+        console.error("Could not fetch registrations count (unauthenticated):", err);
       }
 
       setStats({

@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where, runTransaction } from "firebase/firestore";
+import { collection, doc, getDocs, query, where, runTransaction } from "firebase/firestore";
 import { db } from "../firebase/firestore";
 import { auth } from "../firebase/config";
 import { logFirebaseError } from "../firebase/errorLogging";
@@ -114,17 +114,10 @@ export const redeemInviteToken = async (tokenString, userId) => {
   const invitesCol = collection(db, COLLECTION_NAME);
   const q = query(invitesCol, where("token", "==", tokenString));
 
-  console.log("[redeemInviteToken] Initiating token verification query.", {
-    authenticatedUid: userId,
-    operation: "getDocs"
-  });
+
 
   try {
     const snap = await getDocs(q);
-    console.log("[redeemInviteToken] Token verification query complete.", {
-      empty: snap.empty,
-      size: snap.size
-    });
 
     if (snap.empty) {
       throw new Error("Invalid Token: The provided token does not exist in our registry.");
@@ -135,7 +128,7 @@ export const redeemInviteToken = async (tokenString, userId) => {
     const inviteRef = doc(db, COLLECTION_NAME, currentInvite.inviteId);
     const userRef = doc(db, "users", userId);
 
-    console.log("[redeemInviteToken] Starting atomic redemption transaction.");
+
     const result = await runTransaction(db, async (transaction) => {
       const uDocSnap = await transaction.get(userRef);
       const inviteSnap = await transaction.get(inviteRef);
@@ -185,13 +178,11 @@ export const redeemInviteToken = async (tokenString, userId) => {
         clubId: inviteData.clubId,
         clubName: inviteData.clubName,
         appliedInviteId: inviteData.inviteId,
+        suspended: false,
         updatedAt: new Date().toISOString()
       };
 
-      console.log("[redeemInviteToken] [Transaction] Queuing updates.", {
-        inviteRef: inviteRef.path,
-        userRef: userRef.path
-      });
+
 
       transaction.update(inviteRef, inviteUpdatePayload);
       transaction.update(userRef, userUpdatePayload);
@@ -203,7 +194,7 @@ export const redeemInviteToken = async (tokenString, userId) => {
       };
     });
 
-    console.log("[redeemInviteToken] Transaction committed successfully.");
+
     trackEvent("organizer_invite_redeemed", {
       invite_id: currentInvite.inviteId,
       granted_role: result.role,

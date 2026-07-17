@@ -7,23 +7,9 @@ import { logFirebaseError } from "../firebase/errorLogging";
  * Supports progress tracking.
  */
 export const uploadEventImage = async (file, eventId, onProgress) => {
-  console.log("[uploadEventImage] Starting upload.", {
-    eventId,
-    fileName: file?.name,
-    fileSize: file?.size,
-    fileType: file?.type,
-  });
   const id = eventId || Math.random().toString(36).substring(2, 11);
   const storageRef = ref(storage, `events/${id}/cover-image`);
-  console.log("[uploadEventImage] Storage reference created.", {
-    bucket: storage.app.options.storageBucket,
-    fullPath: storageRef.fullPath,
-  });
-  console.log("[uploadEventImage] Calling uploadBytesResumable...");
   const uploadTask = uploadBytesResumable(storageRef, file);
-  console.log("[uploadEventImage] uploadBytesResumable returned upload task.", {
-    taskState: uploadTask.snapshot.state,
-  });
 
   return new Promise((resolve, reject) => {
     uploadTask.on(
@@ -32,13 +18,6 @@ export const uploadEventImage = async (file, eventId, onProgress) => {
         const progress = snapshot.totalBytes > 0
           ? (snapshot.bytesTransferred / snapshot.totalBytes) * 100
           : 0;
-
-        console.log("[uploadEventImage] Upload progress.", {
-          bytesTransferred: snapshot.bytesTransferred,
-          totalBytes: snapshot.totalBytes,
-          progress: Math.round(progress),
-          state: snapshot.state,
-        });
 
         if (onProgress) {
           onProgress(Math.round(progress));
@@ -49,12 +28,8 @@ export const uploadEventImage = async (file, eventId, onProgress) => {
         reject(error);
       },
       async () => {
-        console.log("[uploadEventImage] Upload completed. Getting download URL...");
         try {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          console.log("[uploadEventImage] Download URL retrieved.", {
-            fullPath: uploadTask.snapshot.ref.fullPath,
-          });
           resolve(downloadURL);
         } catch (error) {
           logFirebaseError("[uploadEventImage] Failed to retrieve download URL.", error);

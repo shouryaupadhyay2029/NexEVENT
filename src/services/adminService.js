@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, orderBy, limit, onSnapshot, runTransaction, serverTimestamp, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, runTransaction, serverTimestamp, deleteField, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase/firestore";
 import { logFirebaseError } from "../firebase/errorLogging";
 import { verifyUserPermission } from "./permissionService";
@@ -45,20 +45,13 @@ export const writeAuditLog = async (action, actorId, details = {}) => {
  * Club CRUD Operations
  */
 export const createClub = async (clubData) => {
-  console.log("[createClub] Starting club registration.");
   let adminUid = null;
   let newDocRef = null;
   let club = null;
   let clubWriteSucceeded = false;
 
   try {
-    console.log("[createClub] Verifying admin access...");
     adminUid = await verifyAdminAccess();
-    console.log("[createClub] verifyAdminAccess passed.", {
-      adminUid,
-      returnedTrue: adminUid === true,
-      returnedTruthy: !!adminUid,
-    });
 
     const clubsCol = collection(db, CLUBS_COLLECTION);
     newDocRef = doc(clubsCol);
@@ -77,22 +70,10 @@ export const createClub = async (clubData) => {
       createdBy: adminUid
     };
 
-    console.log("[createClub] Full club payload prepared for Firestore.", {
-      path: newDocRef.path,
-      payload: club,
-    });
-
-    console.log("[createClub] Writing club document to Firestore...");
     await setDoc(newDocRef, club);
     clubWriteSucceeded = true;
-    console.log("[createClub] Club document write succeeded.", {
-      path: newDocRef.path,
-      clubId: club.clubId,
-    });
 
-    console.log("[createClub] Writing admin audit log...");
     await writeAuditLog("Club Created", adminUid, { clubId: club.clubId, clubName: club.name });
-    console.log("[createClub] Post-Firestore audit step completed.");
 
     return club;
   } catch (error) {
@@ -203,7 +184,7 @@ export const updateUserRole = async (targetUid, newRole, updates = {}) => {
     const fields = {
       role: newRole,
       updatedAt: new Date().toISOString(),
-      ...(newRole === "student" ? { assignedClubIds: [] } : {}),
+      ...(newRole === "student" ? { assignedClubIds: deleteField(), authorityVersion: deleteField() } : {}),
       ...updates
     };
 
@@ -302,7 +283,6 @@ export const getAdminStats = async () => {
     students = users.filter(u => (u.role || "").toLowerCase().trim() === "student").length;
     organizers = users.filter(u => (u.role || "").toLowerCase().trim() === "organizer").length;
     admins = users.filter(u => (u.role || "").toLowerCase().trim() === "admin").length;
-    console.log("[getAdminStats] users ✓");
   } catch (error) {
     console.error("[getAdminStats] users ✗ (Missing or insufficient permissions / query failure):", error);
   }
@@ -311,7 +291,6 @@ export const getAdminStats = async () => {
   try {
     const clubsSnap = await getDocs(collection(db, CLUBS_COLLECTION));
     totalClubs = clubsSnap.size;
-    console.log("[getAdminStats] clubs ✓");
   } catch (error) {
     console.error("[getAdminStats] clubs ✗ (Missing or insufficient permissions / query failure):", error);
   }
@@ -327,7 +306,6 @@ export const getAdminStats = async () => {
         upcomingEvents++;
       }
     });
-    console.log("[getAdminStats] events ✓");
   } catch (error) {
     console.error("[getAdminStats] events ✗ (Missing or insufficient permissions / query failure):", error);
   }
@@ -336,7 +314,6 @@ export const getAdminStats = async () => {
   try {
     const regsSnap = await getDocs(collection(db, REGS_COLLECTION));
     registrations = regsSnap.size;
-    console.log("[getAdminStats] registrations ✓");
   } catch (error) {
     console.error("[getAdminStats] registrations ✗ (Missing or insufficient permissions / query failure):", error);
   }
@@ -643,8 +620,8 @@ export const revokeFaculty = async (targetUid, expectedAuthorityVersion = 0) => 
       // Update user document (role -> student, assignedClubIds -> empty)
       transaction.update(userRef, {
         role: "student",
-        assignedClubIds: [],
-        authorityVersion: currentVersion + 1,
+        assignedClubIds: deleteField(),
+        authorityVersion: deleteField(),
         updatedAt: new Date().toISOString()
       });
       

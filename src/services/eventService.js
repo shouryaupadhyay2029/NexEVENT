@@ -1,8 +1,8 @@
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, getDocsFromCache, query, where, onSnapshot } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase/firestore";
 import { auth } from "../firebase/config";
 import { logFirebaseError } from "../firebase/errorLogging";
-import { createNotification, createEventPublishedNotification } from "./notificationService";
+import { createEventPublishedNotification } from "./notificationService";
 import { resolveEventStatus, isValidStatusTransition } from "../utils/eventLifecycle";
 import { verifyUserPermission } from "./permissionService";
 import { trackEvent } from "./analyticsService";
@@ -13,14 +13,8 @@ const COLLECTION_NAME = "events";
  * Creates a new event with the required data structure and default values.
  */
 export const createEvent = async (eventData) => {
-  console.log("[createEvent] Starting Firestore event creation.");
   const eventsCol = collection(db, COLLECTION_NAME);
   const newDocRef = doc(eventsCol);
-  console.log("[createEvent] Generated document reference.", {
-    collection: COLLECTION_NAME,
-    id: newDocRef.id,
-    path: newDocRef.path,
-  });
 
   const { profile: userProfile } = await verifyUserPermission(["organizer", "admin"]);
   const role = userProfile.role;
@@ -48,11 +42,11 @@ export const createEvent = async (eventData) => {
     capacity: eventData.capacity ? Number(eventData.capacity) : 0,
     registeredCount: eventData.registeredCount || 0,
     registrationDeadline: eventData.registrationDeadline || "",
-    tags: Array.isArray(eventData.tags) 
-      ? eventData.tags 
+    tags: Array.isArray(eventData.tags)
+      ? eventData.tags
       : (eventData.tags ? eventData.tags.split(',').map(t => t.trim()).filter(Boolean) : []),
     visibility: eventData.visibility || "public",
-    
+
     // Club Hours configuration
     clubHours: eventData.clubHours ? {
       enabled: !!eventData.clubHours.enabled,
@@ -65,7 +59,7 @@ export const createEvent = async (eventData) => {
     },
     clubHoursLocked: eventData.clubHoursLocked || false,
     clubHoursLockedAt: eventData.clubHoursLockedAt || null,
-    
+
     // Lifecycle Status Parameters
     status: initialStatus,
     publishedAt: initialStatus !== "draft" ? nowStr : null,
@@ -84,7 +78,6 @@ export const createEvent = async (eventData) => {
   };
 
   try {
-    console.log("[createEvent] Creating Firestore document with setDoc...");
     await setDoc(newDocRef, defaultEvent);
     trackEvent("event_created", {
       event_id: defaultEvent.id,
@@ -96,14 +89,10 @@ export const createEvent = async (eventData) => {
         event_category: defaultEvent.category || "General"
       });
       // Fire-and-forget global broadcast notification creation
-      createEventPublishedNotification(defaultEvent).catch(err => 
+      createEventPublishedNotification(defaultEvent).catch(err =>
         console.error("[createEvent] Failed to send publication notification:", err)
       );
     }
-    console.log("[createEvent] Firestore success.", {
-      id: newDocRef.id,
-      path: newDocRef.path,
-    });
     return defaultEvent;
   } catch (error) {
     logFirebaseError("[createEvent] Firestore failed.", error);
@@ -163,9 +152,9 @@ export const getAllEvents = async () => {
 const checkPermission = async (eventId) => {
   const { uid, profile } = await verifyUserPermission(["organizer", "admin"]);
   const role = profile.role;
-  
+
   if (role === "admin") return true;
-  
+
   if (eventId) {
     const eventDoc = await getDoc(doc(db, COLLECTION_NAME, eventId));
     if (!eventDoc.exists()) {
@@ -176,7 +165,7 @@ const checkPermission = async (eventId) => {
       throw new Error("403 Access Required: You do not own this event.");
     }
   }
-  
+
   return true;
 };
 
@@ -222,14 +211,14 @@ export const updateEvent = async (eventId, eventData) => {
     });
 
     // Track publication if status transitioned to published or open
-    if ((updatedEvent.status === "published" || updatedEvent.status === "open") && 
-        currentEvent.status !== "published" && currentEvent.status !== "open") {
+    if ((updatedEvent.status === "published" || updatedEvent.status === "open") &&
+      currentEvent.status !== "published" && currentEvent.status !== "open") {
       trackEvent("event_published", {
         event_id: eventId,
         event_category: updatedEvent.category || "General"
       });
       // Fire-and-forget global broadcast notification creation
-      createEventPublishedNotification(updatedEvent).catch(err => 
+      createEventPublishedNotification(updatedEvent).catch(err =>
         console.error("[updateEvent] Failed to send publication notification:", err)
       );
     }
@@ -321,7 +310,7 @@ export const duplicateEvent = async (event) => {
     role: role,
     title: `Copy of ${event.title}`,
     registeredCount: 0,
-    
+
     // Lifecycle Status Parameters
     status: "draft",
     publishedAt: null,

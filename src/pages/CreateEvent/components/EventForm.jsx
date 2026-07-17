@@ -104,7 +104,6 @@ export const EventForm = () => {
 
     setLoading(true);
     try {
-      console.log("Submitting event creation request to Firestore...");
       const finalStatus = submitStatus === 'open' ? 'published' : submitStatus;
       const normalizedClubHours = formData.clubHours?.enabled ? {
         enabled: true,
@@ -121,7 +120,6 @@ export const EventForm = () => {
         clubHours: normalizedClubHours,
         status: finalStatus
       });
-      console.log("Event created successfully.");
       triggerToast('success', finalStatus === 'draft' ? "Event saved as Draft successfully." : "Event published successfully.");
       setFormData({
         title: '',

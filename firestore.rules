@@ -16,8 +16,17 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
+    // Returns true if the authenticated user's account is suspended.
+    // This is always checked BEFORE any role validation.
+    function isSuspended() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        ('suspended' in getUserProfile()) &&
+        getUserProfile().suspended == true;
+    }
+
     function isAdmin() {
-      return isAuthenticated() && 
+      return isAuthenticated() && !isSuspended() &&
         (
           (request.auth.uid == 'YsSzEO8nS3UXcr7bv7X2XJ4BaDH3') ||
           (request.auth.token.email != null && request.auth.token.email.matches('(?i)^\\s*upadhyayshourya352@gmail\\.com\\s*$')) ||
@@ -29,17 +38,17 @@ service cloud.firestore {
         );
     }
 
-    // Checks if the user is a verified organizer
+    // Checks if the user is a verified organizer (and not suspended)
     function isOrganizer() {
-      return isAuthenticated() && 
+      return isAuthenticated() && !isSuspended() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         getUserProfile().role != null &&
         getUserProfile().role.matches('(?i)^\\s*organizer\\s*$');
     }
 
-    // Checks if the user is a verified faculty member
+    // Checks if the user is a verified faculty member (and not suspended)
     function isFaculty() {
-      return isAuthenticated() && 
+      return isAuthenticated() && !isSuspended() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         getUserProfile().role != null &&
         getUserProfile().role.matches('(?i)^\\s*faculty\\s*$');
@@ -47,8 +56,8 @@ service cloud.firestore {
 
     // Checks if a faculty member is assigned to a specific club
     function isFacultyAuthorizedForClub(clubId) {
-      return isFaculty() && 
-        'assignedClubIds' in getUserProfile() && 
+      return isFaculty() &&
+        'assignedClubIds' in getUserProfile() &&
         getUserProfile().assignedClubIds.hasAny([clubId]);
     }
 
@@ -182,16 +191,42 @@ service cloud.firestore {
           !(resource.data.clubHoursLocked == true && request.resource.data.clubHoursLocked != true)
         )
       ) || (
-        isAuthenticated() &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['registeredCount', 'status', 'updatedAt', 'clubHoursLocked', 'clubHoursLockedAt']) &&
+        // Registration count update path — securely allows students to atomically increment/decrement
+        // registeredCount, update timestamps, lock club hours on first registration, and close status when full.
+        isAuthenticated() && !isSuspended() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['registeredCount', 'updatedAt', 'status', 'clubHoursLocked', 'clubHoursLockedAt']) &&
         (
-          request.resource.data.registeredCount == resource.data.registeredCount + 1 ||
-          request.resource.data.registeredCount == resource.data.registeredCount - 1
-        ) &&
-        (
-          // Lock set on first registration if club hours are enabled
-          !(resource.data.registeredCount == 0 && request.resource.data.registeredCount == 1 && ('clubHours' in resource.data) && resource.data.clubHours.enabled == true) ||
-          request.resource.data.clubHoursLocked == true
+          // CASE A: Registration increment
+          (
+            request.resource.data.registeredCount == resource.data.registeredCount + 1 &&
+            (
+              request.resource.data.clubHoursLocked == resource.data.clubHoursLocked ||
+              (
+                resource.data.registeredCount == 0 &&
+                request.resource.data.clubHoursLocked == true &&
+                ('clubHours' in resource.data) && resource.data.clubHours.enabled == true
+              )
+            ) &&
+            (
+              request.resource.data.status == resource.data.status ||
+              (
+                request.resource.data.status == 'closed' &&
+                request.resource.data.registeredCount >= resource.data.capacity
+              )
+            )
+          ) ||
+          // CASE B: Cancellation decrement
+          (
+            request.resource.data.registeredCount == resource.data.registeredCount - 1 &&
+            request.resource.data.clubHoursLocked == resource.data.clubHoursLocked &&
+            (
+              request.resource.data.status == resource.data.status ||
+              (
+                request.resource.data.status == 'published' &&
+                request.resource.data.registeredCount < resource.data.capacity
+              )
+            )
+          )
         )
       );
 
@@ -463,35 +498,40 @@ service cloud.firestore {
         registrationId == request.auth.uid + '_' + request.resource.data.eventId &&
         (!isOrganizer() || get(/databases/$(database)/documents/events/$(request.resource.data.eventId)).data.creatorId != request.auth.uid);
 
-      // Allow updating check-in fields (checkedIn, checkedInAt, checkedInBy, attendanceStatus) 
-      // ONLY by the event creator (organizer) or admin, and cancellation by the registrant or organizer.
+      // Registration update rules enforce strict field-level restrictions.
+      // Admins retain full write access. All other roles are limited to explicit field sets.
       allow update: if isAuthenticated() && (
         isAdmin() || (
-          // Student cancellation flow
+          // Student cancellation flow — strictly limited to status + updatedAt.
+          // Students can NEVER modify attendance, organizer, event ownership, or identity fields.
           request.auth.uid == resource.data.userId &&
-          request.resource.data.status == 'cancelled' &&
-          request.resource.data.userId == resource.data.userId &&
-          request.resource.data.eventId == resource.data.eventId &&
-          request.resource.data.ticketId == resource.data.ticketId
+          !isSuspended() &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+          request.resource.data.status == 'cancelled'
         ) || (
-          // Organizer check-in or cancellation flow
-          isOrganizer() && 
+          // Organizer attendance check-in — strictly limited to attendance fields only.
+          isOrganizer() &&
           get(/databases/$(database)/documents/events/$(resource.data.eventId)).data.creatorId == request.auth.uid &&
-          request.resource.data.userId == resource.data.userId &&
-          request.resource.data.eventId == resource.data.eventId &&
-          request.resource.data.ticketId == resource.data.ticketId &&
-          (
-            (request.resource.data.checkedIn == true && request.resource.data.checkedInBy == request.auth.uid) ||
-            request.resource.data.status == 'cancelled'
-          )
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['checkedIn', 'checkedInAt', 'checkedInBy', 'attendanceStatus', 'updatedAt']) &&
+          request.resource.data.checkedIn == true &&
+          request.resource.data.checkedInBy == request.auth.uid
+        ) || (
+          // Organizer cancellation of a registrant — limited to status + updatedAt.
+          isOrganizer() &&
+          get(/databases/$(database)/documents/events/$(resource.data.eventId)).data.creatorId == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+          request.resource.data.status == 'cancelled'
         )
       );
 
-      // Users can cancel their own bookings; event creators (organizers) or admins can delete/remove registration.
+      // Users can only delete their own cancelled registrations; event creators (organizers) can only delete cancelled registrations.
+      // Admins retain unrestricted deletion permissions.
       allow delete: if isAuthenticated() && (
-        request.auth.uid == resource.data.userId || 
         isAdmin() ||
-        (isOrganizer() && get(/databases/$(database)/documents/events/$(resource.data.eventId)).data.creatorId == request.auth.uid)
+        (resource.data.status == 'cancelled' && (
+          request.auth.uid == resource.data.userId || 
+          (isOrganizer() && get(/databases/$(database)/documents/events/$(resource.data.eventId)).data.creatorId == request.auth.uid)
+        ))
       );
     }
 
@@ -550,20 +590,40 @@ service cloud.firestore {
     match /notifications/{notifId} {
       // Users can only access their own inbox notifications or global ones
       allow read: if isAuthenticated() && (
-        request.auth.uid == resource.data.userId || 
-        resource.data.target == 'all_users' || 
+        request.auth.uid == resource.data.userId ||
+        resource.data.target == 'all_users' ||
         isAdmin()
       );
-      
-      // Users can create notifications (for triggers)
-      allow create: if isAuthenticated();
 
-      // Users can mark their own notifications as read
+      // Role-based notification creation:
+      // - Admins: any notification including global broadcasts.
+      // - Organizers: event publication global broadcasts (type=event_published)
+      //   or user-specific notifications (no impersonation).
+      // - All others: self-addressed only, no global broadcasts.
+      allow create: if isAuthenticated() && !isSuspended() && (
+        isAdmin() || (
+          isOrganizer() && (
+            // Organizers may broadcast event publication notifications
+            (request.resource.data.target == 'all_users' && request.resource.data.type == 'event_published') ||
+            // Or create user-specific notifications (e.g. registration confirmation)
+            (request.resource.data.target != 'all_users' && request.resource.data.userId != null)
+          )
+        ) || (
+          // Students and other authenticated users: self-addressed only, no broadcasts
+          !isOrganizer() && !isAdmin() &&
+          request.resource.data.userId == request.auth.uid &&
+          request.resource.data.target != 'all_users'
+        )
+      );
+
+      // Users may only mark their own notifications as read.
+      // affectedKeys() prevents mutation of notification content (title, message, type, etc.)
       allow update: if isAuthenticated() && (
         request.auth.uid == resource.data.userId ||
         resource.data.target == 'all_users'
-      );
-      
+      ) &&
+      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+
       allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
     }
 
