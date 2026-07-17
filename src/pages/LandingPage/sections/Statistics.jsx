@@ -58,7 +58,7 @@ export const Statistics = () => {
         const clubsSnap = await getDocs(collection(db, "clubs"));
         clubsVal = clubsSnap.size;
       } catch (err) {
-        console.warn("Could not fetch clubs count:", err);
+        console.error("Could not fetch clubs count:", err);
       }
 
       // 2. Fetch Events (Publicly readable)
@@ -70,7 +70,7 @@ export const Statistics = () => {
         // Count of all hosted (published or completed) events
         eventsVal = nonDeleted.filter(e => e.status === "published" || e.status === "open" || e.status === "closed" || e.status === "completed").length;
       } catch (err) {
-        console.warn("Could not fetch events count:", err);
+        console.error("Could not fetch events count:", err);
       }
 
       // 3. Fetch Users (Requires Authentication)
@@ -80,7 +80,7 @@ export const Statistics = () => {
         usersSnap.forEach(d => usersList.push(d.data()));
         studentsVal = usersList.filter(u => (u.role || "").toLowerCase().trim() === "student").length;
       } catch (err) {
-        console.warn("Could not fetch students count (unauthenticated):", err);
+        console.error("Could not fetch students count (unauthenticated):", err);
       }
 
       // 4. Fetch Registrations (Requires Authentication)
@@ -88,7 +88,7 @@ export const Statistics = () => {
         const registrationsSnap = await getDocs(collection(db, "registrations"));
         registrationsVal = registrationsSnap.size;
       } catch (err) {
-        console.warn("Could not fetch registrations count (unauthenticated):", err);
+        console.error("Could not fetch registrations count (unauthenticated):", err);
       }
 
       setStats({

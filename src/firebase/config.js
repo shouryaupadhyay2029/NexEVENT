@@ -27,7 +27,7 @@ const auth = getAuth(app);
 // This is synchronous and runs before any auth operations.
 setPersistence(auth, browserLocalPersistence).catch((err) => {
   // Non-fatal: Firebase will fall back gracefully.
-  console.warn("[firebase/config] Failed to set auth persistence:", err);
+  console.error("[firebase/config] Failed to set auth persistence:", err);
 });
 
 const googleProvider = new GoogleAuthProvider();

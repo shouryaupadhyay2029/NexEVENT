@@ -79,9 +79,6 @@ export const saveDraftSubmissions = async (eventId, allocationsList, eventData) 
   const submissionId = `event_${eventId}`;
   const submissionRef = doc(db, SUBMISSIONS_COLLECTION, submissionId);
 
-  console.log("DEBUG: saveDraftSubmissions called with eventId:", eventId);
-  console.log("DEBUG: Authenticated uid:", currentUser.uid);
-
   // 1. Fetch current document snapshot outside transaction to record last updatedAt for OCC
   const parentSnap = await getDoc(submissionRef);
   const fetchedUpdatedAt = parentSnap.exists()

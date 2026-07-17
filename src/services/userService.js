@@ -9,6 +9,7 @@ export const createUser = async (uid, userData) => {
   const userRef = doc(db, COLLECTION_NAME, uid);
   const data = {
     uid,
+    suspended: false,
     createdAt: new Date().toISOString(),
     ...userData,
   };
@@ -134,6 +135,7 @@ export const checkAndCreateUserProfile = async (user) => {
       clubId: null,
       clubName: null,
       verified: isPermanentAdmin ? true : false,
+      suspended: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -175,6 +177,7 @@ export const checkAndCreateUserProfile = async (user) => {
     clubId: currentData.clubId !== undefined ? currentData.clubId : null,
     clubName: currentData.clubName !== undefined ? currentData.clubName : null,
     verified: currentData.verified !== undefined ? currentData.verified : false,
+    suspended: currentData.suspended !== undefined ? currentData.suspended : false,
   };
 
   let needsUpdate = false;
