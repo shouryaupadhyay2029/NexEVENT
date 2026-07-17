@@ -50,13 +50,22 @@ const AdminCounter = ({ value }) => {
     }
     const duration = 800;
     const startTime = performance.now();
+    let frameId;
+
     const tick = (now) => {
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
       setNum(Math.floor(progress * (end - start) + start));
-      if (progress < 1) requestAnimationFrame(tick);
+      if (progress < 1) {
+        frameId = requestAnimationFrame(tick);
+      }
     };
-    requestAnimationFrame(tick);
+    frameId = requestAnimationFrame(tick);
+    return () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+    };
   }, [value]);
   return <span>{num}</span>;
 };

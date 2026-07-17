@@ -75,7 +75,7 @@ export const AuthProvider = ({ children }) => {
         if (!active) return;
 
         const userRef = doc(db, "users", currentUser.uid);
-        unsubscribeProfile = onSnapshot(userRef, (docSnap) => {
+        const unsub = onSnapshot(userRef, (docSnap) => {
           if (active && docSnap.exists()) {
             const data = docSnap.data();
             const profileData = {
@@ -97,6 +97,12 @@ export const AuthProvider = ({ children }) => {
             setLoading(false);
           }
         });
+
+        if (!active) {
+          unsub();
+        } else {
+          unsubscribeProfile = unsub;
+        }
       } catch (error) {
         console.error("Failed to sync user profile with Firestore: ", error);
         if (active) {

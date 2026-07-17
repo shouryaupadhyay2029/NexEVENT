@@ -35,6 +35,7 @@ const CountingNumber = ({ value }) => {
     }
     const duration = 1000; // 1s transition
     const startTime = performance.now();
+    let frameId;
 
     const update = (now) => {
       const elapsed = now - startTime;
@@ -43,10 +44,15 @@ const CountingNumber = ({ value }) => {
       const current = Math.floor(easeProgress * (end - start) + start);
       setDisplayValue(current);
       if (progress < 1) {
-        requestAnimationFrame(update);
+        frameId = requestAnimationFrame(update);
       }
     };
-    requestAnimationFrame(update);
+    frameId = requestAnimationFrame(update);
+    return () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+    };
   }, [value]);
 
   return <span>{displayValue}</span>;

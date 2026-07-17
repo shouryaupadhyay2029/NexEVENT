@@ -7,7 +7,82 @@ import { initLenis } from "../../lib/lenis";
 export const Layout = ({ children }) => {
   useEffect(() => {
     const lenis = initLenis();
+    let isLocked = false;
+
+    const checkModalOpen = () => {
+      const elements = document.querySelectorAll('.fixed, .absolute');
+      let foundModal = false;
+
+      for (const el of elements) {
+        // Skip elements with pointer-events-none (like noise or grid overlays)
+        if (el.classList.contains('pointer-events-none') || el.style.pointerEvents === 'none') {
+          continue;
+        }
+
+        // Check for z-index >= 40 classes (e.g. z-40, z-50, z-[100], etc.)
+        const hasHighZ = Array.from(el.classList).some(cls => {
+          if (cls.startsWith('z-')) {
+            const zStr = cls.replace('z-', '').replace('[', '').replace(']', '');
+            const zNum = parseInt(zStr);
+            return !isNaN(zNum) && zNum >= 40;
+          }
+          return false;
+        }) || (el.style.zIndex && parseInt(el.style.zIndex) >= 40);
+
+        // Check if it covers the full viewport height (inset-0, or top-0 + bottom-0/h-screen/h-full)
+        const isBackdropOrPanel = el.classList.contains('inset-0') || 
+                                  ((el.classList.contains('top-0') || el.classList.contains('inset-y-0')) && 
+                                   (el.classList.contains('bottom-0') || el.classList.contains('h-screen') || el.classList.contains('h-full')));
+
+        if (hasHighZ && isBackdropOrPanel) {
+          const style = window.getComputedStyle(el);
+          if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
+            foundModal = true;
+            if (!el.hasAttribute('data-lenis-prevent')) {
+              el.setAttribute('data-lenis-prevent', 'true');
+            }
+          }
+        }
+      }
+
+      if (foundModal && !isLocked) {
+        const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+        if (scrollbarWidth > 0) {
+          document.body.style.paddingRight = `${scrollbarWidth}px`;
+        }
+        lenis.stop();
+        isLocked = true;
+      } else if (!foundModal && isLocked) {
+        document.documentElement.style.overflow = '';
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+        lenis.start();
+        isLocked = false;
+      }
+    };
+
+    // Run initial check
+    checkModalOpen();
+
+    // Observe body for changes
+    const observer = new MutationObserver(() => {
+      checkModalOpen();
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'style']
+    });
+
     return () => {
+      observer.disconnect();
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '';
       if (lenis.cleanup) {
         lenis.cleanup();
       } else {

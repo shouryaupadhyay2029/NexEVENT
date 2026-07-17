@@ -15,6 +15,8 @@ export const initLenis = () => {
     infinite: false,
   });
 
+  window.lenis = lenis;
+
   lenis.on("scroll", ScrollTrigger.update);
 
   const tickerFn = (time) => {
@@ -26,6 +28,9 @@ export const initLenis = () => {
 
   lenis.cleanup = () => {
     gsap.ticker.remove(tickerFn);
+    if (window.lenis === lenis) {
+      window.lenis = null;
+    }
     lenis.destroy();
   };
 
