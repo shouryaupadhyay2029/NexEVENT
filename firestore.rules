@@ -174,7 +174,16 @@ service cloud.firestore {
           (resource.data.status == 'draft' && (request.resource.data.status == 'published' || request.resource.data.status == 'deleted')) ||
           (
             (resource.data.status == 'published' || resource.data.status == 'open' || resource.data.status == 'closed' || resource.data.status == 'live') &&
-            (request.resource.data.status == 'archived' || request.resource.data.status == 'cancelled' || request.resource.data.status == 'completed' || request.resource.data.status == 'deleted')
+            (
+              request.resource.data.status == 'published' ||
+              request.resource.data.status == 'open' ||
+              request.resource.data.status == 'closed' ||
+              request.resource.data.status == 'live' ||
+              request.resource.data.status == 'archived' ||
+              request.resource.data.status == 'cancelled' ||
+              request.resource.data.status == 'completed' ||
+              request.resource.data.status == 'deleted'
+            )
           )
         ) &&
         (

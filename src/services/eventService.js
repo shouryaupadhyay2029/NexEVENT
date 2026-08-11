@@ -199,6 +199,14 @@ export const updateEvent = async (eventId, eventData) => {
     updatedAt: new Date().toISOString(),
   };
 
+  // Normalize active UI states to canonical published DB state
+  if (updateData.status) {
+    const norm = updateData.status.toLowerCase();
+    if (norm === 'open' || norm === 'live') {
+      updateData.status = 'published';
+    }
+  }
+
   try {
     await updateDoc(docRef, updateData);
     const updatedSnap = await getDoc(docRef);
