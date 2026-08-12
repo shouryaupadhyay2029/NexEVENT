@@ -88,7 +88,7 @@ export const EventForm = () => {
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return newErrors;
   };
 
   const handleSubmit = async (e, submitStatus) => {
@@ -97,8 +97,10 @@ export const EventForm = () => {
       triggerToast('error', "Please wait until the image upload completes.");
       return;
     }
-    if (!validate()) {
-      triggerToast('error', "Please resolve form validation errors.");
+    const valErrors = validate();
+    if (Object.keys(valErrors).length > 0) {
+      const errorDetails = Object.entries(valErrors).map(([key, val]) => `${key}: ${val}`).join(' | ');
+      triggerToast('error', `Please resolve form validation errors: ${errorDetails}`);
       return;
     }
 
